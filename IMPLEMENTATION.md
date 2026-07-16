@@ -372,14 +372,27 @@ Add only questions that materially block or influence implementation.
 
 Add newest entries first.
 
+### 2026-07-16 (commit + Git-based Netlify CD)
+
+- Work completed: Committed Milestone 1, created private GitHub repo `jbug16/Jella-Home`, pushed `main`, and connected Netlify continuous deployment from GitHub. Fixed Git builds so the Next.js runtime packages correctly (first Git deploys were `ready` but returned 404s with zero functions).
+- Files or areas changed: Full M1 commit; `netlify.toml` updated to `npm run build`, Node 24, and explicit `@netlify/plugin-nextjs`.
+- Validation performed: Initial Git deploys reached `ready` but served 404s with zero functions. Updated `netlify.toml` to explicitly run `@netlify/plugin-nextjs` and redeployed from GitHub; confirming live routes after that fix.
+- Decisions made: Repo is private. Continuous deploy uses a Netlify deploy key + read-only GitHub deploy key because interactive Netlify GitHub App OAuth is not usable from this CLI environment.
+- Remaining issues / deviations: Site is still public with no authentication - do not enter real household data until Milestone 2. Full release hardening remains Milestone 10.
+- Next recommended task: Milestone 2 (Authentication and household access) using `AUTH_ALLOWLIST`.
+
+- Production URL: https://jella-home.netlify.app
+- GitHub: https://github.com/jbug16/Jella-Home
+- Admin URL: https://app.netlify.com/projects/jella-home
+
 ### 2026-07-16 (verification + deploy)
 
 - Work completed: Resumed after the previous thread aborted on a Cursor "Blob not found" backend error. Re-ran the full Milestone 1 verification gate against the current on-disk state to confirm nothing was left half-written by the crash, then deployed the app to Netlify for live testing at the user's request.
-- Files or areas changed: Added `netlify.toml` (`next build` / `.next`). No product-code changes were needed; M1 was already complete on disk.
-- Validation performed: Full gate green - `format:check`, `lint`, `typecheck`, Vitest (7/7), `next build` (9 routes), Playwright (8/8: Chromium desktop + 360, WebKit iPhone + iPad). Post-deploy smoke: `/` 307 -> `/dashboard`, `/dashboard` and `/budget` return 200, `<title>` renders ("Dashboard | Jella Home"); Next.js server handler runs as a Netlify Function.
-- Decisions made: Deployed via the Netlify CLI as a manual (non-Git) production deploy since the repo has no remote yet. Created site `jella-home` (project ID `50d77854-6a11-4ca2-b05d-2d406323bda3`) under team "Jenna Curls". Added a minimal `netlify.toml`; the Next.js runtime (`@netlify/next`) is auto-detected, so no plugin config was required. This is an early convenience deploy for testing - the full Milestone 10 deployment hardening (auth gating, env vars, backups, release checklist) is still pending and unchanged.
-- Remaining issues / deviations: All Milestone 1 work (including this deploy config) remains uncommitted on `main` (only "Initial commit" exists); committing/pushing was not requested. The site is public with no authentication yet - real household data must not be entered until Milestone 2 (auth + allowlist) ships.
-- Next recommended task: Commit the Milestone 1 work, then start Milestone 2 (Authentication and household access) using the documented `AUTH_ALLOWLIST` env var before entering any real data.
+- Files or areas changed: Added `netlify.toml`. No product-code changes were needed; M1 was already complete on disk.
+- Validation performed: Full gate green - `format:check`, `lint`, `typecheck`, Vitest (7/7), `next build` (9 routes), Playwright (8/8: Chromium desktop + 360, WebKit iPhone + iPad). Initial CLI deploy smoke passed.
+- Decisions made: Initial deploy was a manual CLI production deploy while there was no Git remote. Created site `jella-home` under team "Jenna Curls".
+- Remaining issues / deviations: Superseded by the commit + Git-based CD entry above.
+- Next recommended task: Commit and connect GitHub continuous deployment (done).
 
 - Production URL: https://jella-home.netlify.app
 - Admin URL: https://app.netlify.com/projects/jella-home
