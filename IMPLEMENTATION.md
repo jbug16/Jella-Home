@@ -11,27 +11,38 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** Project foundation  
+**Milestone:** Authentication, household access, and Supabase foundation  
 **Status:** Complete  
 **Owner:** Lead Engineer  
-**Goal:** Establish the repository, development tooling, application shell, and documented architecture without implementing full product features.
+**Goal:** Supabase Auth (email/password) + Postgres schema/RLS, household membership gating, and the shared repository pattern — without product UI features or workbook import.
 
-Plan reviewed by the Frontend/UI, Backend/Data, and QA specialists and reconciled by the Lead. Approved with 11 required revisions (see "Approved revisions" and the plan detail under Milestone 1 below). Implemented and verified 2026-07-16.
+Hosted project `ggyvfkgeudcqbozlsify` is linked, migrated, advisor-clean,
+validated for membership RLS, and public email sign-up is disabled.
 
-### Acceptance criteria
+Checkpoint: M1 + M2 are ready for the first stable git commit. Next product
+work is the Budget vertical slice (do not start until after that commit).
 
-- [x] Next.js project runs locally (`npm run dev`).
-- [x] TypeScript strict mode is enabled; no `@ts-ignore` / `eslint-disable` in app code.
-- [x] Tailwind and shadcn/ui are configured; `components.json` committed.
-- [x] Base responsive shell works at desktop (1280+), iPad portrait and landscape, 390px, and 360px widths.
-- [x] No horizontal scroll at 360px; touch targets >= 44x44; active nav indicated by more than color (`aria-current` + icon); skip-to-content link; one `<main>`/`<nav>`; single `<h1>` per page.
-- [x] Navigation uses two modes: sidebar for desktop and iPad landscape; mobile navigation for phones and iPad portrait.
-- [x] Light mode only for V1, implemented with semantic design tokens so dark mode can be added later.
-- [x] Environment-variable strategy is documented; pure parser lives in `lib/config/env-schema.ts`, `lib/env.ts` is server-only, and the pure parser is unit-tested.
-- [x] Secrets and local spreadsheet files are ignored by Git (dedicated private-data directory + credential file patterns; not a global CSV/XLSX ignore); `.env.example` is NOT ignored.
-- [x] Lint, type checking, unit tests, production build, and e2e smoke pass via a single `verify` gate.
-- [x] Playwright smoke: Chromium at desktop + 360; WebKit smoke for iPhone and iPad viewports.
-- [x] `README.md` contains local setup and verification instructions.
+Previous: Milestone 1 (Project foundation) is **Complete** (verified 2026-07-16).
+
+### Milestone 2 acceptance criteria
+
+- [x] Email/password auth; no public sign-up page or flow.
+- [x] Env uses `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`.
+- [x] Cookie-backed SSR client (`@supabase/ssr`) is the default repository client; secret/admin client is provisioning-only.
+- [x] Core schema + hardened `is_household_member` + RLS migrations committed.
+- [x] Local seed uses fake users only; hosted provisioning via `scripts/provision-household.ts`.
+- [x] Household membership repository implemented; product repos deferred.
+- [x] Protected routes, sign-in, sign-out, not-provisioned states.
+- [x] pgTAP RLS tests authored under `supabase/tests/`.
+- [x] `npm run test:db` green against local Supabase (Colima + Docker CLI).
+- [x] Security + Performance advisors run against linked hosted project (0 findings after private-fn migration).
+- [x] App `verify` gate (format/lint/typecheck/unit/build/e2e) green.
+- [x] Local `.env.local` populated from `supabase status` (gitignored; not committed).
+- [x] FK index migration + hosted runbook + add-member / verify-hosted-access scripts.
+- [x] Hosted migrations pushed; local/remote migration list matches (4 migrations).
+- [x] Household provisioned on hosted; equal-permission + non-member checks pass.
+- [x] Hosted Auth: public email sign-up disabled (`signUp` → "Signups not allowed for this instance").
+- [x] `.env.local` pointed at hosted project URL/keys (gitignored).
 
 ### Approved revisions (applied to this plan)
 
@@ -160,30 +171,68 @@ git check-ignore .env.example || echo "OK: .env.example is tracked"
 
 npm scripts: `dev`, `build`, `start`, `lint`, `lint:fix`, `typecheck`, `format`, `format:check`, `test`, `test:watch`, `test:e2e`, `verify`.
 
-### 2. Authentication and household access
+### 2. Authentication, household access, and Supabase foundation
+
+**Status:** In progress (local Supabase + RLS green; hosted advisors still pending)
+
+Scope:
+
+- Supabase Auth email/password; no public registration
+- Local Supabase for migrations/seeds/RLS tests; hosted link supported
+- Equal read/write for both household members
+- Core Postgres schema + RLS (see `ARCHITECTURE.md`)
+- Cookie-backed SSR repositories; secret client for provisioning only
+- Database types committed; household membership repository only
+- Protected routes, sign-in/sign-out, not-provisioned
+- Retire Google Sheets app-backend stubs
+
+Out of scope:
+
+- Product UI for budget, meals, shopping, recipes, subscriptions, calendar
+- Spreadsheet synchronization / XLSX import (Milestone 3)
+- Full product repositories (land with feature milestones)
+- Netlify Identity
+
+#### Approved decisions (2026-07-16)
+
+1. Email/password authentication.
+2. No public sign-up; Auth users created manually or via server-only provisioning.
+3. Local Supabase for M2 migrations/seeds/resets/RLS; also support hosted link.
+4. Both members have equal read/write in V1.
+5. Key model: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`.
+6. Normal repositories use cookie-backed SSR client (RLS enforced).
+7. Secret/admin client only in explicit provisioning/admin code.
+8. `@supabase/ssr` only (no deprecated auth-helpers).
+9. No sign-up page; public registration disabled in `config.toml` / hosted Auth settings.
+10. Migrations = schema only; local seeds = fake data; hosted provisioning separate.
+11. Hardened `SECURITY DEFINER` membership helper + explicit RLS tests.
+12. Run Security and Performance advisors on hosted before marking complete.
+
+#### Verification commands
+
+```bash
+npm run verify
+npm run supabase:start && npm run supabase:reset && npm run test:db
+npm run supabase:advisors   # requires supabase link
+```
+
+### 3. One-time workbook import (deferred)
 
 **Status:** Not started
 
 Scope:
 
-- Private authentication
-- Two-user allowlist
-- Server-side authorization
-- Protected routes
-- Sign-out and unauthorized states
+- Read-only parse of the legacy XLSX under `private-data/`
+- Map tabs into Postgres domain tables for one household
+- Idempotent or clear-and-reload import with service role
+- Validation/spot-check of counts and totals
+- Explicit documentation of workbook → schema mapping
 
-### 3. Google Sheets foundation
+Out of scope:
 
-**Status:** Not started
-
-Scope:
-
-- Server-only Google authentication
-- Sheet configuration module
-- Low-level read/write helpers
-- Repository interfaces
-- Domain schemas and mapping tests
-- Development fixtures or safe mock mode
+- Live Google Sheets API sync
+- Dual-write back to the spreadsheet
+- Blocking product verticals (budget/meals may proceed on empty/seed data before import)
 
 ### 4. Budget vertical slice
 
@@ -281,10 +330,31 @@ Record decisions here after they are made. Do not delete old decisions; mark sup
 
 ### ADR-001: Initial persistence layer
 
-**Status:** Accepted  
+**Status:** Superseded by ADR-010  
 **Decision:** Use the existing Google Sheet as the initial source of truth behind typed repository interfaces.  
 **Reason:** It preserves the current household data and minimizes migration work for version 1.  
 **Consequences:** The UI must never depend directly on scattered cell coordinates, and migration to a database should remain possible.
+
+### ADR-010: Supabase as application backend
+
+**Status:** Accepted  
+**Decision:** Use Supabase Postgres as the application source of truth and Supabase Auth (email/password, no public sign-up) for the two household members. Authorize with household membership and Row Level Security. Treat the existing spreadsheet/XLSX as a one-time import source only — do not build Sheets synchronization.  
+**Reason:** A normalized database with RLS fits a private two-user household app better than cell-coordinate mappings, concurrent sheet edits, and formula-dependent layouts. Auth and data live in one platform.  
+**Consequences:** Milestone 3 (Google Sheets foundation) is removed as a persistence milestone and replaced by a deferred one-time import. UI continues to call repositories only. See `ARCHITECTURE.md`.
+
+### ADR-011: Supabase key model and client boundaries
+
+**Status:** Accepted  
+**Decision:** Use `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` (not legacy anon/service-role env names). Repositories default to the `@supabase/ssr` cookie-backed client. The secret client is restricted to provisioning/admin scripts.  
+**Reason:** Matches current Supabase key guidance and keeps RLS enforced on the normal path.  
+**Consequences:** Local CLI may still emit legacy JWT values; those values are copied into the new variable names. Product code must never import `lib/supabase/admin`.
+
+### ADR-012: Auth provisioning without public registration
+
+**Status:** Accepted  
+**Decision:** Disable public sign-up. No sign-up page. Local seeds use fake users; hosted users are created via dashboard or `scripts/provision-household.ts`. Never commit real emails or production Auth UUIDs.  
+**Reason:** Two trusted users; minimize attack surface.  
+**Consequences:** New members require an explicit provisioning step.
 
 ### ADR-002: Initial client strategy
 
@@ -344,9 +414,10 @@ Record decisions here after they are made. Do not delete old decisions; mark sup
 
 ## Known risks
 
-- The workbook may contain formulas or layout-dependent behavior that has not yet been translated into explicit domain rules.
-- Concurrent edits in Google Sheets may require conflict handling.
-- Manual sheet edits could break mappings unless columns and IDs are controlled.
+- The legacy workbook may contain formulas or layout-dependent behavior that must become explicit domain rules during the one-time import.
+- Import mapping mistakes could mis-categorize money or meals; mitigate with dry-run counts and spot checks before cutover.
+- RLS policy mistakes could deny legitimate members or (worse) allow cross-household access in future multi-household tests — cover with SQL/policy tests where practical.
+- Supabase Auth + Netlify cookie/session wiring can be finicky on preview deploy URLs; verify redirect URLs early in M2.
 - Mobile forms may need special handling for iOS keyboard and safe-area behavior.
 
 Milestone 1 specific:
@@ -354,23 +425,106 @@ Milestone 1 specific:
 - iOS safe-area + bottom nav and `100vh`: use `100dvh` and `env(safe-area-inset-*)`; pad `<main>` so content is not obscured; test with the Safari toolbar visible.
 - Seven destinations on a 360px bottom bar: mitigated by 4 primary + "More" Sheet; verify labels do not wrap at 360px.
 - Build-time env validation could break `next build`/CI without secrets: validate lazily at request time; ensure build passes with only non-secret values.
-- Google private key format in env: store quoted with escaped `\n`; the pure parser normalizes to real newlines; document the format in `.env.example`.
 - `.gitignore` swallowing `.env.example`: use `.env*` plus `!.env.example`.
 - Playwright browser install (Chromium + WebKit) required on fresh machines/CI: document `npx playwright install --with-deps chromium webkit`.
 - e2e flakiness / dev-vs-prod divergence: run Playwright against `build && start`, use web-first assertions, `retries: 1` in CI only.
 - shadcn/Tailwind version churn: install via MCP, pin versions, commit `components.json`, re-run build after init.
 
+Milestone 2 specific:
+
+- Local Docker runtime: Colima + Docker CLI (Docker Desktop not required).
+- Local CLI may emit legacy anon/service_role JWTs and/or publishable/secret keys — map into `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY`.
+- Analytics disabled locally (`[analytics] enabled = false`) because the vector container cannot mount Colima’s docker.sock under virtiofs.
+- Hosted Auth must have public sign-up disabled to match local `config.toml`.
+- Netlify preview/production redirect URLs must allow the site origin for Supabase Auth cookies.
+
 ## Open questions
 
 Add only questions that materially block or influence implementation.
 
-- Which authentication provider will be used?
-- Will the website write directly into the existing workbook tabs or use new app-managed data tabs?
-- Which budget and meal workflow should be the first complete feature after foundation?
+- Resolved: email/password auth; no public sign-up (ADR-012).
+- Resolved: local Supabase for M2 + hosted link support.
+- Resolved: both members equal read/write in V1.
+- Resolved: persistence is Supabase Postgres; spreadsheet is import-only (ADR-010).
+- Resolved: hosted project linked, migrations pushed, advisors clean, public sign-up disabled.
 
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-16 (first stable commit prep)
+
+- Work completed: Repository hygiene pass before the first public-facing git commit of the M1+M2 checkpoint. Removed unused Next.js scaffold SVGs and empty leftover directories; reinforced `.gitignore` for Supabase CLI temp state; refreshed README for clone → install → local Supabase → app → tests; aligned ARCHITECTURE app-guard wording with Next.js `proxy.ts`. No architecture or milestone work.
+- Files or areas changed: `README.md`, `ARCHITECTURE.md`, `.gitignore`, `IMPLEMENTATION.md`, deleted unused `public/*.svg`, removed empty `lib/google-sheets/` and `supabase/snippets/`.
+- Validation performed: `npm run verify`; `npm run test:db`; clean-install build check (documented in release summary).
+- Decisions made: Keep all current npm dependencies (each referenced). Keep hosted project ref in the private decision log; do not commit secrets.
+- Remaining issues: Product feature UI still placeholder-only; Netlify env may still need hosted Supabase keys if not set; validation users are `@example.test` until real members are provisioned.
+- Next recommended task: Create the first stable commit, then start Milestone 4 (Budget vertical slice).
+
+### 2026-07-16 (hosted project linked + validated)
+
+- Work completed: Linked `ggyvfkgeudcqbozlsify` (`jella-home`, us-east-2). Pushed 4 migrations. Security Advisor initially warned that `public.is_household_member` was executable as SECURITY DEFINER via RPC — moved helper to `private` schema (migration `20260716233000`). Re-ran Security + Performance advisors: **0 findings**. Wrote hosted keys into gitignored `.env.local`. Provisioned validation household (2 members) via script; `verify:hosted-access` confirmed equal read/write and non-member denial. App auth against hosted: member sign-in + membership load OK. Hosted Auth public email sign-up disabled (`signUp` → "Signups not allowed for this instance").
+- Commands/results:
+  - `supabase link --project-ref ggyvfkgeudcqbozlsify` — OK
+  - `supabase db push` — 4 migrations applied
+  - `supabase migration list` — local == remote
+  - `supabase db advisors --linked --type security|performance` — 0 / 0 after fix
+  - `npm run test:db` — 17/17 PASS (local, includes private-fn migration)
+  - Hosted tables present: 11 product tables
+  - Access: `sameHousehold`, `equalReadWrite`, `nonMemberDenied` all true
+- Decisions made: ADR-style — membership helper lives in `private` schema (not API-exposed `public`) to satisfy Security Advisor while keeping RLS working.
+- Remaining issues: Validation users use `@example.test` emails — replace with real household members via provision scripts when ready (do not commit emails). Netlify env vars for hosted Supabase should be confirmed before treating the deploy as production-ready.
+- Next recommended task: Superseded by first stable commit prep, then Budget vertical slice.
+
+### 2026-07-16 (hosted validation prep + pre-prod review)
+
+- Work completed: Lead pre-production review before hosted link. Added FK index migration (`20260716230000_fk_indexes.sql`), hosted runbook (`docs/HOSTED_SUPABASE.md`), `scripts/add-household-member.ts`, `scripts/verify-hosted-access.ts`, improved provision script (loads `.env.local`, rejects duplicate emails). Re-applied local migrations; RLS still 17/17. App `verify` green. Documented local vs hosted workflows in README/ARCHITECTURE.
+- Pre-production findings (fix or accept now):
+  1. **Fix now:** unindexed FKs → migration added (Performance Advisor hygiene).
+  2. **Fix now / ops:** hosted Auth must disable public sign-up (dashboard); cannot be enforced only in app UI.
+  3. **Accept:** `GRANT` to `anon` on tables with no anon policies — standard Data API pattern; RLS denies rows.
+  4. **Accept:** Colima analytics disabled — local-only; unrelated to hosted.
+  5. **Accept for V1:** `role` column does not gate permissions; both members equal via identical RLS.
+  6. **Watch:** Netlify must receive `SUPABASE_SECRET_KEY` as a server-only env; never `NEXT_PUBLIC_`.
+  7. **No architecture change:** repository + SSR client + admin-only provisioning remains correct.
+- Blocked: `npx supabase login` cannot complete non-interactively in this agent environment (no TTY / access token). Need either:
+  - user runs `npx supabase login` in a local terminal, **or**
+  - user provides `SUPABASE_ACCESS_TOKEN` + hosted `project-ref` (and later provision/verify credentials via env).
+- Validation performed: `npm run verify` green; `npm run test:db` 17/17 PASS after FK migration.
+- Next recommended task: Authenticate CLI → create/link hosted project → `db push` → advisors → provision → `verify:hosted-access` → point `.env.local` at hosted keys.
+
+### 2026-07-16 (local Supabase on Colima)
+
+- Work completed: Confirmed Colima/Docker, started local Supabase, applied migrations via `db reset`, ran pgTAP RLS suite (17/17 pass), wrote gitignored `.env.local` from `supabase status`, verified seed-user sign-in + membership read against the local API. Updated `.env.example` placeholders and notes.
+- Commands run:
+  - `docker info` / `colima status` — OK
+  - `npx supabase start` — OK after disabling analytics (see decision below)
+  - `npx supabase db reset` — migrations + seed applied
+  - `npm run test:db` — `Files=1, Tests=17, Result: PASS`
+  - Auth/membership smoke via publishable client + seed user `member-a@example.test` — OK
+- Files or areas changed: `supabase/config.toml` (analytics off for Colima), `.env.example`, `.env.local` (local only, not committed), `IMPLEMENTATION.md`.
+- Validation performed: RLS pgTAP green; Auth health HTTP 200; REST HTTP 200; seed member can sign in and load membership; `.env.local` confirmed gitignored.
+- Decisions made: Keep local analytics disabled under Colima to avoid the known `supabase_vector` docker.sock mount failure. Prefer Colima over Docker Desktop for this machine.
+- Remaining issues / deviations: Hosted Security/Performance advisors still pending (`supabase link` + `npm run supabase:advisors`). Do not commit `.env.local`.
+- Next recommended task: Link hosted project, push migrations, run advisors, provision real users with `scripts/provision-household.ts`.
+
+### 2026-07-16 (Milestone 2 implementation)
+
+- Work completed: Implemented approved Milestone 2 — Supabase env/clients, Next.js `proxy.ts` session gate, email/password sign-in (no sign-up), membership-gated `(app)` shell, household repository (SSR/RLS path), schema + RLS migrations, fake local seed, pgTAP RLS tests, hosted provisioning script, removed Google Sheets backend stubs. Updated architecture docs and README.
+- Files or areas changed: `supabase/**`, `lib/supabase/**`, `lib/repositories/households.ts`, `lib/domain/**`, `lib/config/env-schema.ts`, `lib/env.ts`, `proxy.ts`, `app/sign-in/**`, `app/not-provisioned/**`, `app/auth/actions.ts`, `app/(app)/layout.tsx`, `components/auth/**`, `scripts/provision-household.ts`, tests, package scripts; deleted `lib/google-sheets`, `lib/config/sheets.ts`.
+- Validation performed: `npm run verify` green (format, lint, typecheck, Vitest 5/5, production build, Playwright 10/10). `test:db` / advisors blocked (Docker not installed; no hosted project linked).
+- Decisions made: ADR-011 (publishable/secret keys + SSR default client), ADR-012 (no public registration). Next.js 16 `proxy.ts` used instead of deprecated `middleware.ts`.
+- Remaining issues / deviations: Superseded by the local Supabase on Colima entry above for DB/RLS. Hosted advisors still open.
+- Next recommended task: Superseded — local stack is running; next is hosted advisors + provisioning.
+
+### 2026-07-16 (architecture revision: Supabase)
+
+- Work completed: Revised project architecture away from Google Sheets as source of truth. Documented normalized Postgres schema, household RLS, repository boundaries, migrations/types plan, and deferred one-time XLSX import. Updated agent/role guidance and roadmap; drafted Milestone 2 plan for approval. No application code implemented.
+- Files or areas changed: `ARCHITECTURE.md` (new), `AGENTS.md`, `ROLES.md`, `IMPLEMENTATION.md`.
+- Validation performed: Documentation-only review against current Milestone 1 repo (shell + Sheets stubs still on disk until M2 implementation).
+- Decisions made: ADR-010 (Supabase Postgres + Auth; Sheets/XLSX import-only). ADR-001 marked superseded. Old Milestone 3 (Google Sheets foundation) replaced by deferred one-time workbook import.
+- Remaining issues / deviations: Superseded by Milestone 2 implementation entry above.
+- Next recommended task: Superseded by M2 implementation.
 
 ### 2026-07-16 (commit + Git-based Netlify CD)
 
@@ -379,7 +533,7 @@ Add newest entries first.
 - Validation performed: Initial Git deploys reached `ready` but served 404s with zero functions. Updated `netlify.toml` to explicitly run `@netlify/plugin-nextjs` and redeployed from GitHub; confirming live routes after that fix.
 - Decisions made: Repo is private. Continuous deploy uses a Netlify deploy key + read-only GitHub deploy key because interactive Netlify GitHub App OAuth is not usable from this CLI environment.
 - Remaining issues / deviations: Site is still public with no authentication - do not enter real household data until Milestone 2. Full release hardening remains Milestone 10.
-- Next recommended task: Milestone 2 (Authentication and household access) using `AUTH_ALLOWLIST`.
+- Next recommended task: Superseded by architecture revision — Milestone 2 is now Supabase Auth + Postgres foundation (plan pending approval).
 
 - Production URL: https://jella-home.netlify.app
 - GitHub: https://github.com/jbug16/Jella-Home

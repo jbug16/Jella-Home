@@ -1,10 +1,16 @@
 /**
- * Shared domain schemas and types (recipes, meal-plans, shopping, budget,
- * subscriptions, calendar).
+ * Shared domain schemas and types.
  *
- * Kept separate from persistence so a future migration off Google Sheets can
- * reuse these definitions. Populated per feature milestone. Stub for the
- * foundation milestone.
+ * Milestone 2 ships the household/membership schemas used by auth gating.
+ * Feature domains (budget, recipes, meals, grocery, subscriptions) add schemas
+ * with their respective milestones.
  */
 
-export {};
+export {
+  householdMemberRoleSchema,
+  householdMembershipSchema,
+  householdSchema,
+  type Household,
+  type HouseholdMemberRole,
+  type HouseholdMembership,
+} from "@/lib/domain/household";

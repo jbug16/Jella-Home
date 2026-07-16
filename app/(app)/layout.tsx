@@ -1,12 +1,24 @@
+import { redirect } from "next/navigation";
+
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { getCurrentMembership } from "@/lib/repositories/households";
 
-export default function AppLayout({
+// Membership checks require request cookies + Supabase env; never prerender.
+export const dynamic = "force-dynamic";
+
+export default async function AppLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const membership = await getCurrentMembership();
+
+  if (!membership) {
+    redirect("/not-provisioned");
+  }
+
   return (
     <div className="flex min-h-[100dvh]">
       <a
@@ -19,7 +31,7 @@ export default function AppLayout({
       <AppSidebar />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader />
+        <AppHeader displayName={membership.displayName} />
         <main
           id="main-content"
           className="flex-1 px-4 py-6 pb-[calc(3.5rem+env(safe-area-inset-bottom)+1.5rem)] sidebar:px-8 sidebar:pb-8"

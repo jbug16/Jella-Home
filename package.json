@@ -14,12 +14,23 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:db": "supabase test db",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset",
+    "supabase:types": "supabase gen types typescript --local > lib/supabase/database.types.ts",
+    "supabase:advisors": "supabase db advisors --linked --type all",
+    "provision:household": "tsx scripts/provision-household.ts",
+    "provision:add-member": "tsx scripts/add-household-member.ts",
+    "verify:hosted-access": "tsx scripts/verify-hosted-access.ts",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e"
   },
   "engines": {
     "node": ">=24 <25"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.24.0",
@@ -41,7 +52,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "prettier": "^3.9.5",
+    "supabase": "^2.109.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }

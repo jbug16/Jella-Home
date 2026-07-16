@@ -1,116 +1,127 @@
 # Jella Home
 
 A private household web app for budgets, meals, shopping, recipes,
-subscriptions, and a shared calendar. It replaces the difficult parts of an
-existing Google Sheets workbook with a clearer, responsive interface.
+subscriptions, and a shared calendar.
 
-This repository is at **Milestone 1: Project foundation** — the app shell,
-tooling, and architecture are in place; product features are not built yet.
+**Current checkpoint:** Milestone 1 (app shell) and Milestone 2 (Supabase Auth +
+Postgres + RLS) are complete. Product feature UI is not built yet.
+
+- Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- Hosted runbook: [`docs/HOSTED_SUPABASE.md`](docs/HOSTED_SUPABASE.md)
+- Roadmap / decisions: [`IMPLEMENTATION.md`](IMPLEMENTATION.md)
 
 ## Tech stack
 
-- Next.js (App Router) with React Server Components
+- Next.js App Router (React Server Components)
 - TypeScript (strict)
-- Tailwind CSS v4 + shadcn/ui (Radix)
-- Zod for validation
-- Vitest (unit) and Playwright (end-to-end)
+- Tailwind CSS v4 + shadcn/ui
+- Zod
+- Supabase Auth (email/password) + Postgres
+- Vitest, Playwright, pgTAP
 
 ## Prerequisites
 
-- Node.js 24 (see [`.nvmrc`](.nvmrc); run `nvm use`)
+- Node.js 24 (`nvm use` — see [`.nvmrc`](.nvmrc))
 - npm
+- Docker runtime for local Supabase (Colima + Docker CLI on this project)
+- Playwright browsers (once per machine):  
+  `npx playwright install --with-deps chromium webkit`
 
-## Setup
-
-```bash
-nvm use            # selects Node 24
-npm ci             # install dependencies from the lockfile
-```
-
-Copy the environment template and fill in values as later milestones need them
-(none are required to run the foundation shell):
+## Quick start (local)
 
 ```bash
+# 1. Clone and install
+git clone <repo-url> Jella-Home
+cd Jella-Home
+nvm use
+npm ci
+
+# 2. Environment template
 cp .env.example .env.local
+
+# 3. Start Docker runtime + local Supabase
+colima start                 # skip if Docker Desktop / another runtime is up
+npm run supabase:start
+npx supabase status -o env
 ```
 
-## Development
+Copy values into `.env.local` (never commit that file):
+
+| `supabase status` field              | App env var                            |
+| ------------------------------------ | -------------------------------------- |
+| API URL                              | `NEXT_PUBLIC_SUPABASE_URL`             |
+| PUBLISHABLE_KEY (or legacy ANON_KEY) | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
+| SECRET_KEY (or legacy SERVICE_ROLE)  | `SUPABASE_SECRET_KEY`                  |
 
 ```bash
-npm run dev        # start the dev server at http://localhost:3000
+# 4. Apply migrations + fake seed, run RLS tests
+npm run supabase:reset
+npm run test:db
+
+# 5. Run the app
+npm run dev
 ```
 
-The root route redirects to `/dashboard`. All seven sections render a
-placeholder "coming soon" state in this milestone.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000). You should be redirected to
+`/sign-in`.
 
-## Environment variables
+Local seed users (fake only, from `supabase/seed.sql`):
 
-Environment parsing is split so it can be tested and kept server-side:
+| Email                   | Password             |
+| ----------------------- | -------------------- |
+| `member-a@example.test` | `local-dev-password` |
+| `member-b@example.test` | `local-dev-password` |
 
-- [`lib/config/env-schema.ts`](lib/config/env-schema.ts) — pure Zod schema and
-  parser (no secrets, no server-only imports), covered by unit tests.
-- [`lib/env.ts`](lib/env.ts) — `server-only` wrapper that reads `process.env`
-  lazily on first access, so a secret-less build never fails.
+Public sign-up is disabled. There is no sign-up page. Local analytics is off in
+`supabase/config.toml` for Colima compatibility.
 
-See [`.env.example`](.env.example) for the documented variables. Store local
-spreadsheets, exports, and credential files under `private-data/` or use the
-`*service-account*.json` / `*credentials*.json` patterns — all are Git-ignored.
+## Hosted Supabase
 
-## Verification
+See [`docs/HOSTED_SUPABASE.md`](docs/HOSTED_SUPABASE.md). Summary: create a
+project, disable public email sign-up, `supabase link` + `db push`, put hosted
+keys in `.env.local`, then `npm run provision:household`.
 
-Run the full gate before considering work complete:
+## Scripts
 
 ```bash
-npm run verify
+npm run dev                  # development server
+npm run build && npm start   # production build
+npm run verify               # format, lint, typecheck, unit, build, e2e
+npm run test                 # Vitest unit tests
+npm run test:e2e             # Playwright (needs browsers installed)
+npm run test:db              # pgTAP RLS (needs local Supabase)
+npm run supabase:start       # local stack
+npm run supabase:reset       # recreate DB from migrations + seed
+npm run provision:household  # hosted/bootstrap household (secret key)
+npm run provision:add-member
+npm run verify:hosted-access
+npm run supabase:advisors    # linked hosted project
 ```
-
-`verify` runs, in order: `format:check`, `lint`, `typecheck`, `test` (Vitest),
-`build` (`next build`), and `test:e2e` (Playwright against the production build).
-
-Individual commands:
-
-```bash
-npm run format:check   # Prettier, no writes
-npm run lint           # ESLint
-npm run typecheck      # tsc --noEmit
-npm run test           # Vitest unit tests
-npm run build          # next build
-npm run start          # serve the production build
-npm run test:e2e       # Playwright smoke suite (requires a prior build)
-```
-
-Playwright browsers are required once per machine/CI:
-
-```bash
-npx playwright install --with-deps chromium webkit
-```
-
-The e2e suite runs a Chromium smoke at desktop (1280) and 360px, plus a WebKit
-smoke on iPhone and iPad viewports (the real target devices use Safari).
 
 ## Project structure
 
 ```
-app/                      # App Router
-  (app)/                  # authenticated shell group (sidebar + mobile nav)
-    <domain>/page.tsx     # dashboard, budget, meals, shopping, recipes, ...
-    loading.tsx           # shared loading boundary
-    error.tsx             # shared error boundary
+app/
+  (app)/                  # membership-gated shell + domain placeholders
+  sign-in/                # email/password only
+  not-provisioned/
+  auth/actions.ts
 components/
-  layout/                 # sidebar, mobile nav, header, nav config
-  common/                 # PageHeader, EmptyState
-  ui/                     # shadcn/ui primitives
 lib/
-  config/                 # env-schema, sheet mappings
-  env.ts                  # server-only env access
-  google-sheets/          # low-level Sheets access (stub, M3)
-  repositories/           # typed domain operations (stub, M3)
-  domain/                 # domain schemas/types (stub)
-tests/
-  unit/                   # Vitest
-  e2e/                    # Playwright
-private-data/             # local spreadsheets/exports (Git-ignored)
+  supabase/               # SSR, browser (auth-only), admin (secret)
+  repositories/           # cookie-backed domain API
+  domain/
+supabase/
+  migrations/
+  seed.sql                # fake local users only
+  tests/                  # pgTAP
+scripts/                  # provision + hosted verification (CLI)
+docs/HOSTED_SUPABASE.md
 ```
 
-See [`IMPLEMENTATION.md`](IMPLEMENTATION.md) for the roadmap and decisions, and
-[`AGENTS.md`](AGENTS.md) / [`ROLES.md`](ROLES.md) for project conventions.
+## Security notes
+
+- Never commit `.env.local` or real keys.
+- `SUPABASE_SECRET_KEY` is server-only.
+- Do not run `supabase/seed.sql` against hosted/production.
+- Agent conventions: [`AGENTS.md`](AGENTS.md), [`ROLES.md`](ROLES.md).

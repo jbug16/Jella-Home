@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local deploy / tooling artifacts (gitignored but present on disk):
+    ".netlify/**",
+    "supabase/.branches/**",
+    "supabase/.temp/**",
   ]),
 ]);
 

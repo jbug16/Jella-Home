@@ -55,6 +55,10 @@ yarn-error.log*
 .vercel
 .netlify
 
+# supabase local CLI state (also listed in supabase/.gitignore)
+supabase/.temp/
+supabase/.branches/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

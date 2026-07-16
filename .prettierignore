@@ -7,3 +7,6 @@ playwright-report/
 test-results/
 package-lock.json
 private-data/
+.netlify/
+supabase/.branches/
+supabase/.temp/

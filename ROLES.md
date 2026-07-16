@@ -55,21 +55,22 @@ This role may implement isolated components or pages when file ownership is clea
 
 ## Backend and Data Specialist
 
-Owns server architecture, Google Sheets integration, validation, and data correctness review.
+Owns server architecture, Supabase Postgres/Auth integration, validation, and data correctness review.
 
 Responsibilities:
 
-- Keep Google credentials and Sheets access server-side.
-- Maintain separation between low-level Sheets access, repositories, domain schemas, and UI.
-- Centralize sheet names, columns, and range mappings.
-- Use stable domain IDs rather than row numbers or display names.
+- Keep the Supabase service-role key and privileged database access server-side.
+- Maintain separation between Supabase clients, repositories, domain schemas, and UI.
+- Ensure UI code does not query Supabase product tables directly.
+- Review SQL migrations, generated TypeScript types, indexes, and Row Level Security policies.
+- Enforce household-membership authorization in both RLS and repository/server actions.
+- Use stable UUID domain IDs.
 - Validate all writes with Zod.
 - Review concurrency, destructive updates, revalidation, and error handling.
 - Keep financial values currency-safe and date-only records timezone-safe.
 - Prevent private data, tokens, or credentials from appearing in logs or client bundles.
 - Add focused tests for mappings and calculations.
-
-This role covers database concerns while Google Sheets remains the datastore. Add a separate database role only if the app migrates to a real database.
+- For the later one-time workbook import, keep parsing and service-role usage outside UI code and do not introduce live spreadsheet sync.
 
 ## QA and Integration Specialist
 
