@@ -220,18 +220,18 @@ After coding:
 
 Only create commits when the user explicitly asks. When committing, always use [Conventional Commits](https://www.conventionalcommits.org/) with one of these prefixes:
 
-| Type | Use for |
-| --- | --- |
-| `feat:` | New features |
-| `fix:` | Bug fixes |
+| Type        | Use for                                        |
+| ----------- | ---------------------------------------------- |
+| `feat:`     | New features                                   |
+| `fix:`      | Bug fixes                                      |
 | `refactor:` | Internal improvements without behavior changes |
-| `docs:` | Documentation only |
-| `test:` | Tests only |
-| `perf:` | Performance improvements |
-| `style:` | Formatting only (no logic changes) |
-| `build:` | Build system or dependencies |
-| `ci:` | GitHub Actions / CI changes |
-| `chore:` | Miscellaneous maintenance |
+| `docs:`     | Documentation only                             |
+| `test:`     | Tests only                                     |
+| `perf:`     | Performance improvements                       |
+| `style:`    | Formatting only (no logic changes)             |
+| `build:`    | Build system or dependencies                   |
+| `ci:`       | GitHub Actions / CI changes                    |
+| `chore:`    | Miscellaneous maintenance                      |
 
 Commit message format:
 

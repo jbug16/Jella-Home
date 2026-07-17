@@ -1,11 +1,11 @@
--- pgTAP: household RLS coverage (Milestone 2).
+-- pgTAP: household RLS coverage (Milestone 2 + budget schema prep).
 -- Requires seeded fake users from supabase/seed.sql.
 
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(17);
+SELECT plan(25);
 
 CREATE OR REPLACE FUNCTION public.test_as_user(uid uuid)
 RETURNS void
@@ -53,6 +53,7 @@ SELECT ok(
         'households',
         'household_members',
         'budget_categories',
+        'budget_month_limits',
         'transactions',
         'ingredients',
         'recipes',
@@ -81,6 +82,12 @@ SELECT is(
   'anonymous cannot read transactions'
 );
 
+SELECT is(
+  (SELECT count(*)::integer FROM public.budget_month_limits),
+  0,
+  'anonymous cannot read budget month limits'
+);
+
 SELECT throws_ok(
   $$INSERT INTO public.budget_categories (household_id, name, kind)
     VALUES ('11111111-1111-4111-8111-111111111111', 'Anon Cat', 'expense')$$,
@@ -102,6 +109,12 @@ SELECT is(
   (SELECT count(*)::integer FROM public.transactions),
   0,
   'non-member cannot read transactions'
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.budget_month_limits),
+  0,
+  'non-member cannot read budget month limits'
 );
 
 SELECT throws_ok(
@@ -127,6 +140,12 @@ SELECT is(
   'member can read own household transactions'
 );
 
+SELECT is(
+  (SELECT count(*)::integer FROM public.budget_month_limits),
+  1,
+  'member can read own household budget month limits'
+);
+
 SELECT lives_ok(
   $$INSERT INTO public.budget_categories (household_id, name, kind)
     VALUES ('11111111-1111-4111-8111-111111111111', 'Member Written', 'expense')$$,
@@ -138,6 +157,18 @@ SELECT lives_ok(
     SET payee = 'Updated by member'
     WHERE household_id = '11111111-1111-4111-8111-111111111111'$$,
   'member can update own household transactions'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO public.budget_month_limits (
+      household_id, category_id, month_start, limit_cents
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      '33333333-3333-4333-8333-333333333333',
+      (date_trunc('month', CURRENT_DATE) + interval '1 month')::date,
+      25000
+    )$$,
+  'member can insert budget month limits for own household'
 );
 
 -- Equal permissions: second member of same household can also write
@@ -170,6 +201,16 @@ SELECT is(
   ),
   0,
   'member cannot read another household transactions'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.budget_month_limits
+    WHERE household_id = '22222222-2222-4222-8222-222222222222'
+  ),
+  0,
+  'member cannot read another household budget month limits'
 );
 
 SELECT throws_ok(
@@ -207,6 +248,45 @@ SELECT throws_ok(
   '42501',
   NULL,
   'member cannot reassign household_id to an unauthorized household'
+);
+
+-- 7) budget_month_limits household consistency (category from other household)
+-- Use service role path via RESET ROLE so the trigger (not only RLS) is asserted.
+RESET ROLE;
+
+SELECT throws_ok(
+  $$INSERT INTO public.budget_month_limits (
+      household_id, category_id, month_start, limit_cents
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      '44444444-4444-4444-8444-444444444444',
+      date_trunc('month', CURRENT_DATE)::date,
+      1000
+    )$$,
+  '23514',
+  NULL,
+  'budget_month_limits rejects category from a different household'
+);
+
+-- 8) Same category name under different kinds is allowed
+SELECT lives_ok(
+  $$INSERT INTO public.budget_categories (household_id, name, kind)
+    VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'Transfer',
+      'debt'
+    )$$,
+  'same category name may exist under a different kind'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO public.budget_categories (household_id, name, kind)
+    VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'Transfer',
+      'savings'
+    )$$,
+  'UNIQUE (household_id, kind, name) permits Transfer under savings and debt'
 );
 
 SELECT * FROM finish();

@@ -13,7 +13,9 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "tsx scripts/run-e2e-local.ts",
+    "test:e2e:raw": "playwright test",
+    "start:e2e": "tsx scripts/start-with-local-supabase.ts",
     "test:db": "supabase test db",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
@@ -23,7 +25,7 @@
     "provision:household": "tsx scripts/provision-household.ts",
     "provision:add-member": "tsx scripts/add-household-member.ts",
     "verify:hosted-access": "tsx scripts/verify-hosted-access.ts",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e"
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run test:e2e"
   },
   "engines": {
     "node": ">=24 <25"

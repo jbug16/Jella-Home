@@ -87,6 +87,33 @@ async function asMember(
     throw new Error(`${label}: insert denied or failed`);
   }
 
+  const now = new Date();
+  const monthStartIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+
+  const { data: limit, error: limitError } = await client
+    .from("budget_month_limits")
+    .insert({
+      household_id: membership.household_id,
+      category_id: inserted.id,
+      month_start: monthStartIso,
+      limit_cents: 1000,
+    })
+    .select("id")
+    .single();
+
+  if (limitError || !limit) {
+    throw new Error(`${label}: budget_month_limits insert denied or failed`);
+  }
+
+  const { error: limitDeleteError } = await client
+    .from("budget_month_limits")
+    .delete()
+    .eq("id", limit.id);
+
+  if (limitDeleteError) {
+    throw new Error(`${label}: budget_month_limits delete failed`);
+  }
+
   const { error: deleteError } = await client
     .from("budget_categories")
     .delete()
@@ -160,11 +187,20 @@ async function asNonMember(
     throw new Error("non-member: unexpected error reading categories");
   }
 
+  const { data: limits, error: limitsError } = await client
+    .from("budget_month_limits")
+    .select("id");
+
+  if (limitsError) {
+    throw new Error("non-member: unexpected error reading budget_month_limits");
+  }
+
   await client.auth.signOut();
 
   return {
     householdsVisible: households?.length ?? 0,
     categoriesVisible: categories?.length ?? 0,
+    limitsVisible: limits?.length ?? 0,
   };
 }
 
@@ -198,7 +234,11 @@ async function main() {
     env.VERIFY_NON_MEMBER_PASSWORD,
   );
 
-  if (nonMember.householdsVisible !== 0 || nonMember.categoriesVisible !== 0) {
+  if (
+    nonMember.householdsVisible !== 0 ||
+    nonMember.categoriesVisible !== 0 ||
+    nonMember.limitsVisible !== 0
+  ) {
     throw new Error("non-member could see household data");
   }
 
@@ -208,6 +248,7 @@ async function main() {
         sameHousehold: true,
         equalReadWrite: true,
         nonMemberDenied: true,
+        budgetMonthLimitsChecked: true,
         memberRoles: [member1.role, member2.role],
       },
       null,

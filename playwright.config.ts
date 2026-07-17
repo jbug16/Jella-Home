@@ -10,6 +10,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  workers: process.env.PLAYWRIGHT_WORKERS
+    ? Number(process.env.PLAYWRIGHT_WORKERS)
+    : undefined,
   reporter: "list",
   use: {
     baseURL: "http://localhost:3000",
@@ -33,6 +36,24 @@ export default defineConfig({
       },
     },
     {
+      name: "budget-chromium-desktop",
+      testMatch: /budget\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 800 },
+      },
+    },
+    {
+      name: "budget-chromium-mobile-360",
+      testMatch: /budget\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 360, height: 780 },
+      },
+    },
+    {
       name: "webkit-iphone",
       testMatch: /shell\.webkit\.spec\.ts/,
       use: { ...devices["iPhone 13"] },
@@ -44,9 +65,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run start",
+    command: "npm run start:e2e",
     url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    // Budget e2e injects local Supabase env; never reuse a server started with
+    // a different .env.local (e.g. hosted keys).
+    reuseExistingServer: process.env.PW_REUSE_SERVER === "1",
     timeout: 120_000,
   },
 });

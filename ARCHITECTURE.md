@@ -10,6 +10,7 @@ Companion docs:
 - [`AGENTS.md`](AGENTS.md) — product rules and coding conventions
 - [`IMPLEMENTATION.md`](IMPLEMENTATION.md) — roadmap, ADRs, and work log
 - [`ROLES.md`](ROLES.md) — agent role boundaries
+- [`docs/WORKBOOK_MAPPING.md`](docs/WORKBOOK_MAPPING.md) — legacy XLSX → schema mapping
 
 ## Goals
 
@@ -128,6 +129,15 @@ Notes:
 
 ### Budget
 
+The legacy workbook uses two levels: a **kind** (Income / Bills / Expenses /
+Savings / Debt) and a **line item** name. That maps cleanly onto
+`budget_categories.kind` + `budget_categories.name`. Planned amounts are
+**month-scoped** on the Monthly Budget sheet; actuals are spreadsheet
+`SUMIFS` over the Log and must be **derived** in the app from `transactions`,
+never stored as imported facts.
+
+Workbook → table mapping: [`docs/WORKBOOK_MAPPING.md`](docs/WORKBOOK_MAPPING.md).
+
 ```text
 budget_categories
   id              uuid PK
@@ -139,7 +149,19 @@ budget_categories
   archived_at     timestamptz NULL
   created_at      timestamptz NOT NULL DEFAULT now()
   updated_at      timestamptz NOT NULL DEFAULT now()
-  UNIQUE (household_id, name)
+  UNIQUE (household_id, kind, name)
+
+budget_month_limits
+  id              uuid PK
+  household_id    uuid NOT NULL REFERENCES households(id) ON DELETE CASCADE
+  category_id     uuid NOT NULL REFERENCES budget_categories(id) ON DELETE CASCADE
+  month_start     date NOT NULL       -- first day of the budget month
+  limit_cents     integer NOT NULL CHECK (limit_cents >= 0)
+  created_at      timestamptz NOT NULL DEFAULT now()
+  updated_at      timestamptz NOT NULL DEFAULT now()
+  UNIQUE (category_id, month_start)
+  CHECK (month_start = date_trunc('month', month_start)::date)
+  -- trigger: category.household_id must equal row.household_id
 
 transactions
   id              uuid PK
@@ -156,7 +178,21 @@ transactions
   updated_at      timestamptz NOT NULL DEFAULT now()
 ```
 
-Indexes: `(household_id, occurred_on DESC)`, `(household_id, category_id)`.
+Indexes: `(household_id, occurred_on DESC)`, `(household_id, category_id)`,
+`(household_id, month_start)` and `(household_id, category_id)` on
+`budget_month_limits`.
+
+Notes:
+
+- Applied in migration `20260716240000_budget_month_limits.sql` (local + types).
+- No automatic month-to-month rollover in V1; each month has explicit limits.
+  A future “copy previous month” action may be added later.
+- Kind-level workbook “Budget” totals are the sum of that kind’s line limits
+  for the month (derived). Remaining-to-spend is derived from limits vs
+  transaction sums — never stored.
+- Income / Bills / Expenses / Savings / Debt are explicit `kind` values.
+  Do not encode savings or debt with negative amounts; use `direction` + kind.
+- `payee` is unused by the legacy Log; keep it for app entry.
 
 ### Recipes and ingredients
 
@@ -251,7 +287,7 @@ subscriptions
   id              uuid PK
   household_id    uuid NOT NULL REFERENCES households(id) ON DELETE CASCADE
   vendor          text NOT NULL
-  category_id     uuid NULL REFERENCES budget_categories(id) ON DELETE SET NULL
+  category_label  text NOT NULL DEFAULT ''   -- free text (e.g. Tech); not a budget kind
   amount_cents    integer NOT NULL CHECK (amount_cents >= 0)
   cadence         text NOT NULL
                   CHECK (cadence IN ('weekly', 'monthly', 'quarterly', 'yearly'))
@@ -262,6 +298,10 @@ subscriptions
   created_at      timestamptz NOT NULL DEFAULT now()
   updated_at      timestamptz NOT NULL DEFAULT now()
 ```
+
+Subscription classification stays separate from budget kinds: `category_label`
+is free text with **no** foreign key to `budget_categories`. Monthly/annual
+equivalents in the workbook are derived — store cadence + `amount_cents` only.
 
 ### Deferred: shared calendar
 

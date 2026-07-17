@@ -11,18 +11,31 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** Authentication, household access, and Supabase foundation  
+**Milestone:** 4 — Budget vertical slice  
 **Status:** Complete  
 **Owner:** Lead Engineer  
-**Goal:** Supabase Auth (email/password) + Postgres schema/RLS, household membership gating, and the shared repository pattern — without product UI features or workbook import.
+**Goal:** Monthly budget dashboard and transaction entry on Supabase, with
+currency-safe cents math and responsive UI. No workbook import in this
+milestone.
 
-Hosted project `ggyvfkgeudcqbozlsify` is linked, migrated, advisor-clean,
-validated for membership RLS, and public email sign-up is disabled.
+Previous: Milestone 2 complete. Workbook discovery + schema adjustment + hosted
+migration push complete. Budget UI shipped on seed/empty data (XLSX import
+deferred).
 
-Checkpoint: M1 + M2 are ready for the first stable git commit. Next product
-work is the Budget vertical slice (do not start until after that commit).
+### Pre-work completed
 
-Previous: Milestone 1 (Project foundation) is **Complete** (verified 2026-07-16).
+**Workbook discovery** — Complete. Artifact:
+[`docs/WORKBOOK_MAPPING.md`](docs/WORKBOOK_MAPPING.md).
+
+**Schema adjustment** — Complete (local + hosted). Migration
+`20260716240000_budget_month_limits.sql`:
+
+- [x] `budget_month_limits` + RLS + household-consistency trigger
+- [x] `UNIQUE (household_id, kind, name)` on `budget_categories`
+- [x] `subscriptions.category_label`; dropped `subscriptions.category_id`
+- [x] Types regenerated; `npm run test:db` 25/25; `npm run verify` green
+- [x] Push migration to hosted Supabase; local/remote migration lists match (5)
+- [x] Budget product UI (Milestone 4 complete)
 
 ### Milestone 2 acceptance criteria
 
@@ -236,17 +249,80 @@ Out of scope:
 
 ### 4. Budget vertical slice
 
-**Status:** Not started
+**Status:** Complete
 
-Scope:
+#### Approved product rules (from workbook discovery)
 
-- Monthly summary
-- Category totals
-- Expense list
-- Add and edit expense
-- Currency-safe calculations
-- Desktop and mobile presentation
-- Playwright coverage
+1. Planned limits live in `budget_month_limits` (explicit per month; no V1 rollover).
+2. Actuals, remaining, kind totals, and dashboard numbers are **derived**.
+3. Kinds: `income` | `bill` | `expense` | `savings` | `debt` — never negative amounts.
+4. Subscriptions use `category_label` (no FK to budget categories).
+5. XLSX import stays deferred; Budget ships on empty/seed data first.
+
+#### Implemented approach
+
+**Domain / money** (`lib/domain/budget.ts`)
+
+- Zod schemas: category, month limit, transaction.
+- Positive integer cents for transactions; separate `direction` (`in`/`out`).
+- Planned limits may be zero cents; transactions reject ≤0 at validation.
+- `month_start` is always the first of the month (date-only strings).
+- `buildBudgetMonthSnapshot` derives planned, actual, remaining, kind and
+  category summaries (nothing stored).
+
+**Repositories** (`lib/repositories/budget.ts`, cookie SSR client + RLS)
+
+- `listCategories`, `createCategory`
+- `listMonthLimits`, `upsertMonthLimit`
+- `listTransactionsForMonth`, `getTransaction`, `createTransaction`,
+  `updateTransaction`, `deleteTransaction`
+- Direction resolved from category kind on write.
+
+**Server Actions** (`app/(app)/budget/actions.ts`)
+
+- Zod-validated form actions; `revalidatePath("/budget")` after mutations.
+- Submit controls disabled while pending; recoverable errors preserve inputs.
+
+**UI**
+
+- Month navigator; derived summary totals; category rows; transaction list.
+- Add/edit/delete flows; create category; set month limit.
+- Dialog on desktop, Sheet on mobile (`responsive-form-shell`).
+
+**Out of scope (unchanged)**
+
+- Workbook import / seed from XLSX
+- Subscription tracker UI
+- Automatic rollover / “copy previous month”
+- Multi-month charts, exports, attachments, dashboard cards
+
+#### Acceptance criteria
+
+- [x] Members can set/edit a category’s planned `limit_cents` for a month.
+- [x] Members can add and edit a transaction (amount in cents, category, date,
+      optional payee/notes).
+- [x] Monthly summary shows planned vs actual vs remaining by kind and overall.
+- [x] Destructive delete confirms; submit disabled while saving.
+- [x] Usable at 360×780, 390×844, iPad portrait, desktop ≥1280; no horizontal
+      scroll at 360px; ≥44px touch targets.
+- [x] Vitest covers cents math and month-boundary helpers.
+- [x] Playwright: add + edit + delete expense on desktop and 360px mobile.
+- [x] `npm run verify` and `npm run test:db` green.
+- [x] No stored actuals/remaining; no importer.
+
+#### Verification gate
+
+```bash
+npm run test:db
+npm run verify
+# Playwright includes budget expense flow at desktop + 360
+```
+
+#### Risks
+
+- Timezone shifts on `occurred_on` / `month_start` if parsed as JS `Date` noon UTC incorrectly — use date-only strings.
+- Empty first-run UX: need a clear path to create a category + limit before logging spend.
+- Hosted DB must receive the new migration before production Budget use.
 
 ### 5. Weekly meal planner
 
@@ -356,6 +432,19 @@ Record decisions here after they are made. Do not delete old decisions; mark sup
 **Reason:** Two trusted users; minimize attack surface.  
 **Consequences:** New members require an explicit provisioning step.
 
+### ADR-013: Budget month limits and category identity
+
+**Status:** Accepted  
+**Decision:** Persist planned amounts in `budget_month_limits` keyed by
+`(category_id, month_start)` with household consistency enforced. Identify
+categories by `UNIQUE (household_id, kind, name)`. Classify subscriptions with
+`category_label` text (no FK to budget categories). No automatic rollover in
+V1. Actuals and remaining are always derived from transactions + limits.  
+**Reason:** Matches the workbook’s planned-vs-actual model without storing
+spreadsheet formulas or conflating subscription labels with budget kinds.  
+**Consequences:** Budget UI must upsert limits per month; a future “copy
+previous month” action can populate limits without a rollover balance column.
+
 ### ADR-002: Initial client strategy
 
 **Status:** Accepted  
@@ -447,10 +536,92 @@ Add only questions that materially block or influence implementation.
 - Resolved: both members equal read/write in V1.
 - Resolved: persistence is Supabase Postgres; spreadsheet is import-only (ADR-010).
 - Resolved: hosted project linked, migrations pushed, advisors clean, public sign-up disabled.
+- Resolved (Budget prep): `budget_month_limits` added; category unique
+  `(household_id, kind, name)`; subscriptions use `category_label` (no budget
+  FK); no V1 rollover; savings/debt are kinds with positive cents + direction.
+- Resolved: Milestone 4 Budget UI approved and implemented; hosted migration
+  `20260716240000` pushed; local/remote migration lists match (5).
 
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-16 (Milestone 4 Budget vertical slice)
+
+- Work completed: Hosted `db push` of `20260716240000_budget_month_limits.sql`
+  verified (local == remote, 5 migrations). Implemented Budget domain, SSR/RLS
+  repositories, server actions, month navigation, derived planned/actual/
+  remaining + category summaries, transaction CRUD, Dialog/Sheet forms. Seeded
+  Groceries expense data for e2e. Playwright budget projects (desktop + 360).
+  Vitest coverage for currency, months, directions, summaries, overspend, empty.
+- Files or areas changed: `lib/domain/budget.ts`, `lib/repositories/budget.ts`,
+  `app/(app)/budget/page.tsx`, `app/(app)/budget/actions.ts`, `components/budget/*`, shadcn UI
+  primitives, `tests/unit/budget.test.ts`, `tests/e2e/budget.chromium.spec.ts`,
+  `tests/e2e/helpers/auth.ts`, `scripts/run-e2e-local.ts`,
+  `scripts/start-with-local-supabase.ts`, `scripts/verify-hosted-access.ts`,
+  `playwright.config.ts`, `package.json`, seed/pgTAP, `ARCHITECTURE.md`,
+  `IMPLEMENTATION.md`, `docs/WORKBOOK_MAPPING.md`, types.
+- Validation performed: `supabase migration list` local==remote;
+  `db advisors --linked` Performance 0; Security Advisor only Auth
+  `auth_leaked_password_protection` WARN (dashboard setting, not SQL);
+  remote `budget_month_limits` + unique `(household_id, kind, name)` + RLS
+  policy present; `npm run supabase:reset`; `npm run test:db` 25/25;
+  format/lint/typecheck/unit green; `npm run test:e2e` 16/16.
+- Decisions made: Totals always derived; positive cents + direction; e2e rebuilds
+  Next against local Supabase keys so proxy never uses hosted `.env.local`.
+- Remaining issues: Hosted JWT member/non-member recheck via
+  `verify:hosted-access` needs `VERIFY_*` / provisioning credentials in env
+  (not present in current `.env.local`). Auth leaked-password protection WARN
+  remains until enabled in hosted Auth settings.
+- Next recommended task: Commit Milestone 4 when ready; then meals / shopping
+  (or enable Auth leaked-password protection + re-run hosted access verify).
+
+### 2026-07-16 (budget schema adjustment)
+
+- Work completed: Applied approved schema prep before Budget UI. Migration
+  `20260716240000_budget_month_limits.sql` adds `budget_month_limits` (UNIQUE
+  category+month, first-of-month check, household-consistency trigger, RLS),
+  changes `budget_categories` unique to `(household_id, kind, name)`, replaces
+  `subscriptions.category_id` with `category_label`. Updated seed + pgTAP
+  (25 tests). Regenerated `lib/supabase/database.types.ts`. Drafted Milestone 4
+  UI plan in this file for approval — **UI not started**.
+- Files or areas changed: `supabase/migrations/20260716240000_*.sql`,
+  `supabase/seed.sql`, `supabase/tests/rls_household_access.test.sql`,
+  `lib/supabase/database.types.ts`, `ARCHITECTURE.md`, `IMPLEMENTATION.md`.
+- Validation performed: `npm run supabase:reset`; `npm run supabase:types`;
+  `npm run test:db` 25/25 PASS; `npm run verify` green.
+- Decisions made: ADR-style confirmations from user approval (no rollover; kinds
+  explicit; derived actuals; deferred importer; subscription label not FK).
+- Remaining issues: Hosted `db push` of new migration not run in this pass.
+  Budget UI blocked on plan approval.
+- Next recommended task: User approves Milestone 4 plan → implement Budget
+  repos/actions/UI/tests; then push migration to hosted.
+
+### 2026-07-16 (workbook discovery for Budget)
+
+- Work completed: Read-only discovery of `private-data/workbook.xlsx` against
+  the Milestone 2 Postgres schema. Documented budget tabs (Start, Log, Monthly
+  Budget, Subscription Tracker, Back-end), formulas vs raw values, formats,
+  and explicit workbook→DB mappings. No Supabase writes, no importer, no UI.
+- Files or areas changed: `docs/WORKBOOK_MAPPING.md` (new), `ARCHITECTURE.md`
+  (Budget section: `budget_month_limits`, unique-key note, subscription label
+  note), `IMPLEMENTATION.md` (this subtask + work log).
+- Validation performed: Dual openpyxl load (formulas + cached values). Private
+  cell dumps left under gitignored `private-data/` only.
+- Decisions made / recommendations:
+  1. **Adjust schema before Budget UI** — add `budget_month_limits`
+     (`category_id`, `month_start`, `limit_cents`).
+  2. Prefer `UNIQUE (household_id, kind, name)` on `budget_categories`.
+  3. Actuals / LEFT / subscription monthly↔annual are derived, not stored.
+  4. Log column E and `Monthly Budget!B11` are `$` display helpers, not amounts.
+  5. This export is sparse (few categories, almost empty Log) — re-export before
+     real import.
+- Remaining issues: Cleaning decisions in `WORKBOOK_MAPPING.md` need user
+  confirmation (rollover, subscription category policy, uniqueness, direction
+  rules for savings/debt).
+- Next recommended task: Confirm cleaning decisions → ship a small migration for
+  `budget_month_limits` (+ unique-key change if approved) → then implement
+  Budget vertical slice UI/repos. Keep XLSX import deferred.
 
 ### 2026-07-16 (first stable commit prep)
 

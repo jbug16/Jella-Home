@@ -1,0 +1,23 @@
+import { expect, type Page } from "@playwright/test";
+
+export const E2E_EMAIL = process.env.E2E_EMAIL ?? "member-a@example.test";
+export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "local-dev-password";
+
+export async function signInAsMember(page: Page) {
+  await page.goto("/sign-in");
+  await page.getByLabel("Email").fill(E2E_EMAIL);
+  await page.getByLabel("Password").fill(E2E_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Dashboard" }),
+  ).toBeVisible();
+}
+
+export async function goToBudget(page: Page) {
+  await page.goto("/budget");
+  await expect(page).toHaveURL(/\/budget(?:\?|$)/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Budget" }),
+  ).toBeVisible();
+}

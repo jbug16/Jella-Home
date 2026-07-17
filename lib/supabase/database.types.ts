@@ -1,11 +1,3 @@
-/**
- * Database types for the Jella Home public schema.
- *
- * Regenerate from a running project when the schema changes:
- *   npm run supabase:types
- *   # or: npx supabase gen types typescript --linked > lib/supabase/database.types.ts
- */
-
 export type Json =
   | string
   | number
@@ -15,93 +7,62 @@ export type Json =
   | Json[];
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
-      households: {
-        Row: {
-          id: string;
-          name: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          name: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          name?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      household_members: {
-        Row: {
-          id: string;
-          household_id: string;
-          user_id: string;
-          display_name: string;
-          role: "owner" | "member";
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          household_id: string;
-          user_id: string;
-          display_name: string;
-          role?: "owner" | "member";
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          household_id?: string;
-          user_id?: string;
-          display_name?: string;
-          role?: "owner" | "member";
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "household_members_household_id_fkey";
-            columns: ["household_id"];
-            isOneToOne: false;
-            referencedRelation: "households";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       budget_categories: {
         Row: {
-          id: string;
-          household_id: string;
-          name: string;
-          kind: "income" | "expense" | "bill" | "savings" | "debt";
-          sort_order: number;
           archived_at: string | null;
           created_at: string;
+          household_id: string;
+          id: string;
+          kind: string;
+          name: string;
+          sort_order: number;
           updated_at: string;
         };
         Insert: {
-          id?: string;
-          household_id: string;
-          name: string;
-          kind: "income" | "expense" | "bill" | "savings" | "debt";
-          sort_order?: number;
           archived_at?: string | null;
           created_at?: string;
+          household_id: string;
+          id?: string;
+          kind: string;
+          name: string;
+          sort_order?: number;
           updated_at?: string;
         };
         Update: {
-          id?: string;
-          household_id?: string;
-          name?: string;
-          kind?: "income" | "expense" | "bill" | "savings" | "debt";
-          sort_order?: number;
           archived_at?: string | null;
           created_at?: string;
+          household_id?: string;
+          id?: string;
+          kind?: string;
+          name?: string;
+          sort_order?: number;
           updated_at?: string;
         };
         Relationships: [
@@ -114,89 +75,254 @@ export type Database = {
           },
         ];
       };
-      transactions: {
+      budget_month_limits: {
         Row: {
-          id: string;
-          household_id: string;
           category_id: string;
-          amount_cents: number;
-          direction: "in" | "out";
-          occurred_on: string;
-          payee: string;
-          notes: string;
-          created_by: string | null;
           created_at: string;
+          household_id: string;
+          id: string;
+          limit_cents: number;
+          month_start: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
-          household_id: string;
           category_id: string;
-          amount_cents: number;
-          direction: "in" | "out";
-          occurred_on: string;
-          payee?: string;
-          notes?: string;
-          created_by?: string | null;
           created_at?: string;
+          household_id: string;
+          id?: string;
+          limit_cents: number;
+          month_start: string;
           updated_at?: string;
         };
         Update: {
-          id?: string;
-          household_id?: string;
           category_id?: string;
-          amount_cents?: number;
-          direction?: "in" | "out";
-          occurred_on?: string;
-          payee?: string;
-          notes?: string;
-          created_by?: string | null;
           created_at?: string;
+          household_id?: string;
+          id?: string;
+          limit_cents?: number;
+          month_start?: string;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "transactions_household_id_fkey";
+            foreignKeyName: "budget_month_limits_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "budget_categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "budget_month_limits_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      grocery_list_items: {
+        Row: {
+          created_at: string;
+          household_id: string;
+          id: string;
+          ingredient_id: string | null;
+          is_checked: boolean;
+          list_id: string;
+          name: string;
+          notes: string;
+          quantity: number | null;
+          recipe_id: string | null;
+          sort_order: number;
+          source: string;
+          store_section: string;
+          unit: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          household_id: string;
+          id?: string;
+          ingredient_id?: string | null;
+          is_checked?: boolean;
+          list_id: string;
+          name: string;
+          notes?: string;
+          quantity?: number | null;
+          recipe_id?: string | null;
+          sort_order?: number;
+          source?: string;
+          store_section?: string;
+          unit?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          household_id?: string;
+          id?: string;
+          ingredient_id?: string | null;
+          is_checked?: boolean;
+          list_id?: string;
+          name?: string;
+          notes?: string;
+          quantity?: number | null;
+          recipe_id?: string | null;
+          sort_order?: number;
+          source?: string;
+          store_section?: string;
+          unit?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "grocery_list_items_household_id_fkey";
             columns: ["household_id"];
             isOneToOne: false;
             referencedRelation: "households";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transactions_category_id_fkey";
-            columns: ["category_id"];
+            foreignKeyName: "grocery_list_items_ingredient_id_fkey";
+            columns: ["ingredient_id"];
             isOneToOne: false;
-            referencedRelation: "budget_categories";
+            referencedRelation: "ingredients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "grocery_list_items_list_id_fkey";
+            columns: ["list_id"];
+            isOneToOne: false;
+            referencedRelation: "grocery_lists";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "grocery_list_items_recipe_id_fkey";
+            columns: ["recipe_id"];
+            isOneToOne: false;
+            referencedRelation: "recipes";
             referencedColumns: ["id"];
           },
         ];
       };
-      ingredients: {
+      grocery_lists: {
         Row: {
-          id: string;
-          household_id: string;
-          name: string;
-          default_unit: string;
-          store_section: string;
           created_at: string;
+          household_id: string;
+          id: string;
+          name: string;
+          status: string;
+          updated_at: string;
+          week_start_on: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          household_id: string;
+          id?: string;
+          name: string;
+          status?: string;
+          updated_at?: string;
+          week_start_on?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          household_id?: string;
+          id?: string;
+          name?: string;
+          status?: string;
+          updated_at?: string;
+          week_start_on?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "grocery_lists_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      household_members: {
+        Row: {
+          created_at: string;
+          display_name: string;
+          household_id: string;
+          id: string;
+          role: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          display_name: string;
+          household_id: string;
+          id?: string;
+          role?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          display_name?: string;
+          household_id?: string;
+          id?: string;
+          role?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "household_members_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      households: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
-          household_id: string;
-          name: string;
-          default_unit?: string;
-          store_section?: string;
           created_at?: string;
+          id?: string;
+          name: string;
           updated_at?: string;
         };
         Update: {
-          id?: string;
-          household_id?: string;
-          name?: string;
-          default_unit?: string;
-          store_section?: string;
           created_at?: string;
+          id?: string;
+          name?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ingredients: {
+        Row: {
+          created_at: string;
+          default_unit: string;
+          household_id: string;
+          id: string;
+          name: string;
+          store_section: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          default_unit?: string;
+          household_id: string;
+          id?: string;
+          name: string;
+          store_section?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          default_unit?: string;
+          household_id?: string;
+          id?: string;
+          name?: string;
+          store_section?: string;
           updated_at?: string;
         };
         Relationships: [
@@ -209,143 +335,41 @@ export type Database = {
           },
         ];
       };
-      recipes: {
-        Row: {
-          id: string;
-          household_id: string;
-          name: string;
-          servings: number;
-          instructions: string;
-          notes: string;
-          source_url: string | null;
-          archived_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          household_id: string;
-          name: string;
-          servings?: number;
-          instructions?: string;
-          notes?: string;
-          source_url?: string | null;
-          archived_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          household_id?: string;
-          name?: string;
-          servings?: number;
-          instructions?: string;
-          notes?: string;
-          source_url?: string | null;
-          archived_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "recipes_household_id_fkey";
-            columns: ["household_id"];
-            isOneToOne: false;
-            referencedRelation: "households";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      recipe_ingredients: {
-        Row: {
-          id: string;
-          household_id: string;
-          recipe_id: string;
-          ingredient_id: string;
-          quantity: number;
-          unit: string;
-          notes: string;
-          sort_order: number;
-        };
-        Insert: {
-          id?: string;
-          household_id: string;
-          recipe_id: string;
-          ingredient_id: string;
-          quantity: number;
-          unit?: string;
-          notes?: string;
-          sort_order?: number;
-        };
-        Update: {
-          id?: string;
-          household_id?: string;
-          recipe_id?: string;
-          ingredient_id?: string;
-          quantity?: number;
-          unit?: string;
-          notes?: string;
-          sort_order?: number;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "recipe_ingredients_household_id_fkey";
-            columns: ["household_id"];
-            isOneToOne: false;
-            referencedRelation: "households";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "recipe_ingredients_recipe_id_fkey";
-            columns: ["recipe_id"];
-            isOneToOne: false;
-            referencedRelation: "recipes";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "recipe_ingredients_ingredient_id_fkey";
-            columns: ["ingredient_id"];
-            isOneToOne: false;
-            referencedRelation: "ingredients";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       planned_meals: {
         Row: {
-          id: string;
-          household_id: string;
-          plan_date: string;
-          meal_slot: "breakfast" | "lunch" | "dinner" | "snack" | "other";
-          recipe_id: string | null;
-          custom_title: string | null;
-          servings: number | null;
-          notes: string;
           created_at: string;
+          custom_title: string | null;
+          household_id: string;
+          id: string;
+          meal_slot: string;
+          notes: string;
+          plan_date: string;
+          recipe_id: string | null;
+          servings: number | null;
           updated_at: string;
         };
         Insert: {
-          id?: string;
-          household_id: string;
-          plan_date: string;
-          meal_slot: "breakfast" | "lunch" | "dinner" | "snack" | "other";
-          recipe_id?: string | null;
-          custom_title?: string | null;
-          servings?: number | null;
-          notes?: string;
           created_at?: string;
+          custom_title?: string | null;
+          household_id: string;
+          id?: string;
+          meal_slot: string;
+          notes?: string;
+          plan_date: string;
+          recipe_id?: string | null;
+          servings?: number | null;
           updated_at?: string;
         };
         Update: {
-          id?: string;
-          household_id?: string;
-          plan_date?: string;
-          meal_slot?: "breakfast" | "lunch" | "dinner" | "snack" | "other";
-          recipe_id?: string | null;
-          custom_title?: string | null;
-          servings?: number | null;
-          notes?: string;
           created_at?: string;
+          custom_title?: string | null;
+          household_id?: string;
+          id?: string;
+          meal_slot?: string;
+          notes?: string;
+          plan_date?: string;
+          recipe_id?: string | null;
+          servings?: number | null;
           updated_at?: string;
         };
         Relationships: [
@@ -365,152 +389,147 @@ export type Database = {
           },
         ];
       };
-      grocery_lists: {
+      recipe_ingredients: {
         Row: {
-          id: string;
           household_id: string;
-          name: string;
-          week_start_on: string | null;
-          status: "active" | "archived";
-          created_at: string;
-          updated_at: string;
+          id: string;
+          ingredient_id: string;
+          notes: string;
+          quantity: number;
+          recipe_id: string;
+          sort_order: number;
+          unit: string;
         };
         Insert: {
-          id?: string;
           household_id: string;
-          name: string;
-          week_start_on?: string | null;
-          status?: "active" | "archived";
-          created_at?: string;
-          updated_at?: string;
+          id?: string;
+          ingredient_id: string;
+          notes?: string;
+          quantity: number;
+          recipe_id: string;
+          sort_order?: number;
+          unit?: string;
         };
         Update: {
-          id?: string;
           household_id?: string;
-          name?: string;
-          week_start_on?: string | null;
-          status?: "active" | "archived";
-          created_at?: string;
-          updated_at?: string;
+          id?: string;
+          ingredient_id?: string;
+          notes?: string;
+          quantity?: number;
+          recipe_id?: string;
+          sort_order?: number;
+          unit?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "grocery_lists_household_id_fkey";
+            foreignKeyName: "recipe_ingredients_household_id_fkey";
             columns: ["household_id"];
             isOneToOne: false;
             referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recipe_ingredients_ingredient_id_fkey";
+            columns: ["ingredient_id"];
+            isOneToOne: false;
+            referencedRelation: "ingredients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recipe_ingredients_recipe_id_fkey";
+            columns: ["recipe_id"];
+            isOneToOne: false;
+            referencedRelation: "recipes";
             referencedColumns: ["id"];
           },
         ];
       };
-      grocery_list_items: {
+      recipes: {
         Row: {
-          id: string;
-          household_id: string;
-          list_id: string;
-          name: string;
-          quantity: number | null;
-          unit: string;
-          store_section: string;
-          is_checked: boolean;
-          source: "manual" | "generated";
-          ingredient_id: string | null;
-          recipe_id: string | null;
-          notes: string;
-          sort_order: number;
+          archived_at: string | null;
           created_at: string;
+          household_id: string;
+          id: string;
+          instructions: string;
+          name: string;
+          notes: string;
+          servings: number;
+          source_url: string | null;
           updated_at: string;
         };
         Insert: {
-          id?: string;
-          household_id: string;
-          list_id: string;
-          name: string;
-          quantity?: number | null;
-          unit?: string;
-          store_section?: string;
-          is_checked?: boolean;
-          source?: "manual" | "generated";
-          ingredient_id?: string | null;
-          recipe_id?: string | null;
-          notes?: string;
-          sort_order?: number;
+          archived_at?: string | null;
           created_at?: string;
+          household_id: string;
+          id?: string;
+          instructions?: string;
+          name: string;
+          notes?: string;
+          servings?: number;
+          source_url?: string | null;
           updated_at?: string;
         };
         Update: {
-          id?: string;
-          household_id?: string;
-          list_id?: string;
-          name?: string;
-          quantity?: number | null;
-          unit?: string;
-          store_section?: string;
-          is_checked?: boolean;
-          source?: "manual" | "generated";
-          ingredient_id?: string | null;
-          recipe_id?: string | null;
-          notes?: string;
-          sort_order?: number;
+          archived_at?: string | null;
           created_at?: string;
+          household_id?: string;
+          id?: string;
+          instructions?: string;
+          name?: string;
+          notes?: string;
+          servings?: number;
+          source_url?: string | null;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "grocery_list_items_household_id_fkey";
+            foreignKeyName: "recipes_household_id_fkey";
             columns: ["household_id"];
             isOneToOne: false;
             referencedRelation: "households";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "grocery_list_items_list_id_fkey";
-            columns: ["list_id"];
-            isOneToOne: false;
-            referencedRelation: "grocery_lists";
             referencedColumns: ["id"];
           },
         ];
       };
       subscriptions: {
         Row: {
-          id: string;
-          household_id: string;
-          vendor: string;
-          category_id: string | null;
           amount_cents: number;
-          cadence: "weekly" | "monthly" | "quarterly" | "yearly";
-          renewal_on: string | null;
-          status: "active" | "paused" | "canceled";
-          notes: string;
+          cadence: string;
+          category_label: string;
           created_at: string;
+          household_id: string;
+          id: string;
+          notes: string;
+          renewal_on: string | null;
+          status: string;
           updated_at: string;
+          vendor: string;
         };
         Insert: {
-          id?: string;
-          household_id: string;
-          vendor: string;
-          category_id?: string | null;
           amount_cents: number;
-          cadence: "weekly" | "monthly" | "quarterly" | "yearly";
-          renewal_on?: string | null;
-          status?: "active" | "paused" | "canceled";
-          notes?: string;
+          cadence: string;
+          category_label?: string;
           created_at?: string;
+          household_id: string;
+          id?: string;
+          notes?: string;
+          renewal_on?: string | null;
+          status?: string;
           updated_at?: string;
+          vendor: string;
         };
         Update: {
-          id?: string;
-          household_id?: string;
-          vendor?: string;
-          category_id?: string | null;
           amount_cents?: number;
-          cadence?: "weekly" | "monthly" | "quarterly" | "yearly";
-          renewal_on?: string | null;
-          status?: "active" | "paused" | "canceled";
-          notes?: string;
+          cadence?: string;
+          category_label?: string;
           created_at?: string;
+          household_id?: string;
+          id?: string;
+          notes?: string;
+          renewal_on?: string | null;
+          status?: string;
           updated_at?: string;
+          vendor?: string;
         };
         Relationships: [
           {
@@ -522,18 +541,201 @@ export type Database = {
           },
         ];
       };
-    };
-    Views: Record<string, never>;
-    Functions: {
-      is_household_member: {
-        Args: { target_household_id: string };
-        Returns: boolean;
+      transactions: {
+        Row: {
+          amount_cents: number;
+          category_id: string;
+          created_at: string;
+          created_by: string | null;
+          direction: string;
+          household_id: string;
+          id: string;
+          notes: string;
+          occurred_on: string;
+          payee: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount_cents: number;
+          category_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          direction: string;
+          household_id: string;
+          id?: string;
+          notes?: string;
+          occurred_on: string;
+          payee?: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount_cents?: number;
+          category_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          direction?: string;
+          household_id?: string;
+          id?: string;
+          notes?: string;
+          occurred_on?: string;
+          payee?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transactions_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "budget_categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
-    Enums: Record<string, never>;
-    CompositeTypes: Record<string, never>;
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
 };
 
-export type Tables<T extends keyof Database["public"]["Tables"]> =
-  Database["public"]["Tables"][T]["Row"];
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<
+  keyof Database,
+  "public"
+>];
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R;
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
+      }
+      ? R
+      : never
+    : never;
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I;
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I;
+      }
+      ? I
+      : never
+    : never;
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U;
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U;
+      }
+      ? U
+      : never
+    : never;
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never) = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never;
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never) = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never;
+
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {},
+  },
+} as const;

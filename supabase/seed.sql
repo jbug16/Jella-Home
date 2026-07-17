@@ -183,7 +183,14 @@ BEGIN
   INSERT INTO public.budget_categories (id, household_id, name, kind)
   VALUES
     (category_a, household_a, 'Groceries', 'expense'),
-    (category_b, household_b, 'Groceries', 'expense');
+    (category_b, household_b, 'Groceries', 'expense'),
+    -- Same display name under a different kind is allowed after the unique-key change.
+    (
+      '55555555-5555-4555-8555-555555555555',
+      household_a,
+      'Groceries Fund',
+      'savings'
+    );
 
   INSERT INTO public.transactions (
     household_id,
@@ -196,4 +203,29 @@ BEGIN
   VALUES
     (household_a, category_a, 1250, 'out', CURRENT_DATE, 'Fixture Store A'),
     (household_b, category_b, 9900, 'out', CURRENT_DATE, 'Fixture Store B');
+
+  INSERT INTO public.budget_month_limits (
+    household_id,
+    category_id,
+    month_start,
+    limit_cents
+  )
+  VALUES
+    (
+      household_a,
+      category_a,
+      date_trunc('month', CURRENT_DATE)::date,
+      50000
+    );
+
+  INSERT INTO public.subscriptions (
+    household_id,
+    vendor,
+    category_label,
+    amount_cents,
+    cadence,
+    status
+  )
+  VALUES
+    (household_a, 'Fixture Streaming', 'Entertainment', 1600, 'monthly', 'active');
 END $$;
