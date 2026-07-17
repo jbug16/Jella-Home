@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { BudgetCategory, Transaction } from "@/lib/domain/budget";
+import { defaultOccurredOnForMonth } from "@/lib/domain/budget";
 
 const initialState: BudgetActionState = { error: null, success: null };
 
@@ -64,14 +65,15 @@ function TransactionForm({
   const defaultAmount = transaction
     ? (transaction.amountCents / 100).toFixed(2)
     : "";
-  const defaultDate = transaction?.occurredOn ?? todayIso;
+  const defaultDate = transaction
+    ? transaction.occurredOn
+    : defaultOccurredOnForMonth(monthStart, todayIso);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {transaction ? (
         <input type="hidden" name="id" value={transaction.id} />
       ) : null}
-      <input type="hidden" name="monthStart" value={monthStart} />
       <input type="hidden" name="categoryId" value={categoryId} />
 
       <div className="flex flex-col gap-2">
@@ -176,7 +178,7 @@ export function TransactionFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={transaction ? "Edit transaction" : "Add transaction"}
-      description="Amounts are saved in cents. Income categories count as money in; everything else is money out."
+      description="Income categories count as money in; everything else is money out."
     >
       <TransactionForm
         key={formKey}

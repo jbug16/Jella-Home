@@ -21,7 +21,7 @@ type SetLimitDialogProps = {
   categories: BudgetCategory[];
   monthStart: string;
   initialCategoryId?: string;
-  initialLimitDollars?: string;
+  plannedDollarsByCategoryId: Record<string, string>;
 };
 
 type SetLimitFormProps = Omit<SetLimitDialogProps, "open" | "onOpenChange"> & {
@@ -32,7 +32,7 @@ function SetLimitForm({
   categories,
   monthStart,
   initialCategoryId,
-  initialLimitDollars = "",
+  plannedDollarsByCategoryId,
   onClose,
 }: SetLimitFormProps) {
   const router = useRouter();
@@ -40,8 +40,10 @@ function SetLimitForm({
     upsertMonthLimitAction,
     initialState,
   );
-  const [categoryId, setCategoryId] = useState(
-    initialCategoryId ?? categories[0]?.id ?? "",
+  const startingCategoryId = initialCategoryId ?? categories[0]?.id ?? "";
+  const [categoryId, setCategoryId] = useState(startingCategoryId);
+  const [limitDollars, setLimitDollars] = useState(
+    plannedDollarsByCategoryId[startingCategoryId] ?? "0.00",
   );
 
   useEffect(() => {
@@ -62,7 +64,11 @@ function SetLimitForm({
           id="limit-category"
           className="min-h-11 rounded-md border border-input bg-background px-3"
           value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
+          onChange={(event) => {
+            const nextId = event.target.value;
+            setCategoryId(nextId);
+            setLimitDollars(plannedDollarsByCategoryId[nextId] ?? "0.00");
+          }}
           disabled={pending}
         >
           {categories.map((category) => (
@@ -81,7 +87,8 @@ function SetLimitForm({
           inputMode="decimal"
           required
           disabled={pending}
-          defaultValue={initialLimitDollars}
+          value={limitDollars}
+          onChange={(event) => setLimitDollars(event.target.value)}
           placeholder="500.00"
           className="min-h-11"
         />
@@ -111,10 +118,10 @@ export function SetLimitDialog({
   categories,
   monthStart,
   initialCategoryId,
-  initialLimitDollars = "",
+  plannedDollarsByCategoryId,
 }: SetLimitDialogProps) {
   const formKey = open
-    ? `${initialCategoryId ?? ""}-${monthStart}-${initialLimitDollars}`
+    ? `${initialCategoryId ?? "first"}-${monthStart}-${Object.keys(plannedDollarsByCategoryId).join(",")}`
     : "closed";
 
   return (
@@ -129,7 +136,7 @@ export function SetLimitDialog({
         categories={categories}
         monthStart={monthStart}
         initialCategoryId={initialCategoryId}
-        initialLimitDollars={initialLimitDollars}
+        plannedDollarsByCategoryId={plannedDollarsByCategoryId}
         onClose={() => onOpenChange(false)}
       />
     </ResponsiveFormShell>

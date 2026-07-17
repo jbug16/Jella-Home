@@ -17,7 +17,6 @@ export {
   createCategory,
   createTransaction,
   deleteTransaction,
-  getTransaction,
   listCategories,
   listMonthLimits,
   listTransactionsForMonth,

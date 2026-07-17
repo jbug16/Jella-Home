@@ -213,26 +213,6 @@ export async function listTransactionsForMonth(
   return (data ?? []).map(mapTransaction);
 }
 
-export async function getTransaction(id: string): Promise<Transaction | null> {
-  const membership = await requireCurrentMembership();
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("transactions")
-    .select(
-      "id, household_id, category_id, amount_cents, direction, occurred_on, payee, notes",
-    )
-    .eq("household_id", membership.household.id)
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error("Unable to load transaction.");
-  }
-
-  return data ? mapTransaction(data) : null;
-}
-
 async function resolveCategoryDirection(
   categoryId: string,
 ): Promise<{ kind: BudgetCategoryKind; direction: TransactionDirection }> {

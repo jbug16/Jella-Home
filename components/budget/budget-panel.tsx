@@ -56,13 +56,13 @@ export function BudgetPanel({
     return new Map(categories.map((category) => [category.id, category.name]));
   }, [categories]);
 
-  const limitInitialDollars = limitCategoryId
-    ? (
-        (snapshot.categorySummaries.find(
-          (row) => row.categoryId === limitCategoryId,
-        )?.plannedCents ?? 0) / 100
-      ).toFixed(2)
-    : "";
+  const plannedDollarsByCategoryId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const row of snapshot.categorySummaries) {
+      map[row.categoryId] = (row.plannedCents / 100).toFixed(2);
+    }
+    return map;
+  }, [snapshot.categorySummaries]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -301,7 +301,7 @@ export function BudgetPanel({
         categories={categories}
         monthStart={monthStart}
         initialCategoryId={limitCategoryId}
-        initialLimitDollars={limitInitialDollars}
+        plannedDollarsByCategoryId={plannedDollarsByCategoryId}
       />
       <TransactionFormDialog
         open={addOpen}

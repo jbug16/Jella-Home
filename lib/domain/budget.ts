@@ -227,6 +227,26 @@ export function monthEndFor(monthStart: string): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Default transaction date when adding into a viewed month.
+ * Uses today when it falls in that month; otherwise clamps to the month bounds.
+ */
+export function defaultOccurredOnForMonth(
+  monthStart: string,
+  todayIso: string,
+): string {
+  const start = monthStartFor(monthStart);
+  const end = monthEndFor(start);
+  const today = isoDateSchema.parse(todayIso);
+  if (today >= start && today <= end) {
+    return today;
+  }
+  if (today < start) {
+    return start;
+  }
+  return end;
+}
+
 export function formatMonthLabel(monthStart: string): string {
   const start = monthStartFor(monthStart);
   const [yearText, monthText] = start.split("-");
@@ -285,8 +305,19 @@ export function buildBudgetMonthSnapshot(args: {
     (txn) => txn.occurredOn >= monthStart && txn.occurredOn <= monthEnd,
   );
 
+  const categoryById = new Map(
+    activeCategories.map((category) => [category.id, category]),
+  );
+
   const actualByCategory = new Map<string, number>();
   for (const txn of monthTransactions) {
+    const category = categoryById.get(txn.categoryId);
+    if (!category) {
+      continue;
+    }
+    if (txn.direction !== directionForKind(category.kind)) {
+      continue;
+    }
     const previous = actualByCategory.get(txn.categoryId) ?? 0;
     actualByCategory.set(txn.categoryId, previous + txn.amountCents);
   }

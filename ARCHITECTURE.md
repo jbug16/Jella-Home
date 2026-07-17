@@ -24,7 +24,7 @@ Companion docs:
 
 - Spreadsheet read/write sync or dual-write
 - Multi-tenant SaaS features (billing, arbitrary household invites, orgs)
-- Product UI for budget/meals/recipes beyond the existing shell
+- Product UI for meals, shopping, recipes, subscriptions, or calendar beyond the shell
 - Native mobile clients
 - Public self-serve sign-up
 

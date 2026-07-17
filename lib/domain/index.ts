@@ -19,6 +19,7 @@ export {
   createCategoryInputSchema,
   createTransactionInputSchema,
   currentMonthStart,
+  defaultOccurredOnForMonth,
   directionForKind,
   formatCents,
   formatMonthLabel,

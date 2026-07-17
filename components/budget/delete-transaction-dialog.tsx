@@ -62,7 +62,9 @@ export function DeleteTransactionDialog({
           </p>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending} className="min-h-11">
+            Cancel
+          </AlertDialogCancel>
           <form action={formAction}>
             <input type="hidden" name="id" value={transaction?.id ?? ""} />
             <Button

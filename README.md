@@ -86,7 +86,7 @@ keys in `.env.local`, then `npm run provision:household`.
 ```bash
 npm run dev                  # development server
 npm run build && npm start   # production build
-npm run verify               # format, lint, typecheck, unit, build, e2e
+npm run verify               # format, lint, typecheck, unit, e2e (e2e rebuilds for local Supabase)
 npm run test                 # Vitest unit tests
 npm run test:e2e             # Playwright (needs browsers installed)
 npm run test:db              # pgTAP RLS (needs local Supabase)
@@ -102,21 +102,23 @@ npm run supabase:advisors    # linked hosted project
 
 ```
 app/
-  (app)/                  # membership-gated shell + domain placeholders
+  (app)/                  # membership-gated shell; Budget UI at /budget
   sign-in/                # email/password only
   not-provisioned/
   auth/actions.ts
 components/
+  budget/                 # month nav, summaries, transaction forms
 lib/
   supabase/               # SSR, browser (auth-only), admin (secret)
-  repositories/           # cookie-backed domain API
-  domain/
+  repositories/           # cookie-backed domain API (household + budget)
+  domain/                 # Zod schemas + derived budget math
 supabase/
   migrations/
-  seed.sql                # fake local users only
+  seed.sql                # fake local users + sample budget rows
   tests/                  # pgTAP
-scripts/                  # provision + hosted verification (CLI)
+scripts/                  # provision, e2e local runner, hosted verification
 docs/HOSTED_SUPABASE.md
+docs/WORKBOOK_MAPPING.md  # legacy XLSX → schema (import deferred)
 ```
 
 ## Security notes

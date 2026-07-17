@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBudgetMonthSnapshot,
   currentMonthStart,
+  defaultOccurredOnForMonth,
   directionForKind,
   formatCents,
   formatMonthLabel,
@@ -76,6 +77,18 @@ describe("month boundaries", () => {
   it("currentMonthStart matches todayIso month", () => {
     const fixed = new Date(2026, 6, 16);
     expect(currentMonthStart(fixed)).toBe("2026-07-01");
+  });
+
+  it("defaults add-transaction date within the viewed month", () => {
+    expect(defaultOccurredOnForMonth("2026-07-01", "2026-07-16")).toBe(
+      "2026-07-16",
+    );
+    expect(defaultOccurredOnForMonth("2026-06-01", "2026-07-16")).toBe(
+      "2026-06-30",
+    );
+    expect(defaultOccurredOnForMonth("2026-08-01", "2026-07-16")).toBe(
+      "2026-08-01",
+    );
   });
 });
 
@@ -253,5 +266,26 @@ describe("buildBudgetMonthSnapshot", () => {
     );
     expect(groceries?.actualCents).toBe(0);
     expect(groceries?.remainingCents).toBe(50000);
+  });
+
+  it("ignores category actuals when direction disagrees with kind", () => {
+    const snapshot = buildBudgetMonthSnapshot({
+      monthStart: "2026-07-01",
+      categories,
+      limits,
+      transactions: [
+        {
+          ...transactions[1]!,
+          direction: "in",
+        },
+      ],
+    });
+
+    const groceries = snapshot.categorySummaries.find(
+      (row) => row.name === "Groceries",
+    );
+    expect(groceries?.actualCents).toBe(0);
+    expect(snapshot.actualInCents).toBe(1250);
+    expect(snapshot.actualOutCents).toBe(0);
   });
 });

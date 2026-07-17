@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 import {
   Dialog,
@@ -19,6 +19,20 @@ import {
 
 const MOBILE_QUERY = "(max-width: 639px)";
 
+function subscribe(onStoreChange: () => void) {
+  const media = window.matchMedia(MOBILE_QUERY);
+  media.addEventListener("change", onStoreChange);
+  return () => media.removeEventListener("change", onStoreChange);
+}
+
+function getSnapshot() {
+  return window.matchMedia(MOBILE_QUERY).matches;
+}
+
+function getServerSnapshot() {
+  return false;
+}
+
 type ResponsiveFormShellProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,15 +48,11 @@ export function ResponsiveFormShell({
   description,
   children,
 }: ResponsiveFormShellProps) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const media = window.matchMedia(MOBILE_QUERY);
-    const sync = () => setIsMobile(media.matches);
-    sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, []);
+  const isMobile = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
   if (isMobile) {
     return (

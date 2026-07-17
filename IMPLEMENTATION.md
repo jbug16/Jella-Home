@@ -274,7 +274,7 @@ Out of scope:
 
 - `listCategories`, `createCategory`
 - `listMonthLimits`, `upsertMonthLimit`
-- `listTransactionsForMonth`, `getTransaction`, `createTransaction`,
+- `listTransactionsForMonth`, `createTransaction`,
   `updateTransaction`, `deleteTransaction`
 - Direction resolved from category kind on write.
 
@@ -306,7 +306,10 @@ Out of scope:
 - [x] Usable at 360×780, 390×844, iPad portrait, desktop ≥1280; no horizontal
       scroll at 360px; ≥44px touch targets.
 - [x] Vitest covers cents math and month-boundary helpers.
-- [x] Playwright: add + edit + delete expense on desktop and 360px mobile.
+- [x] Playwright: add + edit + delete expense on desktop and 360px mobile
+      (seeded summary asserted). Month nav / category / limit / overspend /
+      empty / income flows are UI-wired and unit-covered; expand e2e later if
+      needed.
 - [x] `npm run verify` and `npm run test:db` green.
 - [x] No stored actuals/remaining; no importer.
 
@@ -545,6 +548,27 @@ Add only questions that materially block or influence implementation.
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-16 (Milestone 4 release review)
+
+- Work completed: Final release review of Budget vertical slice. Fixed
+  add-transaction date defaulting to the viewed month, month-limit amount
+  refresh when changing category (toolbar prefill included), direction-aware
+  category actuals, Dialog/Sheet hydration via `useSyncExternalStore`, create-
+  category remount on open, and delete Cancel touch target. Removed unused
+  `getTransaction`. Updated stale ARCHITECTURE non-goal and README verify note.
+- Files or areas changed: `lib/domain/budget.ts`, budget UI components,
+  `tests/unit/budget.test.ts`, `ARCHITECTURE.md`, `README.md`,
+  `IMPLEMENTATION.md`, repository index.
+- Validation performed: `npm run test:db` 25/25; hosted `migration list` (5
+  match); Security Advisor WARN only (`auth_leaked_password_protection`);
+  Performance Advisor clean; `npm run verify` green (22 unit + 16 e2e).
+- Remaining issues: Hosted JWT `verify:hosted-access` still needs VERIFY_*
+  credentials; Auth leaked-password protection still disabled on hosted;
+  Playwright does not yet cover month nav / create category / set limit /
+  overspend / empty / income (manual + unit coverage only).
+- Next recommended task: Commit release-review fixes; enable Auth leaked-
+  password protection; then Milestone 5 (meals) when ready.
 
 ### 2026-07-16 (Milestone 4 Budget vertical slice)
 
