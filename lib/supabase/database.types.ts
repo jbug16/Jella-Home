@@ -304,6 +304,7 @@ export type Database = {
           household_id: string;
           id: string;
           name: string;
+          name_normalized: string | null;
           store_section: string;
           updated_at: string;
         };
@@ -313,6 +314,7 @@ export type Database = {
           household_id: string;
           id?: string;
           name: string;
+          name_normalized?: string | null;
           store_section?: string;
           updated_at?: string;
         };
@@ -322,6 +324,7 @@ export type Database = {
           household_id?: string;
           id?: string;
           name?: string;
+          name_normalized?: string | null;
           store_section?: string;
           updated_at?: string;
         };
@@ -395,7 +398,7 @@ export type Database = {
           id: string;
           ingredient_id: string;
           notes: string;
-          quantity: number;
+          quantity: number | null;
           recipe_id: string;
           sort_order: number;
           unit: string;
@@ -405,7 +408,7 @@ export type Database = {
           id?: string;
           ingredient_id: string;
           notes?: string;
-          quantity: number;
+          quantity?: number | null;
           recipe_id: string;
           sort_order?: number;
           unit?: string;
@@ -415,7 +418,7 @@ export type Database = {
           id?: string;
           ingredient_id?: string;
           notes?: string;
-          quantity?: number;
+          quantity?: number | null;
           recipe_id?: string;
           sort_order?: number;
           unit?: string;
@@ -447,36 +450,45 @@ export type Database = {
       recipes: {
         Row: {
           archived_at: string | null;
+          cook_time_minutes: number | null;
           created_at: string;
           household_id: string;
           id: string;
+          image_path: string | null;
           instructions: string;
           name: string;
           notes: string;
+          prep_time_minutes: number | null;
           servings: number;
           source_url: string | null;
           updated_at: string;
         };
         Insert: {
           archived_at?: string | null;
+          cook_time_minutes?: number | null;
           created_at?: string;
           household_id: string;
           id?: string;
+          image_path?: string | null;
           instructions?: string;
           name: string;
           notes?: string;
+          prep_time_minutes?: number | null;
           servings?: number;
           source_url?: string | null;
           updated_at?: string;
         };
         Update: {
           archived_at?: string | null;
+          cook_time_minutes?: number | null;
           created_at?: string;
           household_id?: string;
           id?: string;
+          image_path?: string | null;
           instructions?: string;
           name?: string;
           notes?: string;
+          prep_time_minutes?: number | null;
           servings?: number;
           source_url?: string | null;
           updated_at?: string;
@@ -603,7 +615,20 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      save_recipe_with_ingredients: {
+        Args: {
+          p_cook_time_minutes: number;
+          p_household_id: string;
+          p_ingredients: Json;
+          p_instructions: string;
+          p_name: string;
+          p_notes: string;
+          p_prep_time_minutes: number;
+          p_recipe_id?: string;
+          p_servings: number;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;

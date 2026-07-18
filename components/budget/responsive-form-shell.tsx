@@ -38,6 +38,8 @@ type ResponsiveFormShellProps = {
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
+  /** Desktop Dialog width class. Defaults to a compact form width. */
+  desktopWidthClassName?: string;
   children: React.ReactNode;
 };
 
@@ -46,6 +48,7 @@ export function ResponsiveFormShell({
   onOpenChange,
   title,
   description,
+  desktopWidthClassName = "sm:max-w-md",
   children,
 }: ResponsiveFormShellProps) {
   const isMobile = useSyncExternalStore(
@@ -75,7 +78,9 @@ export function ResponsiveFormShell({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+      <DialogContent
+        className={`max-h-[90dvh] overflow-y-auto ${desktopWidthClassName}`}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? (

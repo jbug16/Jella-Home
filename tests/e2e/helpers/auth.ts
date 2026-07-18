@@ -21,3 +21,11 @@ export async function goToBudget(page: Page) {
     page.getByRole("heading", { level: 1, name: "Budget" }),
   ).toBeVisible();
 }
+
+export async function goToRecipes(page: Page) {
+  await page.goto("/recipes");
+  await expect(page).toHaveURL(/\/recipes(?:\?|$)/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Recipes" }),
+  ).toBeVisible();
+}

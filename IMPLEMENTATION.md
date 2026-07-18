@@ -11,16 +11,19 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** 4 — Budget vertical slice  
-**Status:** Complete  
+**Milestone:** 7 — Recipe management vertical slice  
+**Status:** Complete (2026-07-18; final release review passed — verify, test:db 49/49, hosted migrations + advisors)  
 **Owner:** Lead Engineer  
-**Goal:** Monthly budget dashboard and transaction entry on Supabase, with
-currency-safe cents math and responsive UI. No workbook import in this
-milestone.
+**Goal:** Recipe list, detail, and create/edit/delete with structured, reusable
+ingredients on Supabase, plus search and responsive/accessible UI. Reuses the
+Budget slice conventions (domain → repository → server action → RSC + shadcn).
+No meal planning, grocery generation, nutrition, scraping, imports, or AI.
 
-Previous: Milestone 2 complete. Workbook discovery + schema adjustment + hosted
-migration push complete. Budget UI shipped on seed/empty data (XLSX import
-deferred).
+Previous: Milestone 4 (Budget vertical slice) complete and pushed — derived
+totals, currency-safe cents, Dialog/Sheet forms, Playwright desktop + 360.
+Milestone 2 complete (auth, RLS, hosted). The full Recipe plan reconciled from
+Frontend/UI, Backend/Data, and QA specialist reviews is in
+[Milestone 7 below](#7-recipe-management) and ADR-014.
 
 ### Pre-work completed
 
@@ -355,15 +358,215 @@ Scope:
 
 ### 7. Recipe management
 
-**Status:** Not started
+**Status:** Complete (2026-07-18; images + ingredient/unit pickers added post-plan, see ADR-015)
 
-Scope:
+Recipe list, detail, create, edit, delete with structured ingredients, search,
+and basic filtering. Desktop-first, fully usable on iPhone 12 mini (360×780),
+iPhone 13 Pro (390×844), and iPad. Reuses Budget slice patterns. Plan below is
+reconciled from Frontend/UI, Backend/Data, and QA specialist reviews.
 
-- Recipe list and search
-- Recipe details
-- Add and edit recipes
-- Ingredients and servings
-- Use recipe in meal plan
+#### In scope
+
+- Recipe list with search + basic filter/sort
+- Recipe detail view
+- Create / edit / delete (delete = soft archive) a recipe
+- Fields: name, notes (description), servings, prep time, cook time, instructions
+- Structured ingredient lines: quantity, unit, ingredient name, per-line notes,
+  preserved order; reuse existing ingredients instead of duplicating
+- Empty, loading, error, validation, and success states
+- Accessible, responsive forms and controls
+
+#### Out of scope (deferred / other milestones)
+
+Meal planning, automatic grocery-list generation, nutrition, recipe scraping /
+URL import, AI generation, workbook import, subscriptions, dashboard summaries,
+and native mobile.
+
+Note: recipe images were originally deferred here, but were added in a follow-up
+after this plan via private Supabase Storage + signed URLs, alongside an
+ingredient picker (searchable combobox) and an approved-unit picker. See ADR-015
+and migrations `20260718000000_recipe_images.sql` /
+`20260718010000_recipe_images_private_fn.sql`.
+
+#### Schema changes — one migration `*_recipe_slice.sql` (see ADR-014)
+
+Tables already exist from Milestone 2 core schema; this slice adjusts them:
+
+1. `recipes`: add `prep_time_minutes integer NULL CHECK (… >= 0)` and
+   `cook_time_minutes integer NULL CHECK (… >= 0)`. Reuse existing `notes` as the
+   description/notes field (no new column). Keep `servings numeric NOT NULL > 0`.
+2. `ingredients`: add `name_normalized` STORED generated column
+   (`regexp_replace(btrim(lower(name)), '\s+', ' ', 'g')`); replace
+   `UNIQUE (household_id, name)` with `UNIQUE (household_id, name_normalized)` so
+   reuse dedupes across casing/whitespace. `name` keeps the display form as typed.
+3. `recipe_ingredients`: relax `quantity` to `numeric NULL CHECK (quantity IS NULL
+OR quantity > 0)` so "to taste" lines are representable; keep `ingredient_id`
+   NOT NULL, `unit`/`notes` text, `sort_order` for ordering. No unique on
+   `(recipe_id, ingredient_id)` (an ingredient may appear twice).
+4. Add trigger `enforce_recipe_ingredient_household` (mirrors
+   `budget_month_limits`): a line's `household_id` must equal both its recipe and
+   its ingredient household (`23514` mismatch / `23503` missing).
+5. Add `save_recipe_with_ingredients(...)` — a `SECURITY INVOKER`,
+   `SET search_path = ''` RPC that atomically upserts the recipe, reuses/creates
+   ingredients (`ON CONFLICT (household_id, name_normalized)`), replaces the
+   recipe's ordered lines, and returns the recipe id. Runs under caller RLS.
+   FK indexes for the recipe tables already exist (`20260716230000_fk_indexes.sql`).
+   Regenerate `lib/supabase/database.types.ts` after the migration.
+
+#### Domain — `lib/domain/recipe.ts` (pure, unit-tested)
+
+- Zod schemas: `recipeSchema`, `recipeIngredientSchema`, `recipeWithIngredientsSchema`,
+  `createRecipeInputSchema`, `updateRecipeInputSchema` (extends create with `id`),
+  and an `ingredientLineInputSchema` (name required/trimmed, `quantity` positive or
+  null, `unit` string, `notes` string).
+- Invariants: name required (trimmed, non-empty); `servings > 0`; times are
+  non-negative integers or null; ingredient lines carry a resolved name and
+  positive-or-null quantity; ordering preserved via contiguous `sort_order`.
+- Pure helpers: `normalizeIngredientName` (trim + collapse internal whitespace;
+  lowercase compare key that matches the DB generated column), `normalizeUnit`
+  (trim + lowercase), `parseQuantityInput` (accepts decimals and simple `a/b`
+  fractions → positive number, or null for blank/"to taste"), `formatQuantity`,
+  `totalTimeMinutes(prep, cook)`, `formatDuration(minutes)`, `reindexSortOrder`.
+- Row→domain mappers exported as pure functions and unit-tested.
+
+#### Repositories — `lib/repositories/recipes.ts` (cookie SSR client + RLS)
+
+Never the admin client. All call `requireCurrentMembership()`.
+
+- `listRecipes({ search?, sort? })`: active (non-archived) recipe summaries
+  (id, name, servings, times, ingredient count); `ILIKE` on name (+ ingredient
+  name) when searching.
+- `getRecipe(id)`: recipe + ordered ingredient lines (join to `ingredients`),
+  scoped to the household; returns null when missing/archived.
+- `createRecipe(input)` / `updateRecipe(input)`: call the
+  `save_recipe_with_ingredients` RPC (atomic reuse + reorder).
+- `archiveRecipe(id)`: sets `archived_at` (the "delete").
+
+#### Server actions — `app/(app)/recipes/actions.ts`
+
+`{ error, success }` state pattern like Budget. `createRecipeAction`,
+`updateRecipeAction`, `deleteRecipeAction`. Ingredient rows arrive as a hidden
+JSON field, parsed with Zod. Validate → call repo → `revalidatePath("/recipes")`
+(and the detail path on edit). Submit disabled while pending; recoverable errors
+return a message without discarding input.
+
+#### UI structure
+
+- `app/(app)/recipes/page.tsx` (RSC): reads `?q=`/`?sort=`, calls `listRecipes`,
+  renders `RecipeListPanel`. Distinct **empty** ("No recipes yet" + Add CTA) vs
+  **no-results** ("No recipes match …" + Clear search).
+- `app/(app)/recipes/[id]/page.tsx` (RSC): `getRecipe` or `notFound()`; shows
+  name, servings, prep/cook/total time, notes, instructions (line breaks
+  preserved), ordered ingredients, Edit + Delete.
+- `components/recipes/`:
+  - `recipe-list-panel.tsx` (client): search input (debounced,
+    `router.replace(url, { scroll:false })` inside `useTransition` so the shared
+    route-group skeleton does not flash and focus is kept), Add button, responsive
+    `ul.divide-y` list (not a table); metadata line "4 servings · 45 min total".
+  - `recipe-form-dialog.tsx` (client): reuses `ResponsiveFormShell` with a new
+    optional width prop (widen desktop Dialog to `sm:max-w-lg`; do **not** change
+    Budget's width). Fields: name, notes, servings, prep, cook, instructions
+    (Textarea), and the ingredient editor.
+  - `ingredient-rows.tsx` (client): **controlled** `useState` rows keyed by a
+    stable `crypto.randomUUID()` clientId; serialized to a hidden JSON input. At
+    360px each row stacks (quantity + unit, then full-width name, then ↑/↓/remove
+    44×44 icon buttons); single flex row at `sm+`. Reorder via up/down buttons
+    (aria-labelled, disabled at ends, focus retained). Unit + ingredient
+    suggestions via native `<datalist>` seeded from existing ingredients (no
+    combobox dependency). The form is keyed only on dialog `open` and is **not**
+    remounted/refreshed on a recoverable error, so entered rows survive; reset and
+    `router.refresh()` happen only on success.
+  - `delete-recipe-dialog.tsx` (client): `AlertDialog` confirm (Budget pattern).
+- New shadcn component: `textarea` (only addition). Every input keeps `min-h-11`
+  and 16px text (avoid iOS zoom). Dynamic-row inputs get accessible names.
+
+#### Ingredient-entry UX
+
+Rows of quantity | unit | name (+ optional notes). On save, each name is
+normalized; an existing ingredient is reused by normalized name, otherwise created
+(with `default_unit` seeded from the line). `sort_order` = row index, so order is
+preserved on reload and after edits. Blank quantity ⇒ "to taste".
+
+#### Testing strategy
+
+- **Vitest** `tests/unit/recipe.test.ts`: normalization (name/unit), quantity
+  parsing (decimals, fractions, blank→null, reject ≤0), duration/total-time,
+  `reindexSortOrder` + ordering, servings/time validation, create/update Zod
+  schemas, and row→domain mappers.
+- **pgTAP** (extend `rls_household_access.test.sql`; bump `plan()` by ~15, 25 → ~40):
+  anon denied, non-member denied, member CRUD on recipes/ingredients/
+  recipe_ingredients, cross-household read/write denied, `household_id` reassign
+  denied, `enforce_recipe_ingredient_household` (both recipe- and ingredient-
+  mismatch, asserted under `RESET ROLE`), the `name_normalized` unique/reuse
+  behavior, and the `save_recipe_with_ingredients` RPC (member success + reuse =
+  single ingredients row; cross-household denial). Seed a recipe + ingredients for
+  household_a and a recipe for household_b.
+- **Playwright** `tests/e2e/recipes.chromium.spec.ts` with new serial projects
+  `recipes-chromium-desktop` (1280×800) and `recipes-chromium-mobile-360`
+  (360×780), plus a `recipes.webkit.spec.ts` reusing the iPhone/iPad WebKit
+  projects (config `testMatch` is filename-specific — new projects are required).
+  Flows: list shows the seeded recipe; create a uniquely-named recipe with 2
+  ingredients (assert order + that reusing an existing ingredient name adds no
+  duplicate); view detail; edit (rename + change a quantity + reorder, assert
+  persisted order); delete/archive (assert it leaves the list, seeded recipe
+  remains); search narrows the list; no horizontal scroll at 360. Create/edit/
+  delete only touch test-created rows (unique `Date.now()` names) so the shared,
+  non-reset local DB stays deterministic.
+
+#### Acceptance criteria
+
+- [ ] List shows household recipes with search + basic sort; empty and no-results
+      states are distinct.
+- [ ] Detail view shows name, servings, prep/cook/total time, notes, instructions
+      (line breaks preserved), and ingredients in defined order.
+- [ ] Create/edit/delete work; delete is a soft archive and removes the recipe
+      from the list.
+- [ ] Ingredient lines store quantity (positive or "to taste"), unit, and a reused
+      ingredient; no duplicate `ingredients` rows for the same normalized name;
+      order is preserved after edit + reload.
+- [ ] Every mutation is Zod-validated; validation errors are surfaced; submit is
+      disabled while saving; recoverable errors preserve entered rows; destructive
+      delete confirms.
+- [ ] Usable at 360×780, 390×844, iPad portrait, and desktop ≥1280; no horizontal
+      scroll at 360; ≥44px touch targets; labeled, keyboard-navigable controls.
+- [ ] Vitest (domain + mappers), pgTAP (RLS + trigger + RPC), and Playwright
+      (desktop + 360, WebKit iPhone/iPad) all green; `npm run verify` and
+      `npm run test:db` pass.
+
+#### Risks and unresolved decisions
+
+1. **Atomic writes:** mitigated by the `save_recipe_with_ingredients` RPC rather
+   than repository-orchestrated delete-then-reinsert (which risks losing all lines
+   on partial failure over PostgREST). Confirm the RPC approach is acceptable.
+2. **"To taste":** proposes nullable `quantity` to satisfy the freeform-only-when-
+   needed rule. If a strict positive-quantity rule is preferred instead, we keep
+   `quantity NOT NULL > 0` and push "to taste" into per-line `notes`.
+3. **Ingredient identity:** normalized-name dedupe is per household and case/space
+   insensitive; genuinely different items that normalize alike (e.g. brand
+   variants) would merge — accepted for two-user scale.
+4. **Delete semantics:** soft archive (recommended) vs hard delete. Soft archive
+   preserves later meal-plan/grocery references; confirm this is the intended
+   "delete".
+5. **Unit vocabulary:** V1 normalizes to trim+lowercase only (no alias mapping like
+   tbsp↔tablespoon). Alias normalization deferred unless requested.
+6. **Search scope:** name + ingredient name via `ILIKE`; no tag/category filter in
+   this slice.
+
+#### Follow-up shipped (2026-07-18): cover images + ingredient picker
+
+- **Images:** optional recipe cover image in a private `recipe-images` Storage
+  bucket (jpeg/png/webp ≤ 5 MB), household-scoped `storage.objects` RLS via
+  `private.can_access_recipe_image`, `recipes.image_path` key + per-render signed
+  URLs; upload in the form (preview + "remove" on edit), list thumbnails, detail
+  hero. Migrations `20260718000000_recipe_images.sql` +
+  `20260718010000_recipe_images_private_fn.sql` (moves the access function to the
+  `private` schema per Security Advisor). See ADR-015.
+- **Ingredient picker:** free-text name replaced by a searchable combobox
+  (`components/recipes/ingredient-combobox.tsx` on a new `components/ui/popover.tsx`)
+  listing existing ingredients with inline "Add …" and default-unit auto-fill.
+- **Verified:** `npm run verify` green (28 e2e incl. upload + combobox on desktop
+  - 360 + WebKit), `npm run test:db` 49/49, migrations pushed to hosted, advisors
+    clean except the pre-existing Auth leaked-password warning.
 
 ### 8. Subscription tracker
 
@@ -447,6 +650,65 @@ V1. Actuals and remaining are always derived from transactions + limits.
 spreadsheet formulas or conflating subscription labels with budget kinds.  
 **Consequences:** Budget UI must upsert limits per month; a future “copy
 previous month” action can populate limits without a rollover balance column.
+
+### ADR-014: Recipe schema, ingredient reuse, atomic writes, and archival
+
+**Status:** Accepted (2026-07-16; nullable quantity, soft archive, atomic RPC approved)  
+**Decision:** For the Recipe slice: (a) add `recipes.prep_time_minutes` and
+`recipes.cook_time_minutes` (nullable, non-negative) and reuse `recipes.notes`
+for description; (b) dedupe ingredients per household by a STORED
+`name_normalized` generated column with `UNIQUE (household_id, name_normalized)`,
+replacing `UNIQUE (household_id, name)`; (c) allow `recipe_ingredients.quantity`
+to be NULL ("to taste") while otherwise requiring `> 0`, preserving order via
+`sort_order`; (d) enforce `recipe_ingredients` household consistency with a
+trigger mirroring `budget_month_limits`; (e) perform recipe create/update through
+one `SECURITY INVOKER` RPC `save_recipe_with_ingredients` so recipe, ingredient
+reuse, and ordered lines commit atomically under caller RLS; (f) treat recipe
+deletion as a soft archive (`archived_at`).  
+**Reason:** Structured, reusable ingredients need case/whitespace-insensitive
+identity; a delete-then-reinsert update over PostgREST can lose all lines on
+partial failure, so an atomic RPC is safer than repository orchestration; soft
+archive preserves later meal-plan/grocery references (`ON DELETE SET NULL`).  
+**Consequences:** Repositories call the RPC and never the admin client; the
+generated column expression must match the app's `normalizeIngredientName`; a new
+migration plus regenerated types are required; pgTAP covers the trigger, the
+normalized-name uniqueness, and the RPC. Alternatives (repository-orchestrated
+writes with best-effort compensation; strict `quantity NOT NULL > 0`; hard delete)
+are recorded in the Milestone 7 unresolved decisions.
+
+### ADR-015: Recipe images via private Storage + signed URLs; ingredient picker
+
+**Status:** Accepted (2026-07-18)  
+**Decision:** Store optional recipe cover images in a **private** Supabase
+Storage bucket `recipe-images` (5 MB cap; jpeg/png/webp). Object keys are
+`"{household_id}/{uuid}.{ext}"`, so the first folder segment identifies the
+owning household. `storage.objects` RLS (SELECT/INSERT/UPDATE/DELETE for
+`authenticated`) is scoped to the bucket and defers to
+`private.can_access_recipe_image(name)`, which parses the household folder and
+calls `private.is_household_member` — kept in the `private` schema (not `public`)
+so it is not exposed as a PostgREST RPC (Security Advisor). `recipes.image_path`
+stores the object key; the app never persists URLs. Repositories generate
+short-lived (1 hour) signed URLs per render via the authenticated client, so the
+app stays private with no public image URLs and no `next/image` remote config.
+The image path is written by a small guarded update **outside** the atomic
+`save_recipe_with_ingredients` RPC (upload → create/update → `setRecipeImagePath`,
+with best-effort object cleanup on failure), keeping "keep/replace/remove" simple
+and avoiding the RPC's nullable-arg typing. The free-text ingredient name field
+is replaced by a searchable combobox built on the already-installed `radix-ui`
+Popover (no new dependency), listing existing household ingredients and offering
+an inline "Add …" for new names, auto-filling the default unit on select.  
+**Reason:** A private bucket with signed URLs matches the app's
+authentication-first, two-user model and avoids leaking image URLs. Handling the
+image outside the RPC keeps the atomic write untouched. Building the combobox on
+Popover avoids adding `cmdk` while remaining accessible.  
+**Consequences:** Renders that show images pay a batched `createSignedUrls` call;
+URLs expire after an hour (regenerated each render). A rare follow-up-update
+failure after upload can orphan an object (mitigated by best-effort delete).
+Storage policies and the private access function are created via migration and
+apply identically on local reset and hosted push. Covered by unit tests
+(`validateRecipeImage`, `imageExtensionForType`), pgTAP (column + bucket exist,
+cross-household storage deny), and Playwright (upload → thumbnail → hero, combobox
+add + reuse).
 
 ### ADR-002: Initial client strategy
 
@@ -548,6 +810,194 @@ Add only questions that materially block or influence implementation.
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-18 (Milestone 7 pre-commit maintenance fixes)
+
+- Work completed: Addressed the maintenance items surfaced by the final review,
+  with no product-behavior changes.
+  1. Made `npm run test:db` deterministic after Playwright. The three
+     member-read count assertions (recipes, ingredients, recipe_ingredients) plus
+     the budget member-read counts (households, transactions, budget_month_limits)
+     now scope to fixed fixture UUIDs / fixture attributes instead of a global
+     `count(*)`, so rows the e2e suite writes into the same household on the shared
+     local DB no longer inflate them. No destructive per-run reset was added; the
+     `test:db` script is unchanged.
+  2. Added migration `20260718020000_transactions_category_index.sql`
+     (`transactions_category_id_idx` on `transactions(category_id)`) to resolve the
+     hosted Performance Advisor's unindexed-foreign-key finding; pushed to hosted.
+     The pre-existing composite `(household_id, category_id)` index does not cover
+     a `category_id`-only lookup, so a dedicated index is correct.
+  3. Removed the unreachable `DeleteRecipeDialog` success path
+     (`onDeleted` prop + `router.refresh` fallback + the `useEffect`/`useRouter`
+     imports): `deleteRecipeAction` redirects server-side, so no client success
+     state is ever observed. Dropped the now-unused `onDeleted` wiring in
+     `recipe-detail-actions.tsx`.
+  4. Simplified the one-element `Promise.all` in `app/(app)/recipes/[id]/page.tsx`
+     to a direct `await listIngredientSuggestions()`.
+- Files or areas changed: `supabase/tests/rls_household_access.test.sql`,
+  `supabase/migrations/20260718020000_transactions_category_index.sql` (new),
+  `components/recipes/delete-recipe-dialog.tsx`,
+  `components/recipes/recipe-detail-actions.tsx`,
+  `app/(app)/recipes/[id]/page.tsx`, `IMPLEMENTATION.md`.
+- Validation performed: `npm run verify` green (format/lint/typecheck, Vitest,
+  `next build`, 28/28 Playwright). `npm run test:db` run twice back-to-back with no
+  reset in between — **49/49 PASS both times** against a DB the e2e suite had just
+  written to. Hosted: migration `20260718020000` present in `list_migrations`;
+  `transactions_category_id_idx` confirmed via `pg_indexes`; Performance Advisor no
+  longer reports the unindexed FK on `transactions.category_id` (remaining
+  notices are INFO-only unused-index entries, expected on a low-traffic DB).
+- Remaining issues: Hosted Auth leaked-password protection is still disabled
+  (dashboard toggle, project-wide — unrelated to this slice).
+- Next recommended task: Commit the slice (see recommended message in the review
+  report), then begin the next milestone.
+
+### 2026-07-18 (Milestone 7 Recipe slice final release review)
+
+- Work completed: Full release review of the Recipe slice (list/detail/CRUD,
+  search, ingredient reuse + normalization, approved-unit picker, private-Storage
+  images with signed URLs). Confirmed repository-pattern consistency with Budget
+  (domain → repository → server action → RSC + shadcn), RLS enforcement (RPC is
+  `SECURITY INVOKER`; Storage RLS routes through `private.can_access_recipe_image`),
+  UI consistency (shared `ResponsiveFormShell`, `PageHeader`, `EmptyState`,
+  `min-h-11` touch targets), accessibility (labelled controls, `role="alert"`
+  errors, combobox keyboard nav), responsive layouts (360/390/iPad/desktop e2e),
+  atomic writes (single-transaction save RPC), and soft-archive behavior. Updated
+  Milestone 7 status to Complete and corrected the out-of-scope note that still
+  listed recipe images as deferred (they shipped via ADR-015).
+- Files or areas changed: `IMPLEMENTATION.md` (this entry, statuses, scope note).
+  No product-code changes were required by the review.
+- Validation performed: `npm run verify` green (format/lint/typecheck, Vitest,
+  `next build`, 28/28 Playwright across chromium desktop + mobile-360 and webkit
+  iPhone + iPad). `npm run test:db` 49/49 PASS on a freshly reset local DB (an
+  initial run reported 3 failures — count assertions inflated because the e2e
+  suite in `verify` had just written rows to the shared local DB; a `supabase db
+reset` before `test:db` restored 49/49). Hosted (`ggyvfkgeudcqbozlsify`):
+  `list_migrations` shows all 8 migrations incl. `recipe_slice`, `recipe_images`,
+  `recipe_images_private_fn`. Security Advisor: only the pre-existing
+  `auth_leaked_password_protection` WARN (Auth dashboard toggle, not code).
+  Performance Advisor: INFO only — unused indexes (expected on a low-traffic DB)
+  and one pre-existing unindexed FK on `transactions.category_id` (Budget slice).
+- Remaining issues: `test:db` does not reset the DB first, so running it directly
+  after `test:e2e` on the shared local stack yields false count-assertion failures;
+  consider a reset-first `test:db` or scoping the count assertions to fixture
+  UUIDs. Enable hosted Auth leaked-password protection (dashboard). Minor:
+  `deleteRecipeAction` uses server-side `redirect`, so `DeleteRecipeDialog`'s
+  `onDeleted`/`router.refresh` fallback paths are currently unreachable from the
+  detail page.
+- Next recommended task: Commit the slice (see recommended message in the review
+  report), then begin the next milestone.
+
+### 2026-07-16 (Milestone 7 Recipe slice local DB + e2e verification)
+
+- Work completed: Brought up the local stack (Colima + Docker + Supabase),
+  ran `npm run supabase:reset` (all migrations incl.
+  `20260717000000_recipe_slice.sql` applied cleanly; seed loaded, so the new
+  household trigger and normalized-name unique accept the fixtures), then
+  regenerated `lib/supabase/database.types.ts` from the live DB (replacing the
+  earlier hand-patched types). `npm run test:db` is now `43/43 PASS`. Fixed two
+  issues surfaced only under real generated types / a real browser:
+  1. Generated function types can't express nullable params, so the RPC's
+     `p_prep_time_minutes` / `p_cook_time_minutes` are typed `number`; cast the
+     nullable domain values at the two call sites in `lib/repositories/recipes.ts`
+     (NULL is valid at runtime = "no time given").
+  2. Delete navigation: the confirm dialog relied on a client `router.push`
+     after the server action, but the action re-renders the current
+     `/recipes/[id]` route which `notFound()`s once archived, unmounting the
+     dialog before its effect ran (left a 404 at the detail URL). `deleteRecipeAction`
+     now `redirect("/recipes")` server-side. Also made the two e2e "Name" label
+     lookups `{ exact: true }` (they otherwise matched the ingredient-name field).
+- Files or areas changed: `lib/supabase/database.types.ts` (regenerated),
+  `lib/repositories/recipes.ts`, `app/(app)/recipes/actions.ts`,
+  `tests/e2e/recipes.chromium.spec.ts`, `tests/e2e/recipes.webkit.spec.ts`.
+- Validation performed: `npm run test:db` 43/43 PASS; `npm run test:e2e` 28/28
+  PASS (chromium desktop + mobile-360, webkit iPhone + iPad); `npm run typecheck`,
+  `npm run lint`, `npm run format:check` clean; Vitest 48/48.
+- Remaining issues: Push the migration to hosted Supabase (`supabase db push`)
+  before real recipe use, and re-run the Security + Performance advisors.
+- Next recommended task: Commit the slice, then push the migration to hosted and
+  re-run advisors.
+
+### 2026-07-16 (Milestone 7 Recipe slice implementation)
+
+- Work completed: Implemented the approved Recipe slice. Migration
+  `20260717000000_recipe_slice.sql` adds `recipes.prep_time_minutes` /
+  `cook_time_minutes`, an `ingredients.name_normalized` STORED generated column
+  with `UNIQUE (household_id, name_normalized)` (replacing the old name unique),
+  nullable `recipe_ingredients.quantity` (`IS NULL OR > 0`), the
+  `enforce_recipe_ingredient_household` trigger, and the `SECURITY INVOKER`
+  `save_recipe_with_ingredients` RPC. Added recipe domain (`lib/domain/recipe.ts`:
+  schemas + pure helpers + row mappers), repository (`lib/repositories/recipes.ts`:
+  `listRecipes`, `getRecipe`, `createRecipe`/`updateRecipe` via RPC,
+  `archiveRecipe`, `listIngredientSuggestions`), server actions, and UI (list with
+  debounced search + distinct empty/no-results, detail view, create/edit form with
+  a controlled ingredient-row editor + `<datalist>` reuse, delete confirm). Added
+  the shadcn `textarea`, an optional width prop on the shared `ResponsiveFormShell`,
+  recipe seed rows, pgTAP recipe coverage (`plan(25)` → `plan(43)`), Playwright
+  projects + `recipes.chromium.spec.ts` / `recipes.webkit.spec.ts`, and Vitest
+  `recipe.test.ts`. Patched `lib/supabase/database.types.ts` to match the migration.
+- Files or areas changed: `supabase/migrations/20260717000000_recipe_slice.sql`,
+  `supabase/seed.sql`, `supabase/tests/rls_household_access.test.sql`,
+  `lib/domain/recipe.ts`, `lib/domain/index.ts`, `lib/repositories/recipes.ts`,
+  `lib/repositories/index.ts`, `lib/supabase/database.types.ts`,
+  `app/(app)/recipes/{page,actions}.tsx`, `app/(app)/recipes/[id]/page.tsx`,
+  `components/recipes/*`, `components/ui/textarea.tsx`,
+  `components/budget/responsive-form-shell.tsx`, `tests/unit/recipe.test.ts`,
+  `tests/e2e/recipes.chromium.spec.ts`, `tests/e2e/recipes.webkit.spec.ts`,
+  `tests/e2e/helpers/auth.ts`, `playwright.config.ts`.
+- Validation performed: `npm run typecheck` clean; `npm run lint` clean;
+  `npm run format:check` clean; Vitest 48/48 (3 files); `npm run build` green
+  (routes `/recipes`, `/recipes/[id]` present).
+- Not yet run here (no Docker in this environment): `npm run test:db` (pgTAP,
+  now `plan(43)`) and Playwright e2e (`npm run test:e2e`). Both require the local
+  Colima/Docker + Supabase stack and must be run in the dev environment, along
+  with `npm run supabase:reset` + `npm run supabase:types` to apply the migration
+  and regenerate types (the committed types were hand-patched to match).
+- Decisions made: ADR-014 accepted (nullable quantity, soft archive, atomic RPC).
+- Remaining issues: Run `test:db` + e2e locally; then push the migration to hosted
+  Supabase (`supabase db push`) before real recipe use, and re-run advisors.
+- Next recommended task: Local `supabase db reset` + `supabase:types` + `test:db`
+  - `test:e2e`; fix any drift; commit; push migration to hosted.
+
+### 2026-07-16 (Milestone 7 Recipe slice planning)
+
+- Work completed: Prepared the Recipe management vertical-slice plan (planning
+  only — no application code). Reviewed Budget slice conventions and the existing
+  `recipes` / `ingredients` / `recipe_ingredients` schema + RLS. Ran Frontend/UI,
+  Backend/Data, and QA specialist reviews and reconciled them into the Milestone 7
+  plan and ADR-014.
+- Files or areas changed: `IMPLEMENTATION.md` (current milestone, Milestone 7
+  detail, ADR-014, this log), `ARCHITECTURE.md` (Recipes section: prep/cook time,
+  `name_normalized` unique, nullable quantity, household-consistency trigger,
+  `save_recipe_with_ingredients` RPC, soft-archive).
+- Reconciled specialist findings:
+  - Backend: use a STORED `name_normalized` generated column (not a bare
+    `lower(btrim(name))` index) so it matches app normalization; add an atomic
+    `SECURITY INVOKER` save RPC to avoid delete-then-reinsert data loss; nullable
+    `quantity` for "to taste"; trigger error codes `23514`/`23503`; soft archive is
+    correct given `ON DELETE SET NULL` FKs; ILIKE needs no extra index; pgTAP
+    ~25 → ~40.
+  - Frontend: reuse `ResponsiveFormShell` with an added width prop (don't widen
+    Budget); ingredient rows must be **controlled** state keyed only on `open` and
+    not remounted on error (preserve entered rows); stack rows at 360px; up/down
+    reorder + `<datalist>` (no combobox); `textarea` is the only new shadcn add;
+    debounce search with `useTransition`/`router.replace` to avoid the route-group
+    skeleton flash.
+  - QA: new Playwright `recipes.*.spec.ts` needs its own projects (config
+    `testMatch` is filename-specific) + WebKit iPhone/iPad; e2e must not mutate
+    seeded rows; add explicit assertions for order preservation and ingredient
+    reuse (single row / shared id); acceptance must include duplicate-submit
+    disable, preserve-on-error, destructive confirm, surfaced validation, empty
+    state; pure mappers alone are insufficient (cover reuse/reindex/RPC via pgTAP
+    - e2e).
+- Validation performed: None (planning only). Verification gate defined in the
+  Milestone 7 testing strategy.
+- Decisions made: ADR-014 (proposed, pending approval).
+- Remaining issues: Six unresolved decisions listed under Milestone 7 (atomic RPC,
+  nullable quantity vs strict positive, normalized-name identity, soft vs hard
+  delete, unit aliasing, search scope). Recipe images deferred (no storage path).
+- Next recommended task: On approval, implement the migration + regenerated types,
+  domain, repositories, server actions, UI, and tests; then run `npm run test:db`
+  and `npm run verify`.
 
 ### 2026-07-16 (Milestone 4 release review)
 

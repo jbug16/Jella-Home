@@ -196,39 +196,80 @@ Notes:
 
 ### Recipes and ingredients
 
+A recipe holds metadata plus **ordered** ingredient lines that reference reusable
+`ingredients` rows. Ingredient names are normalized so the same ingredient is
+**reused** across recipes rather than duplicated. Milestone 7 adds prep/cook time,
+a normalized-name unique key, a household-consistency trigger, and an atomic save
+RPC (see ADR-014). Applied in migration `*_recipe_slice.sql` (local + hosted + types).
+
 ```text
 ingredients
   id              uuid PK
   household_id    uuid NOT NULL REFERENCES households(id) ON DELETE CASCADE
-  name            text NOT NULL
+  name            text NOT NULL                  -- display form, as entered
+  name_normalized text GENERATED ALWAYS AS       -- lower + trim + collapse spaces
+                    (regexp_replace(btrim(lower(name)), '\s+', ' ', 'g')) STORED
   default_unit    text NOT NULL DEFAULT ''
   store_section   text NOT NULL DEFAULT ''
   created_at      timestamptz NOT NULL DEFAULT now()
   updated_at      timestamptz NOT NULL DEFAULT now()
-  UNIQUE (household_id, name)
+  UNIQUE (household_id, name_normalized)          -- replaces UNIQUE (household_id, name)
 
 recipes
-  id              uuid PK
-  household_id    uuid NOT NULL REFERENCES households(id) ON DELETE CASCADE
-  name            text NOT NULL
-  servings        numeric NOT NULL DEFAULT 2 CHECK (servings > 0)
-  instructions    text NOT NULL DEFAULT ''
-  notes           text NOT NULL DEFAULT ''
-  source_url      text NULL
-  archived_at     timestamptz NULL
-  created_at      timestamptz NOT NULL DEFAULT now()
-  updated_at      timestamptz NOT NULL DEFAULT now()
+  id                uuid PK
+  household_id      uuid NOT NULL REFERENCES households(id) ON DELETE CASCADE
+  name              text NOT NULL
+  servings          numeric NOT NULL DEFAULT 2 CHECK (servings > 0)
+  prep_time_minutes integer NULL CHECK (prep_time_minutes IS NULL OR prep_time_minutes >= 0)
+  cook_time_minutes integer NULL CHECK (cook_time_minutes IS NULL OR cook_time_minutes >= 0)
+  instructions      text NOT NULL DEFAULT ''
+  notes             text NOT NULL DEFAULT ''      -- description / notes
+  source_url        text NULL
+  archived_at       timestamptz NULL              -- delete = soft archive
+  created_at        timestamptz NOT NULL DEFAULT now()
+  updated_at        timestamptz NOT NULL DEFAULT now()
 
 recipe_ingredients
   id              uuid PK
   household_id    uuid NOT NULL REFERENCES households(id) ON DELETE CASCADE
   recipe_id       uuid NOT NULL REFERENCES recipes(id) ON DELETE CASCADE
   ingredient_id   uuid NOT NULL REFERENCES ingredients(id)
-  quantity        numeric NOT NULL CHECK (quantity > 0)
+  quantity        numeric NULL CHECK (quantity IS NULL OR quantity > 0)  -- NULL = "to taste"
   unit            text NOT NULL DEFAULT ''
   notes           text NOT NULL DEFAULT ''
-  sort_order      int NOT NULL DEFAULT 0
+  sort_order      int NOT NULL DEFAULT 0          -- preserves ingredient order in a recipe
 ```
+
+Notes:
+
+- **Delete = soft archive.** Removing a recipe sets `archived_at`; lists exclude
+  archived recipes. This preserves future meal-plan / grocery references
+  (`planned_meals.recipe_id`, `grocery_list_items.recipe_id` are `ON DELETE SET NULL`).
+- **Household consistency.** A trigger `enforce_recipe_ingredient_household`
+  (mirroring `budget_month_limits`) requires each `recipe_ingredients` row's
+  `household_id` to match both its parent recipe and its ingredient (raises `23514`
+  on mismatch, `23503` when a referenced row is missing).
+- **Atomic writes.** Recipe create/update go through one `SECURITY INVOKER` RPC
+  (`save_recipe_with_ingredients`, `SET search_path = ''`) so the recipe row,
+  ingredient reuse (`ON CONFLICT (household_id, name_normalized)`), and ordered lines
+  are written in a single transaction under the caller's RLS. Repositories call the
+  RPC; they never use the admin client. This avoids the data-loss window in a
+  delete-then-reinsert update over PostgREST.
+- **Structured first.** Per-line `notes` (e.g. "diced") plus `quantity IS NULL`
+  ("to taste") cover cases a plain quantity+unit cannot; there is no freeform
+  ingredient-text column.
+- Search is `ILIKE` over recipe name (and ingredient name); no extra text index is
+  warranted at two-user scale.
+- **Cover images (ADR-015).** `recipes.image_path` (nullable) stores an object key
+  in the **private** `recipe-images` Storage bucket (jpeg/png/webp, ≤ 5 MB); keys
+  are `"{household_id}/{uuid}.{ext}"`. `storage.objects` RLS (SELECT/INSERT/UPDATE/
+  DELETE for `authenticated`) is scoped to the bucket and defers to
+  `private.can_access_recipe_image(name)`, which parses the leading household folder
+  and calls `private.is_household_member` (kept in `private` so it is not an exposed
+  RPC). The app never stores URLs — repositories mint short-lived (1 h) signed URLs
+  per render via the authenticated client. Image path is written by a guarded update
+  outside the atomic RPC. Migrations `*_recipe_images.sql` +
+  `*_recipe_images_private_fn.sql`.
 
 ### Meal plans
 

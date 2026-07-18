@@ -5,7 +5,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(25);
+SELECT plan(49);
 
 CREATE OR REPLACE FUNCTION public.test_as_user(uid uuid)
 RETURNS void
@@ -126,22 +126,41 @@ SELECT throws_ok(
 );
 
 -- 4) Member can read and write own household
+-- Positive-read assertions are scoped to fixture-owned rows (by fixed UUID or
+-- fixture attributes) rather than a global count(*), so they stay deterministic
+-- even when the Playwright suite has written rows into this same household on a
+-- shared local database.
 SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 
 SELECT is(
-  (SELECT count(*)::integer FROM public.households),
+  (
+    SELECT count(*)::integer
+    FROM public.households
+    WHERE id = '11111111-1111-4111-8111-111111111111'
+  ),
   1,
   'member can read own household'
 );
 
 SELECT is(
-  (SELECT count(*)::integer FROM public.transactions),
+  (
+    SELECT count(*)::integer
+    FROM public.transactions
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+      AND payee = 'Fixture Store A'
+  ),
   1,
   'member can read own household transactions'
 );
 
 SELECT is(
-  (SELECT count(*)::integer FROM public.budget_month_limits),
+  (
+    SELECT count(*)::integer
+    FROM public.budget_month_limits
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+      AND category_id = '33333333-3333-4333-8333-333333333333'
+      AND month_start = date_trunc('month', CURRENT_DATE)::date
+  ),
   1,
   'member can read own household budget month limits'
 );
@@ -287,6 +306,285 @@ SELECT lives_ok(
       'savings'
     )$$,
   'UNIQUE (household_id, kind, name) permits Transfer under savings and debt'
+);
+
+-- ===========================================================================
+-- Recipes, ingredients, recipe_ingredients (Milestone 7)
+-- ===========================================================================
+
+-- Anonymous cannot read recipe tables
+SELECT public.test_as_anon();
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.recipes),
+  0,
+  'anonymous cannot read recipes'
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.ingredients),
+  0,
+  'anonymous cannot read ingredients'
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.recipe_ingredients),
+  0,
+  'anonymous cannot read recipe ingredients'
+);
+
+-- Authenticated non-member cannot read recipes
+SELECT public.test_as_user('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.recipes),
+  0,
+  'non-member cannot read recipes'
+);
+
+-- Member reads own household fixtures. Scoped to fixed fixture UUIDs (not a
+-- global count(*)) so the Playwright suite's recipe/ingredient writes into this
+-- same household on a shared local database cannot make these flaky.
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.recipes
+    WHERE id = '66666666-6666-4666-8666-666666666666'
+  ),
+  1,
+  'member can read own household recipes'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.ingredients
+    WHERE id IN (
+      '88888888-8888-4888-8888-888888888888',
+      '99999999-9999-4999-8999-999999999999'
+    )
+  ),
+  2,
+  'member can read own household ingredients'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.recipe_ingredients
+    WHERE id IN (
+      'b0000000-0000-4000-8000-000000000001',
+      'b0000000-0000-4000-8000-000000000002'
+    )
+  ),
+  2,
+  'member can read own household recipe ingredients'
+);
+
+-- Cross-household reads/writes denied
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.recipes
+    WHERE household_id = '22222222-2222-4222-8222-222222222222'
+  ),
+  0,
+  'member cannot read another household recipes'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.recipes (household_id, name)
+    VALUES ('22222222-2222-4222-8222-222222222222', 'Cross Recipe')$$,
+  '42501',
+  NULL,
+  'member cannot insert a recipe into another household'
+);
+
+SELECT throws_ok(
+  $$UPDATE public.recipes
+    SET household_id = '22222222-2222-4222-8222-222222222222'
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'$$,
+  '42501',
+  NULL,
+  'member cannot reassign a recipe to an unauthorized household'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO public.recipes (household_id, name)
+    VALUES ('11111111-1111-4111-8111-111111111111', 'Member Recipe')$$,
+  'member can insert a recipe into own household'
+);
+
+-- Household-consistency trigger (assert under RESET ROLE so the trigger, not
+-- only RLS, is exercised).
+RESET ROLE;
+
+SELECT throws_ok(
+  $$INSERT INTO public.recipe_ingredients (
+      household_id, recipe_id, ingredient_id, quantity, unit, sort_order
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      '77777777-7777-4777-8777-777777777777',
+      '88888888-8888-4888-8888-888888888888',
+      1, 'g', 0
+    )$$,
+  '23514',
+  NULL,
+  'recipe_ingredients rejects a recipe from a different household'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.recipe_ingredients (
+      household_id, recipe_id, ingredient_id, quantity, unit, sort_order
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      '66666666-6666-4666-8666-666666666666',
+      'a0000000-0000-4000-8000-000000000001',
+      1, 'cup', 0
+    )$$,
+  '23514',
+  NULL,
+  'recipe_ingredients rejects an ingredient from a different household'
+);
+
+-- Atomic save RPC as a member: reuses existing ingredients, creates new ones.
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT lives_ok(
+  $$SELECT public.save_recipe_with_ingredients(
+      '11111111-1111-4111-8111-111111111111'::uuid,
+      'RPC Recipe',
+      2,
+      NULL,
+      NULL,
+      '',
+      '',
+      '[{"name":"Spaghetti","quantity":"100","unit":"g","notes":""},
+        {"name":"Garlic","quantity":"2","unit":"clove","notes":""}]'::jsonb
+    )$$,
+  'member can save a recipe via the RPC'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.ingredients
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+      AND name_normalized = 'spaghetti'
+  ),
+  1,
+  'RPC reuses the existing ingredient (no duplicate)'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.ingredients
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+      AND name_normalized = 'garlic'
+  ),
+  1,
+  'RPC creates the new ingredient'
+);
+
+-- Normalized-name uniqueness (case/whitespace-insensitive) is enforced.
+SELECT throws_ok(
+  $$INSERT INTO public.ingredients (household_id, name)
+    VALUES ('11111111-1111-4111-8111-111111111111', '  SPAGHETTI  ')$$,
+  '23505',
+  NULL,
+  'duplicate normalized ingredient name is rejected'
+);
+
+-- Non-member cannot save through the RPC (RLS denies the write).
+SELECT public.test_as_user('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+
+SELECT throws_ok(
+  $$SELECT public.save_recipe_with_ingredients(
+      '11111111-1111-4111-8111-111111111111'::uuid,
+      'Nope',
+      1,
+      NULL,
+      NULL,
+      '',
+      '',
+      '[{"name":"X","quantity":"1","unit":"","notes":""}]'::jsonb
+    )$$,
+  '42501',
+  NULL,
+  'non-member cannot save a recipe via the RPC'
+);
+
+-- ---------------------------------------------------------------------------
+-- Recipe images: schema, bucket, and household-scoped Storage RLS.
+-- ---------------------------------------------------------------------------
+RESET ROLE;
+
+SELECT has_column(
+  'public', 'recipes', 'image_path',
+  'recipes has an image_path column'
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM storage.buckets WHERE id = 'recipe-images'),
+  1,
+  'recipe-images storage bucket exists'
+);
+
+-- Member A can upload into their own household folder (exercises the storage
+-- RLS policy, which calls private.can_access_recipe_image).
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT lives_ok(
+  $$INSERT INTO storage.objects (id, bucket_id, name)
+    VALUES (
+      gen_random_uuid(),
+      'recipe-images',
+      '11111111-1111-4111-8111-111111111111/fixture.jpg'
+    )$$,
+  'member can upload an image into their household folder'
+);
+
+-- Outsider (household B): cannot see or upload household A images.
+SELECT public.test_as_user('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM storage.objects
+    WHERE bucket_id = 'recipe-images'
+      AND name = '11111111-1111-4111-8111-111111111111/fixture.jpg'
+  ),
+  0,
+  'outsider cannot see another household image object'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO storage.objects (id, bucket_id, name)
+    VALUES (
+      gen_random_uuid(),
+      'recipe-images',
+      '11111111-1111-4111-8111-111111111111/evil.jpg'
+    )$$,
+  '42501',
+  NULL,
+  'outsider cannot upload into another household folder'
+);
+
+-- Member A can see their own uploaded object.
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM storage.objects
+    WHERE bucket_id = 'recipe-images'
+      AND name = '11111111-1111-4111-8111-111111111111/fixture.jpg'
+  ),
+  1,
+  'member can see their own uploaded image object'
 );
 
 SELECT * FROM finish();

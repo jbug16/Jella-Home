@@ -23,3 +23,17 @@ export {
   updateTransaction,
   upsertMonthLimit,
 } from "@/lib/repositories/budget";
+
+export {
+  archiveRecipe,
+  createRecipe,
+  deleteRecipeImage,
+  getRecipe,
+  listIngredientSuggestions,
+  listRecipes,
+  setRecipeImagePath,
+  updateRecipe,
+  uploadRecipeImage,
+  type IngredientSuggestion,
+  type ListRecipesOptions,
+} from "@/lib/repositories/recipes";

@@ -228,4 +228,86 @@ BEGIN
   )
   VALUES
     (household_a, 'Fixture Streaming', 'Entertainment', 1600, 'monthly', 'active');
+
+  -- Recipes: one for household_a (with ingredients) and one for household_b
+  -- (cross-household RLS coverage).
+  INSERT INTO public.recipes (
+    id,
+    household_id,
+    name,
+    servings,
+    prep_time_minutes,
+    cook_time_minutes,
+    instructions,
+    notes
+  )
+  VALUES
+    (
+      '66666666-6666-4666-8666-666666666666',
+      household_a,
+      'Fixture Spaghetti',
+      2,
+      10,
+      20,
+      'Boil the pasta.\nToss with oil and season.',
+      'House favorite'
+    ),
+    (
+      '77777777-7777-4777-8777-777777777777',
+      household_b,
+      'Fixture Other Household Dish',
+      4,
+      5,
+      15,
+      'Combine and serve.',
+      ''
+    );
+
+  INSERT INTO public.ingredients (id, household_id, name, default_unit)
+  VALUES
+    ('88888888-8888-4888-8888-888888888888', household_a, 'Spaghetti', 'g'),
+    ('99999999-9999-4999-8999-999999999999', household_a, 'Olive Oil', 'tbsp'),
+    ('a0000000-0000-4000-8000-000000000001', household_b, 'Rice', 'cup');
+
+  INSERT INTO public.recipe_ingredients (
+    id,
+    household_id,
+    recipe_id,
+    ingredient_id,
+    quantity,
+    unit,
+    notes,
+    sort_order
+  )
+  VALUES
+    (
+      'b0000000-0000-4000-8000-000000000001',
+      household_a,
+      '66666666-6666-4666-8666-666666666666',
+      '88888888-8888-4888-8888-888888888888',
+      200,
+      'g',
+      '',
+      0
+    ),
+    (
+      'b0000000-0000-4000-8000-000000000002',
+      household_a,
+      '66666666-6666-4666-8666-666666666666',
+      '99999999-9999-4999-8999-999999999999',
+      2,
+      'tbsp',
+      'to coat',
+      1
+    ),
+    (
+      'b0000000-0000-4000-8000-000000000003',
+      household_b,
+      '77777777-7777-4777-8777-777777777777',
+      'a0000000-0000-4000-8000-000000000001',
+      1,
+      'cup',
+      '',
+      0
+    );
 END $$;
