@@ -1,25 +1,22 @@
 import type { Metadata } from "next";
-import { LayoutDashboard } from "lucide-react";
 
-import { EmptyState } from "@/components/common/empty-state";
-import { PageHeader } from "@/components/common/page-header";
+import { DashboardPanel } from "@/components/dashboard/dashboard-panel";
+import { getDashboardViewModel } from "@/lib/dashboard/get-dashboard-view-model";
 
 export const metadata: Metadata = {
   title: "Dashboard",
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const viewModel = await getDashboardViewModel();
+
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Dashboard"
-        description="A shared overview of your household."
-      />
-      <EmptyState
-        icon={LayoutDashboard}
-        title="Coming soon"
-        description="Your household summary will appear here once the first features are ready."
-      />
+    <div
+      className="flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden sidebar:h-full sidebar:overflow-hidden"
+      data-testid="dashboard-page"
+    >
+      <h1 className="sr-only">Dashboard</h1>
+      <DashboardPanel viewModel={viewModel} />
     </div>
   );
 }

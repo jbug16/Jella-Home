@@ -25,7 +25,10 @@ Companion docs:
 - Spreadsheet read/write sync or dual-write
 - Multi-tenant SaaS features (billing, arbitrary household invites, orgs)
 - Product UI for subscriptions or calendar beyond the shell
-  (Budget, Recipes, Meal Planning, and Shopping ship as vertical slices)
+  (Budget, Recipes, Meal Planning, Shopping, and Dashboard ship as vertical
+  slices; Subscriptions and Calendar remain later)
+- Dashboard charts, analytics, favorites, notifications, AI recommendations,
+  weather, pantry, bank sync, or live updates (summaries + deep-links only)
 - Native mobile clients
 - Public self-serve sign-up
 
@@ -316,7 +319,7 @@ Notes:
   keeps `other` for import flexibility; write Zod excludes it.
 - **Hard delete** planned meals. Recipes remain soft-archive.
 - **No unique** on `(plan_date, meal_slot)` — multiple meals per slot are allowed.
-- Grocery generation (Milestone 6) will query this table by week range + join
+- Grocery generation (Milestone 6) queries this table by week range + joins
   recipe ingredients; do not denormalize ingredients onto meals.
 
 ### Grocery lists
@@ -502,6 +505,8 @@ pgTAP (or equivalent) must prove:
 ```text
 lib/
   domain/                 # Zod schemas + pure domain types/utils
+                          # (incl. dashboard.ts view-model builders — Milestone 8)
+  dashboard/              # server-only home composer (get-dashboard-view-model)
   supabase/
     server.ts             # createServerClient (@supabase/ssr, cookies)
     browser.ts            # auth-only browser client
@@ -509,8 +514,12 @@ lib/
     proxy.ts              # session refresh helper used by root proxy.ts
     database.types.ts     # generated (or schema-matched) Database types
   repositories/
-    households.ts         # M2: membership path implemented
-    index.ts              # pattern notes; product repos land per feature
+    households.ts         # membership (+ member count for Dashboard)
+    budget.ts
+    meal-plans.ts
+    shopping.ts
+    recipes.ts
+    index.ts              # pattern notes
 scripts/
   provision-household.ts  # create household + two Auth members (secret key)
   add-household-member.ts # add one member to an existing household
@@ -525,13 +534,25 @@ Rules:
 3. **Admin path:** `createAdminClient()` from `lib/supabase/admin.ts` only
    inside provisioning/administrative modules. Never import admin from UI or
    normal repositories.
-4. Mutations validate with Zod, then revalidate tags/paths.
+4. Mutations validate with Zod, then revalidate tags/paths. Module mutations that
+   affect home summaries also `revalidatePath("/dashboard")`.
 5. React components never import Supabase for table access.
-6. Milestone 2 implements the **household/auth membership** repository only.
-   Budget, recipes, meals, grocery, and subscription repositories arrive with
-   their feature milestones — tables and RLS exist now so features can land
-   safely later.
+6. **Dashboard (Milestone 8)** is a read-only composition layer: a thin
+   server-only loader fans out to existing repositories in parallel, then pure
+   domain builders produce a `DashboardViewModel`. Do not put snapshot math in
+   React; do not add dashboard-specific write RPCs. The home UI does not call
+   `getOrCreateGroceryListForWeek`. Recipe covers for today's meals may be
+   signed when rendering meal cards.
 7. Legacy Google Sheets modules are removed from the app persistence path.
+
+### Dashboard home (composition)
+
+`/dashboard` is the authenticated landing page. It surfaces a household calendar
+day agenda (events only — never meals), today's planned meals (with recipe
+covers when linked), and the current-month budget summary. It owns **no new
+tables** — only a server-only composer and pure view-model builders over
+existing repositories. Calendar event CRUD arrives in a later milestone; until
+then the day agenda is empty. See `IMPLEMENTATION.md` Milestone 8 and ADR-018.
 
 ## Migrations, seeds, and TypeScript types
 

@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
 import {
   createCategoryInputSchema,
   createTransactionInputSchema,
@@ -51,7 +51,7 @@ export async function createCategoryAction(
     return { error: "Unable to create category.", success: null };
   }
 
-  revalidatePath("/budget");
+  revalidateModuleAndDashboard("/budget");
   return { error: null, success: "Category added." };
 }
 
@@ -91,7 +91,7 @@ export async function upsertMonthLimitAction(
     return { error: "Unable to save monthly limit.", success: null };
   }
 
-  revalidatePath("/budget");
+  revalidateModuleAndDashboard("/budget");
   return { error: null, success: "Limit saved." };
 }
 
@@ -143,7 +143,7 @@ export async function createTransactionAction(
     return { error: "Unable to add transaction.", success: null };
   }
 
-  revalidatePath("/budget");
+  revalidateModuleAndDashboard("/budget");
   return { error: null, success: "Transaction added." };
 }
 
@@ -174,7 +174,7 @@ export async function updateTransactionAction(
     return { error: "Unable to update transaction.", success: null };
   }
 
-  revalidatePath("/budget");
+  revalidateModuleAndDashboard("/budget");
   return { error: null, success: "Transaction updated." };
 }
 
@@ -200,6 +200,6 @@ export async function deleteTransactionAction(
     return { error: "Unable to delete transaction.", success: null };
   }
 
-  revalidatePath("/budget");
+  revalidateModuleAndDashboard("/budget");
   return { error: null, success: "Transaction deleted." };
 }

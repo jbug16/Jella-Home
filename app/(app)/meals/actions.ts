@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
 import {
   createPlannedMealInputSchema,
   createPlannedMealsInputSchema,
@@ -102,7 +102,7 @@ export async function createPlannedMealAction(
         );
       }
 
-      revalidatePath("/meals");
+      revalidateModuleAndDashboard("/meals");
       return {
         error: null,
         success:
@@ -122,7 +122,7 @@ export async function createPlannedMealAction(
     });
 
     await createPlannedMeal(input);
-    revalidatePath("/meals");
+    revalidateModuleAndDashboard("/meals");
     return { error: null, success: "Meal added." };
   } catch (error) {
     return actionError(error, "Unable to add that meal.");
@@ -163,7 +163,7 @@ export async function updatePlannedMealAction(
     });
 
     await updatePlannedMeal(input);
-    revalidatePath("/meals");
+    revalidateModuleAndDashboard("/meals");
     return { error: null, success: "Meal updated." };
   } catch (error) {
     return actionError(error, "Unable to update that meal.");
@@ -177,7 +177,7 @@ export async function deletePlannedMealAction(
   try {
     const id = z.uuid().parse(formString(formData, "id"));
     await deletePlannedMeal(id);
-    revalidatePath("/meals");
+    revalidateModuleAndDashboard("/meals");
     return { error: null, success: "Meal removed." };
   } catch (error) {
     return actionError(error, "Unable to remove that meal.");

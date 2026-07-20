@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
 import { isoDateSchema } from "@/lib/domain/dates";
 import {
   createManualItemInputSchema,
@@ -44,7 +44,7 @@ function actionError(error: unknown, fallback: string): ShoppingActionState {
 }
 
 function revalidateShopping() {
-  revalidatePath("/shopping");
+  revalidateModuleAndDashboard("/shopping");
 }
 
 export async function generateGroceryListAction(

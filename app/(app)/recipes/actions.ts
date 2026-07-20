@@ -1,9 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
 import {
   createRecipeInputSchema,
   parseOptionalMinutes,
@@ -188,7 +188,7 @@ export async function createRecipeAction(
     }
   }
 
-  revalidatePath("/recipes");
+  revalidateModuleAndDashboard("/recipes");
   return { error: null, success: "Recipe added.", recipeId };
 }
 
@@ -275,8 +275,7 @@ export async function updateRecipeAction(
     }
   }
 
-  revalidatePath("/recipes");
-  revalidatePath(`/recipes/${parsed.data.id}`);
+  revalidateModuleAndDashboard("/recipes", `/recipes/${parsed.data.id}`);
   return { error: null, success: "Recipe updated.", recipeId };
 }
 
@@ -300,6 +299,6 @@ export async function deleteRecipeAction(
   // Redirect server-side: the caller lives on /recipes/[id], which 404s once the
   // recipe is archived. Navigating here avoids that dead route and any client
   // race where the dialog unmounts before it can push.
-  revalidatePath("/recipes");
+  revalidateModuleAndDashboard("/recipes");
   redirect("/recipes");
 }

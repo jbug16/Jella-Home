@@ -80,5 +80,8 @@ if (process.env.E2E_SKIP_BUILD !== "1") {
   run("npx", ["next", "build", "--webpack"], localEnv);
 }
 
+// Attach fixture recipe cover so Dashboard meal thumbnails are testable.
+run("npx", ["tsx", "scripts/prepare-dashboard-demo.ts", "--image"], localEnv);
+
 const playwrightArgs = process.argv.slice(2);
 run("npx", ["playwright", "test", ...playwrightArgs], localEnv);

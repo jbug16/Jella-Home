@@ -58,6 +58,13 @@ async function signRecipeImageUrls(
 export type ListRecipesOptions = {
   search?: string;
   sort?: RecipeSort;
+  /** Cap rows returned (e.g. Dashboard recent recipes). */
+  limit?: number;
+  /**
+   * Skip Storage signed URLs. Dashboard summaries use names only — signing
+   * every household recipe image is unnecessary.
+   */
+  skipImages?: boolean;
 };
 
 /**
@@ -70,6 +77,13 @@ export async function listRecipes(
   const membership = await requireCurrentMembership();
   const sort = recipeSortSchema.parse(options.sort ?? "name");
   const search = options.search?.trim() ?? "";
+  const skipImages = options.skipImages === true;
+  const limit =
+    typeof options.limit === "number" &&
+    Number.isFinite(options.limit) &&
+    options.limit > 0
+      ? Math.floor(options.limit)
+      : undefined;
   const supabase = await createClient();
 
   let query = supabase
@@ -89,6 +103,10 @@ export async function listRecipes(
       ? query.order("updated_at", { ascending: false })
       : query.order("name", { ascending: true });
 
+  if (limit !== undefined) {
+    query = query.limit(limit);
+  }
+
   const { data, error } = await query;
 
   if (error) {
@@ -96,10 +114,14 @@ export async function listRecipes(
   }
 
   const rows = data ?? [];
-  const imageUrls = await signRecipeImageUrls(
-    supabase,
-    rows.map((row) => row.image_path).filter((path): path is string => !!path),
-  );
+  const imageUrls = skipImages
+    ? new Map<string, string>()
+    : await signRecipeImageUrls(
+        supabase,
+        rows
+          .map((row) => row.image_path)
+          .filter((path): path is string => !!path),
+      );
 
   return rows.map((row) => {
     const counts = row.recipe_ingredients as { count: number }[] | null;
@@ -111,7 +133,10 @@ export async function listRecipes(
       cookTimeMinutes: row.cook_time_minutes,
       ingredientCount: counts?.[0]?.count ?? 0,
       imagePath: row.image_path,
-      imageUrl: row.image_path ? (imageUrls.get(row.image_path) ?? null) : null,
+      imageUrl:
+        skipImages || !row.image_path
+          ? null
+          : (imageUrls.get(row.image_path) ?? null),
     } satisfies RecipeSummary;
   });
 }

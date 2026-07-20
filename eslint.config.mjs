@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     ".netlify/**",
     "supabase/.branches/**",
     "supabase/.temp/**",
+    ".tmp/**",
   ]),
 ]);
 

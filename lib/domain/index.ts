@@ -145,3 +145,25 @@ export {
   type GroceryListItem,
   type UpdateGroceryItemInput,
 } from "@/lib/domain/shopping";
+
+export {
+  buildBudgetCardViewModel,
+  buildGroceryCardViewModel,
+  buildHouseholdCardViewModel,
+  buildMealWeekCardViewModel,
+  buildRecipesRecentCardViewModel,
+  buildTodayCalendarViewModel,
+  buildTodayMealsViewModel,
+  clampProgressPercent,
+  resolveDashboardAsOf,
+  type DashboardViewModel,
+} from "@/lib/domain/dashboard";
+
+export {
+  buildCalendarDayViewModel,
+  calendarDayHours,
+  formatCalendarHourLabel,
+  placeholderCalendarDayEvents,
+  type CalendarDayEvent,
+  type CalendarDayViewModel,
+} from "@/lib/domain/calendar";

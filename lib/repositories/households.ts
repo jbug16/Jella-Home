@@ -71,3 +71,23 @@ export async function requireCurrentMembership(): Promise<HouseholdMembership> {
   }
   return membership;
 }
+
+/**
+ * Count of members in the caller's household (RLS-scoped). Used by the
+ * Dashboard household card — not a management surface.
+ */
+export async function countHouseholdMembers(): Promise<number> {
+  const membership = await requireCurrentMembership();
+  const supabase = await createClient();
+
+  const { count, error } = await supabase
+    .from("household_members")
+    .select("id", { count: "exact", head: true })
+    .eq("household_id", membership.household.id);
+
+  if (error) {
+    throw new Error("Unable to load household members.");
+  }
+
+  return count ?? 0;
+}

@@ -11,15 +11,15 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** 8 — Subscription tracker  
+**Milestone:** 9 — Subscription tracker  
 **Status:** Not started (awaiting plan when ready)  
 **Owner:** Lead Engineer  
 **Goal:** Track household subscriptions with cadence conversions, renewal dates,
 and status — clearer than the legacy Subscription Tracker sheet.
 
-Previous: Milestone 6 (Shopping list) **approved** and shipped 2026-07-19
-(local verify + hosted migration + Netlify). Recipes (7), Meals (5), Budget (4),
-and auth (2) complete. Shopping: [Milestone 6](#6-shopping-list) / ADR-017.
+Previous: Milestone 8 (Dashboard home) **approved** and shipped 2026-07-20
+(local `verify` + `test:db` ×2; no new migrations). Dashboard:
+[Milestone 8](#8-dashboard-home) / ADR-018.
 
 ### Pre-work completed
 
@@ -600,21 +600,20 @@ explicit checks).
 
 Reuse: `weekStartOn` / `resolveWeekStartParam` / `formatWeekLabel` (meal-plan),
 `isoDateSchema` (dates), `ingredientNameKey` / `normalizeUnit` /
-`optionalQuantitySchema` / `isApprovedUnit` (recipe).
+`optionalQuantitySchema` (recipe).
 
 - Zod: `groceryListSchema`, `groceryListItemSchema`,
   `createManualItemInputSchema`, `updateGroceryItemInputSchema`,
   `setItemCheckedInputSchema`
 - Pure: `scaleLineQuantity`, `buildAggregationInputsFromMeals`,
-  `aggregateGroceryLines`, `compareGroceryItems` (unchecked first, section,
-  sortOrder, name)
+  `aggregateGroceryLines`, `buildGenerationKey`, `compareGroceryItems`
 - Aggregation details:
-  - Key: `(ingredient_id ?? nameKey, normalizeUnit(unit))`
+  - Key: `{ingredientId|n:nameKey}|{normalizeUnit(unit)}|{noteIdentity}`
   - Sum scaled numeric quantities (round to 3 dp)
   - Null qty (“to taste”) merges only with other null-qty same key
-  - Different units → separate rows
+  - Different units or notes → separate rows
   - `store_section` from ingredient at generate time
-  - `recipe_id` null when multiple recipes contribute; set only if single
+  - Generated `recipe_id` always null in V1 (multi-recipe aggregation)
   - Skip meals without `recipe_id`; count for UI notice
   - Archived recipes with existing rows still generate (meal still linked)
 
@@ -664,14 +663,11 @@ do **not** fork week logic or Sunday helpers.
 
 Components under `components/shopping/`:
 
-- `shopping-panel` — client orchestrator
-- `shopping-toolbar`, `shopping-progress`
-- `shopping-list`, `shopping-section`, `shopping-item-row`
-- `shopping-item-form-dialog` (manual add/edit via `ResponsiveFormShell`)
-- `delete-shopping-item-dialog`, `regenerate-list-dialog` (explains preserve rules)
-- Empty variants: no list yet / nothing from meals / all checked
+- `shopping-panel` — client orchestrator (toolbar, progress, sections, rows,
+  regenerate/delete AlertDialogs, collapse checked)
+- `shopping-item-form-dialog` — manual add/edit via `ResponsiveFormShell`
 
-Install shadcn **Checkbox**, **Progress**, **Collapsible** if missing.
+Uses shadcn **Checkbox**, **Progress**, **Collapsible**.
 
 **Copy examples:** “Refresh list”, “3 meals without recipes — link recipes in
 Meals or add items by hand.” No API/DB jargon.
@@ -957,9 +953,269 @@ preserved on reload and after edits. Blank quantity ⇒ "to taste".
   - 360 + WebKit), `npm run test:db` 49/49, migrations pushed to hosted, advisors
     clean except the pre-existing Auth leaked-password warning.
 
-### 8. Subscription tracker
+### 8. Dashboard home
 
-**Status:** Not started (next up after Shopping)
+**Status:** Complete (2026-07-20; local `verify` + `test:db` ×2; no migrations)
+
+Post-login home at `/dashboard` that answers **“What do I need to know and do
+today?”** Summaries only — deep-link into existing modules; do not recreate
+Budget, Meals, Shopping, or Recipes pages.
+
+Specialist reviews: [Frontend/UI](4adac1b6-4868-41c4-bb4a-bd61622efbc3),
+[Backend/Data](0ccb8aff-5101-4749-bffb-8f4b173133fd),
+[QA](c3c4b05f-d784-4183-835a-a2ca17abe191). Lead reconciled below (ADR-018
+accepted).
+
+#### Product goals
+
+- Immediately understandable after sign-in; prioritize **today**
+- Encourage finishing unfinished work (empty today, incomplete grocery, missing
+  meal days, overspend)
+- Very little scrolling; calm, not a wall of equal widgets
+- Desktop responsive card layout; tablet soft reflow; phone single column
+- Fast load; parallel reads; no N+1; no dashboard-side mutations
+
+#### In scope
+
+| Card              | Shows                                                                                                      | Primary CTA                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| **Today**         | Shared calendar day view (household **events only** — never meals); empty until Calendar writes exist      | Open calendar → `/calendar`                  |
+| **Today's meals** | Meals planned for local today (slot + title); click opens recipe when linked, else meal planner            | Open planner → `/meals?week=<currentSunday>` |
+| **Budget**        | Current-month spending + remaining (`buildBudgetMonthSnapshot`); progress; **up to 3** recent transactions | View budget → `/budget` (current month)      |
+
+Desktop: one viewport composition (`sidebar` breakpoint), no page scroll; phone
+may scroll in a single column. Grocery / Recipes / Household cards were removed
+from home after ship (still available via nav).
+
+Keep accessible **h1 “Dashboard”** (`sr-only` OK) so `signInAsMember` and shell
+e2e stay stable.
+
+#### Out of scope (future extension points only)
+
+| Deferred                   | Leave room by                                   | Avoid now                                         |
+| -------------------------- | ----------------------------------------------- | ------------------------------------------------- |
+| Charts / analytics         | Summary cents + counts only                     | Chart libs, sparklines                            |
+| Favorites / pinning        | Recent-updated list; later `is_favorite` column | Fake favorites UI or migration                    |
+| Notifications / reminders  | Card empty/attention copy                       | Push, badges, reminder engine                     |
+| AI recommendations         | Deep-links into modules                         | Suggest meals/spend from model                    |
+| Weather / calendar sync    | Household card stays name + count               | External APIs                                     |
+| Pantry / bank integrations | Unchanged shopping + budget models              | New domains on home                               |
+| Live updates / presence    | `revalidatePath` on module mutations            | Realtime subscriptions                            |
+| Dashboard mutations        | Read-only + navigation                          | Generate list, add txn, plan meal dialogs on home |
+
+#### UX — layout by breakpoint
+
+**Canonical card order (all breakpoints):** Today → Grocery → Budget → Meal
+Planning → Recipes → Household.
+
+**Desktop (≥1280 / sidebar):**
+
+- Row 1: Today (wider) + Grocery
+- Row 2: Budget + Meal Planning
+- Row 3: Recipes + Household (Household compact / quieter weight)
+
+**Tablet (iPad portrait / below sidebar):** Single column, or Grocery|Budget as
+a soft pair when both stay short. Prefer single column if cards exceed ~160px
+height each.
+
+**Phone (360 / 390):** Strict single column, same order. Target ≤ ~1.25–1.5
+viewports of scroll; Today + Grocery progress above the fold when possible.
+CTAs `min-h-11` (≥44px). No horizontal scroll.
+
+**Visual hierarchy:** Today largest; Grocery/Budget medium; Recipes quiet;
+Household footer-weight (still a card with name + count — not Calendar/
+Subscriptions stubs).
+
+#### Architecture
+
+```text
+app/(app)/dashboard/page.tsx          # RSC: load VM, render cards
+lib/dashboard/get-dashboard-view-model.ts   # server-only composer
+lib/domain/dashboard.ts               # pure VM builders + types
+components/dashboard/*                # presentational cards (Card/Progress)
+```
+
+**Aggregation belongs in a thin dashboard loader + pure domain builders** — not
+in feature repositories and not as snapshot math in React. Reuse existing
+domain helpers (`buildBudgetMonthSnapshot`, `shoppingProgress`, `weekStartOn`,
+`todayIsoDate`, `currentMonthStart`, meal sort/group).
+
+**Migrations:** none.
+
+**Thin repository additions (TypeScript only):**
+
+1. Extend `listRecipes` options with `limit` + `skipImages` (or
+   `listRecentRecipes({ limit })`) — **required** so the home page does not
+   load/sign every recipe image.
+2. `countHouseholdMembers()` on `households` repo — `select` + count for the
+   current household (RLS already scopes rows).
+
+**Reuse as-is:**
+
+- `getCurrentMembership` / `requireCurrentMembership`
+- `listPlannedMealsForWeek` (one week fetch; derive today/tomorrow/missing days
+  in memory)
+- `getGroceryListForWeek` + `listGroceryItems` — **never**
+  `getOrCreateGroceryListForWeek` (must not create empty lists on home visit)
+- `listCategories` + `listMonthLimits` + `listTransactionsForMonth` +
+  `buildBudgetMonthSnapshot`
+
+**Server actions:** no new dashboard mutations. Add
+`revalidatePath("/dashboard")` alongside existing paths in budget, meals,
+shopping, and recipes actions so soft navigation back home is fresh.
+
+#### `DashboardViewModel` (proposed)
+
+```ts
+type DashboardViewModel = {
+  asOf: { todayIso: string; weekStart: string; monthStart: string };
+  household: { id: string; name: string; memberCount: number };
+  today: {
+    dateIso: string;
+    meals: Array<{ id: string; title: string; mealSlot: string }>;
+    tomorrowMeals: Array<{ id: string; title: string; mealSlot: string }>;
+    // tomorrowMeals empty ⇒ UI omits tomorrow block
+  };
+  grocery: {
+    weekStart: string;
+    listExists: boolean;
+    listId: string | null;
+    checked: number;
+    total: number;
+    remaining: number; // total - checked
+  };
+  budget: {
+    monthStart: string;
+    actualOutCents: number;
+    plannedTotalCents: number;
+    remainingOutCents: number;
+    recentTransactions: Array<{
+      id: string;
+      occurredOn: string;
+      amountCents: number;
+      direction: "in" | "out";
+      payee: string;
+      categoryName: string;
+    }>; // max 3
+  };
+  mealWeek: {
+    weekStart: string;
+    mealCount: number;
+    daysMissingMeals: number; // days in week with zero meals
+    missingDayIsos: string[]; // optional for copy; cap display
+  };
+  recipes: {
+    recent: Array<{ id: string; name: string }>; // max 3; no images V1
+  };
+};
+```
+
+**Fetch plan (after anchoring dates with injectable `now`):**
+
+```text
+Promise.all([
+  requireCurrentMembership(),
+  countHouseholdMembers(),
+  listPlannedMealsForWeek(weekStart),
+  getGroceryListForWeek(weekStart),
+  listCategories(),
+  listMonthLimits(monthStart),
+  listTransactionsForMonth(monthStart),
+  listRecipes({ sort: "recent", limit: 3, skipImages: true }),
+])
+→ if grocery list: listGroceryItems(list.id)
+→ pure builders → DashboardViewModel
+```
+
+Approx **~8–10** queries (+ layout membership). Optional later:
+`cache(getCurrentMembership)` for request dedupe. No cross-request cache of
+household data.
+
+**“Today” / week / month:** `todayIsoDate`, `currentWeekStart` (Sunday),
+`currentMonthStart` — local calendar, date-only string compare. Document:
+server TZ ≈ household TZ for this two-user app.
+
+**Empty / error:** Missing list/meals/recipes are empty card states, not
+errors. Hard failures → existing `app/(app)/error.tsx` (V1: fail whole page,
+not per-card soft errors).
+
+#### Accessibility
+
+- Page `h1` “Dashboard”; each card `h2` / labelled `section`
+- Real links/buttons for CTAs (no `div onClick` card shells)
+- Progress: visible “N of M” + `role="status"`; bar `aria-hidden` (match Shopping)
+- Remaining budget: words (“Left” / “Over by”) plus token color — not color alone
+- `motion-reduce:animate-none` on dashboard skeletons
+- Focus order = card order; touch targets ≥44px
+
+#### Acceptance criteria (summary)
+
+1. Signed-in member lands on `/dashboard` with six summary regions (not
+   “Coming soon”).
+2. Today shows today’s meals; tomorrow only when helpful; empty today has Plan CTA.
+3. Grocery shows progress without item rows; visiting Dashboard does **not**
+   create a grocery list.
+4. Budget remaining/spending matches Budget page snapshot math; ≤3 recent txns.
+5. Meal week shows count + days missing; CTA opens current Sunday week.
+6. Recipes shows ≤3 recent names; **no** favorites UI.
+7. Household shows name + member count; no management controls.
+8. All primary CTAs navigate to the correct module/query.
+9. 360×780: no horizontal scroll; usable with bottom nav.
+10. Module mutations revalidate `/dashboard`.
+
+#### Testing strategy
+
+| Layer      | Plan                                                                                                                                                                                                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vitest     | `tests/unit/dashboard.test.ts` — pure builders (today/tomorrow, grocery null vs progress, budget trim, missing days, recipe cap, household). Inject fixed `now`. Do not re-test `buildBudgetMonthSnapshot` / `shoppingProgress` internals.                                        |
+| Playwright | `dashboard.chromium.spec.ts` (+ mobile-360 project); `dashboard.webkit.spec.ts` smoke. Reuse `signInAsMember`. Assert cards/CTAs/`data-testid`s; Budget+Recipes against seed; Today/Grocery/Meal week empty or setup like shopping tests. Optional outsider household smoke once. |
+| Responsive | 360, 390, iPad, desktop — checklist in QA review                                                                                                                                                                                                                                  |
+| Isolation  | pgTAP remains source of truth; optional outsider e2e                                                                                                                                                                                                                              |
+| Gate       | `npm run test` + `npm run test:e2e` + no `signInAsMember` regression                                                                                                                                                                                                              |
+
+Suggested testids: `dashboard-panel`, `card-today`, `card-grocery`,
+`card-budget`, `card-meals`, `card-recipes`, `card-household`, plus
+`dashboard-cta-*` for primary CTAs.
+
+#### Lead decisions (reconciled)
+
+1. **Six cards ship together**, with Household visually demoted — not a second PR
+   that drops Recipes/Household unless height slips in implementation.
+2. **No favorites** in V1; recently updated recipes only; favorites = future column.
+3. **Read-only home** — mutations stay on module pages.
+4. **Grocery:** `getGroceryListForWeek` only.
+5. **Budget:** remaining hero + up to 3 recent transactions (product), not full
+   kind grid.
+6. **Days missing meals** = days in the current Sunday week with zero planned
+   meals (not “missing dinner”).
+7. **Tomorrow** shown iff tomorrow has ≥1 meal.
+8. **Fail whole page** on hard data errors in V1.
+9. **Keep h1 “Dashboard”** for auth/e2e stability.
+10. **No migrations.**
+
+#### Architectural risks (pre-implementation)
+
+| Risk                               | Mitigation                                                       |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| Accidental `getOrCreate` on home   | Explicit ban; QA empty-list regression note                      |
+| `listRecipes` signs all images     | `limit` + `skipImages` before Recipes card ships                 |
+| Stale home after mutations         | `revalidatePath("/dashboard")` on module actions                 |
+| Membership query amplification     | Accept for V1; optional `cache(getCurrentMembership)`            |
+| Server TZ vs user near midnight    | Document; reuse `todayIsoDate` only                              |
+| Widget-wall density                | Fixed order + height caps; no charts/equal icon rows             |
+| Seed lacks current-week meals/list | Unit-test builders; e2e assert empty CTAs or setup like shopping |
+
+#### Recommended improvements before code
+
+1. Approve ADR-018 and this §8 plan.
+2. Implement thin `limit`/`skipImages` (or `listRecentRecipes`) + member count
+   first, then dashboard loader + cards.
+3. Add `/dashboard` revalidation in the same PR as the page.
+4. Do not start Subscriptions (M9) until Dashboard is approved and shipped.
+
+### 9. Subscription tracker
+
+**Status:** Not started (after Dashboard)
 
 Scope (draft — plan with specialist review before code):
 
@@ -970,7 +1226,7 @@ Scope (draft — plan with specialist review before code):
 - Calculation tests
 - Reuse Budget patterns (cents, Dialog/Sheet, Zod, repositories + RLS)
 
-### 9. Shared calendar
+### 10. Shared calendar
 
 **Status:** Not started
 
@@ -981,7 +1237,7 @@ Scope:
 - Date handling
 - Clear separation from meal-plan entries
 
-### 10. Release hardening
+### 11. Release hardening
 
 **Status:** Not started
 
@@ -1163,10 +1419,11 @@ query `listPlannedMealsForWeek`.
      returns.
    - Two refreshes with unchanged inputs yield identical database state.
 
-5. **RPC integrity.** Verifies list `household_id` matches the caller’s
-   household (RLS + explicit check), rejects cross-household
-   `ingredient_id`s, never updates `source = 'manual'`, and requires
-   `p_week_start_on` to equal the canonical Sunday for that date.
+5. **RPC integrity.** `SECURITY INVOKER` so RLS applies; confirms the
+   household row is visible to the caller; validates payload
+   `ingredient_id`s against the household (or fails when RLS hides them);
+   never updates `source = 'manual'`; requires `p_week_start_on` to be a
+   Sunday (`EXTRACT(DOW) = 0`).
 
 6. **Product.** Skip custom-title meals with a visible count notice; soft
    `store_section` grouping; no cross-unit conversion; identical-note-only
@@ -1182,6 +1439,48 @@ shopping week drift.
 keys, and Sunday boundaries; pgTAP for unique/trigger/RPC idempotence and
 cross-household deny; Playwright shopping projects. Pantry, conversion,
 pricing, and aisle maps remain extension points only.
+
+### ADR-018: Dashboard — read-only home aggregation
+
+**Status:** Accepted (2026-07-20)  
+**Decision:** For the Dashboard home slice:
+
+1. **Role.** `/dashboard` is the post-login home that answers “What do I need to
+   know and do today?” via six summary cards (Today, Grocery, Budget, Meal
+   Planning, Recipes, Household). It deep-links into modules; it does not
+   duplicate full pages, charts, or analytics.
+
+2. **Read-only.** No dashboard mutations. Grocery must use
+   `getGroceryListForWeek` (never `getOrCreate`). Plan/shop/spend actions open
+   existing module routes.
+
+3. **Aggregation.** A thin server-only loader
+   (`lib/dashboard/get-dashboard-view-model.ts`) composes existing repositories;
+   pure builders live in `lib/domain/dashboard.ts`. Feature repos stay domain-
+   specific. Snapshot math stays in existing helpers
+   (`buildBudgetMonthSnapshot`, `shoppingProgress`, week/date helpers).
+
+4. **Recipes without favorites.** No `is_favorite` column. Show up to three
+   recently updated recipes. Extend recipe list options with `limit` +
+   `skipImages` so the home page does not sign every image. Favorites remain a
+   future extension.
+
+5. **Household.** Name + member count via a thin count query; no member
+   management on this page.
+
+6. **Freshness.** Module server actions also `revalidatePath("/dashboard")`.
+
+7. **Schema.** No migrations for this slice.
+
+**Reason:** Modules already expose the needed reads and domain math; a home
+composer avoids N+1 UI logic and accidental write side effects while keeping
+the page calm and fast.
+
+**Consequences:** New domain/dashboard modules + presentational cards;
+small recipe-list and household-count repository additions; action revalidation
+updates; Vitest builders + Playwright dashboard projects. Charts, favorites,
+notifications, AI, weather, pantry, bank sync, and live updates stay out of
+scope.
 
 ### ADR-002: Initial client strategy
 
@@ -1283,11 +1582,107 @@ Add only questions that materially block or influence implementation.
   `custom_title`; append-only `sort_order` (ADR-016 accepted).
 - Resolved (Shopping plan): regenerate preserves checked generated + manuals;
   skip custom meals with count note; soft `store_section` grouping; no unit
-  conversion in V1 (ADR-017 proposed).
+  conversion in V1 (ADR-017 accepted).
+- Resolved (Dashboard): read-only home aggregation; no favorites migration;
+  `limit`/`skipImages` for recent recipes; member count query; no dashboard
+  writes; `revalidateModuleAndDashboard` helper (ADR-018 accepted).
 
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-20 (Milestone 8 Dashboard final release review)
+
+- Work completed: Release review for Dashboard. Architecture/responsive check
+  (server composer + domain builders; meals off calendar; desktop viewport lock).
+  Removed temporary placeholder calendar events from production paths. Added
+  `20260720193000_service_role_table_grants` so secret-key admin helpers can DML
+  (pushed to hosted). Ignored `.tmp/` for lint/git.
+- Files or areas changed: Dashboard slice + calendar day agenda UI; service_role
+  grants migration; docs; tests; this log.
+- Validation performed: `npm run test:db` 82/82 twice (no reset); `npm run verify`
+  green (unit 115; e2e 62); migration list local==remote (12); advisors: Auth
+  leaked-password WARN only (pre-existing); Performance: none.
+- Decisions made: Release **go** for Dashboard; next is Milestone 9 Subscriptions
+  (not started until planned).
+- Remaining issues: Auth leaked-password protection (hosted dashboard setting);
+  calendar events empty until Calendar milestone.
+- Next recommended task: Commit/push; plan Milestone 9 when asked.
+
+### 2026-07-20 (Dashboard UX — calendar day + today's meals)
+
+- Work completed: Today panel uses shared `CalendarDayView` (events only, not
+  meals). Meal Planning card lists meals planned for today with links to
+  recipes. Desktop app shell locks to viewport height so Dashboard does not
+  page-scroll. Calendar route reuses the same day view. Events remain empty
+  until Calendar milestone writes.
+- Files or areas changed: `lib/domain/calendar.ts`, `lib/domain/dashboard.ts`,
+  `lib/dashboard/get-dashboard-view-model.ts`, `components/calendar/day-view.tsx`,
+  `components/dashboard/*`, `app/(app)/layout.tsx`, `app/(app)/dashboard/*`,
+  `app/(app)/calendar/page.tsx`, unit + e2e dashboard tests, `IMPLEMENTATION.md`.
+- Validation performed: typecheck; vitest dashboard 17/17; Playwright dashboard
+  chromium + webkit 12/12 (`PW_REUSE_SERVER=1`).
+- Decisions made: Meals never appear on the calendar grid; Dashboard Today CTA
+  → `/calendar`.
+- Remaining issues: No `calendar_events` table yet (empty day is expected).
+- Next recommended task: Commit when asked; Milestone 9 Subscriptions when asked.
+
+### 2026-07-20 (Ship Milestone 8 Dashboard)
+
+- Work completed: Implemented read-only Dashboard home (six cards), domain
+  builders, server composer, recipe `limit`/`skipImages`, member count,
+  centralized `/dashboard` revalidation, Vitest + Playwright (chromium +
+  webkit). No migrations.
+- Files or areas changed: `lib/domain/dashboard.ts`,
+  `lib/dashboard/*`, `components/dashboard/*`, `app/(app)/dashboard/*`,
+  repositories (recipes, households), module `actions.ts`, e2e/unit tests,
+  `playwright.config.ts`, `IMPLEMENTATION.md` / `ARCHITECTURE.md` / ADR-018.
+- Validation performed: `npm run verify` 64/64 e2e; unit 114; `test:db` 82/82
+  twice; migration list local==remote (11); advisors: Auth leaked-password WARN
+  only (pre-existing); Performance: no findings.
+- Decisions made: ADR-018 accepted; Milestone 8 complete; next is Milestone 9
+  Subscriptions (not started).
+- Remaining issues: Auth leaked-password protection (hosted dashboard);
+  membership query still re-runs per repo call (optional `cache()` later);
+  Shopping `getOrCreate` on `/shopping` visit unchanged.
+- Next recommended task: Optional commit; plan Milestone 9 when asked.
+
+### 2026-07-19 (Dashboard plan — specialist review + reconcile)
+
+- Work completed: Lead coordinated Frontend/UI, Backend/Data, and QA reviews for
+  the Dashboard home vertical slice. Reconciled into Milestone 8 plan + ADR-018
+  (proposed). Updated `IMPLEMENTATION.md` and `ARCHITECTURE.md`. No application
+  code.
+- Files or areas changed: `IMPLEMENTATION.md` (§8 Dashboard, ADR-018, roadmap
+  renumber Subscriptions→9 / Calendar→10 / Release→11, work log),
+  `ARCHITECTURE.md` (dashboard aggregation note).
+- Validation performed: architecture + repository inventory review only (no
+  lint/test run — docs-only).
+- Decisions made: six-card read-only home; Today prioritizes fold; Grocery never
+  `getOrCreate`; Budget remaining + ≤3 recent txns; Recipes = recent updated
+  (no favorites); days missing = zero-meal days in Sunday week; fail whole page
+  on hard errors; keep h1 “Dashboard”; no migrations; await approval before code.
+- Remaining issues: none for the plan itself; Auth leaked-password protection
+  (hosted) remains from prior milestones.
+- Next recommended task: User approval of §8 / ADR-018, then implement Dashboard.
+
+### 2026-07-19 (Milestone 6 final release review)
+
+- Work completed: Release review only (no feature work). Confirmed Sunday week
+  semantics (not Monday), `generation_key` reconcile, uniqueness/locks/RLS,
+  mobile check-off UX, WeekNavigator reuse. Ran `test:db` ×2 (no reset between),
+  clean `verify` after local seed reset, hosted migration parity, advisors.
+- Files or areas changed: `IMPLEMENTATION.md` (this log only).
+- Validation performed: `npm run test:db` 82/82 twice; `npm run verify` 50/50
+  e2e; local/remote migrations include `20260720012556`; Security Advisor: Auth
+  leaked-password WARN only; Performance Advisor: 0 findings.
+- Decisions made: Release **go** for Shopping; checklist “Monday week” is
+  incorrect vs ADR-016/017 (Sunday). Do not start Dashboard/Subscriptions until
+  asked.
+- Remaining issues: Auth leaked-password protection (dashboard); empty list
+  created on Shopping page visit (`getOrCreate`); checked historical orphans
+  until Clear checked.
+- Next recommended task: Optional commit of this log; plan Milestone 8 when asked.
 
 ### 2026-07-19 (Ship Milestone 6 + advance to Subscriptions)
 
