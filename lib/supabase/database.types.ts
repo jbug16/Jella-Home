@@ -123,6 +123,7 @@ export type Database = {
       grocery_list_items: {
         Row: {
           created_at: string;
+          generation_key: string | null;
           household_id: string;
           id: string;
           ingredient_id: string | null;
@@ -140,6 +141,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          generation_key?: string | null;
           household_id: string;
           id?: string;
           ingredient_id?: string | null;
@@ -157,6 +159,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          generation_key?: string | null;
           household_id?: string;
           id?: string;
           ingredient_id?: string | null;
@@ -618,6 +621,15 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      regenerate_grocery_list: {
+        Args: {
+          p_household_id: string;
+          p_items: Json;
+          p_list_name?: string;
+          p_week_start_on: string;
+        };
+        Returns: string;
+      };
       save_recipe_with_ingredients: {
         Args: {
           p_cook_time_minutes: number;

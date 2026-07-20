@@ -45,3 +45,15 @@ export {
   listPlannedMealsForWeek,
   updatePlannedMeal,
 } from "@/lib/repositories/meal-plans";
+
+export {
+  clearCheckedItems,
+  createManualItem,
+  deleteGroceryItem,
+  generateGroceryListFromMeals,
+  getGroceryListForWeek,
+  getOrCreateGroceryListForWeek,
+  listGroceryItems,
+  setItemChecked,
+  updateGroceryItem,
+} from "@/lib/repositories/shopping";

@@ -5,7 +5,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(60);
+SELECT plan(82);
 
 CREATE OR REPLACE FUNCTION public.test_as_user(uid uuid)
 RETURNS void
@@ -734,6 +734,336 @@ SELECT lives_ok(
   $$DELETE FROM public.planned_meals
     WHERE id = 'b2b2b2b2-b2b2-4b2b-8b2b-b2b2b2b2b2b2'$$,
   'member can hard-delete a planned meal'
+);
+
+-- ---------------------------------------------------------------------------
+-- Grocery lists (Milestone 6): generation_key, week unique, regenerate RPC.
+-- ---------------------------------------------------------------------------
+RESET ROLE;
+
+SELECT has_column(
+  'public', 'grocery_list_items', 'generation_key',
+  'grocery_list_items has a generation_key column'
+);
+
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+-- Sunday week 2025-06-01
+SELECT lives_ok(
+  $$INSERT INTO public.grocery_lists (
+      id, household_id, name, week_start_on, status
+    ) VALUES (
+      'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1',
+      '11111111-1111-4111-8111-111111111111',
+      'Shopping test',
+      '2025-06-01',
+      'active'
+    )$$,
+  'member can insert an active grocery list for a Sunday week'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO public.grocery_list_items (
+      id, household_id, list_id, name, quantity, unit, source, notes, generation_key
+    ) VALUES (
+      'd1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1',
+      '11111111-1111-4111-8111-111111111111',
+      'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1',
+      'Paper towels',
+      1,
+      'package',
+      'manual',
+      'keep me',
+      NULL
+    )$$,
+  'member can insert a manual grocery item'
+);
+
+-- Second active list same week is rejected.
+SELECT throws_ok(
+  $$INSERT INTO public.grocery_lists (
+      household_id, name, week_start_on, status
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'Duplicate week',
+      '2025-06-01',
+      'active'
+    )$$,
+  '23505',
+  NULL,
+  'partial unique prevents two active lists for the same week'
+);
+
+-- Cross-household list/ingredient rejected by trigger (RESET ROLE to bypass RLS).
+RESET ROLE;
+
+SELECT lives_ok(
+  $$INSERT INTO public.grocery_lists (
+      id, household_id, name, week_start_on, status
+    ) VALUES (
+      'c2c2c2c2-c2c2-4c2c-8c2c-c2c2c2c2c2c2',
+      '22222222-2222-4222-8222-222222222222',
+      'Household B list',
+      '2025-06-01',
+      'active'
+    )$$,
+  'setup grocery list for household B'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.grocery_list_items (
+      household_id, list_id, name, source, generation_key
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'c2c2c2c2-c2c2-4c2c-8c2c-c2c2c2c2c2c2',
+      'Bad list',
+      'manual',
+      NULL
+    )$$,
+  '23514',
+  NULL,
+  'grocery item list must belong to the same household'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.grocery_list_items (
+      household_id, list_id, name, source, ingredient_id, generation_key
+    ) VALUES (
+      '22222222-2222-4222-8222-222222222222',
+      'c2c2c2c2-c2c2-4c2c-8c2c-c2c2c2c2c2c2',
+      'Stolen spaghetti',
+      'generated',
+      '88888888-8888-4888-8888-888888888888',
+      '88888888-8888-4888-8888-888888888888|g|'
+    )$$,
+  '23514',
+  NULL,
+  'grocery item ingredient must belong to the same household'
+);
+
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+-- Regenerate with two generated buckets.
+SELECT is(
+  public.regenerate_grocery_list(
+    '11111111-1111-4111-8111-111111111111',
+    '2025-06-01',
+    '[
+      {
+        "generation_key": "88888888-8888-4888-8888-888888888888|g|",
+        "name": "Spaghetti",
+        "quantity": "200",
+        "unit": "g",
+        "notes": "",
+        "store_section": "Pasta",
+        "ingredient_id": "88888888-8888-4888-8888-888888888888",
+        "sort_order": 0
+      },
+      {
+        "generation_key": "99999999-9999-4999-8999-999999999999|tbsp|to coat",
+        "name": "Olive Oil",
+        "quantity": "2",
+        "unit": "tbsp",
+        "notes": "to coat",
+        "store_section": "",
+        "ingredient_id": "99999999-9999-4999-8999-999999999999",
+        "sort_order": 1
+      }
+    ]'::jsonb,
+    'Shopping test'
+  ),
+  'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'::uuid,
+  'regenerate returns the existing list id'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.grocery_list_items
+    WHERE list_id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'
+      AND source = 'generated'
+  ),
+  2,
+  'regenerate inserts generated buckets'
+);
+
+SELECT is(
+  (
+    SELECT notes
+    FROM public.grocery_list_items
+    WHERE id = 'd1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1'
+  ),
+  'keep me',
+  'manual item notes unchanged after regenerate'
+);
+
+-- Check Spaghetti, then refresh with new quantity.
+SELECT lives_ok(
+  $$UPDATE public.grocery_list_items
+      SET is_checked = true
+    WHERE list_id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'
+      AND generation_key = '88888888-8888-4888-8888-888888888888|g|'$$,
+  'member can check a generated item'
+);
+
+SELECT lives_ok(
+  $$SELECT public.regenerate_grocery_list(
+      '11111111-1111-4111-8111-111111111111',
+      '2025-06-01',
+      '[
+        {
+          "generation_key": "88888888-8888-4888-8888-888888888888|g|",
+          "name": "Spaghetti",
+          "quantity": "400",
+          "unit": "g",
+          "notes": "",
+          "store_section": "Pasta",
+          "ingredient_id": "88888888-8888-4888-8888-888888888888",
+          "sort_order": 0
+        }
+      ]'::jsonb,
+      'Shopping test'
+    )$$,
+  'regenerate with refreshed quantity succeeds'
+);
+
+SELECT is(
+  (
+    SELECT quantity::text
+    FROM public.grocery_list_items
+    WHERE list_id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'
+      AND generation_key = '88888888-8888-4888-8888-888888888888|g|'
+  ),
+  '400',
+  'matching generated item quantity refreshes'
+);
+
+SELECT is(
+  (
+    SELECT is_checked
+    FROM public.grocery_list_items
+    WHERE list_id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'
+      AND generation_key = '88888888-8888-4888-8888-888888888888|g|'
+  ),
+  true,
+  'matching generated item keeps checked state'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.grocery_list_items
+    WHERE list_id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'
+      AND generation_key = '88888888-8888-4888-8888-888888888888|g|'
+  ),
+  1,
+  'regenerate does not duplicate a checked matching item'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.grocery_list_items
+    WHERE list_id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'
+      AND generation_key = '99999999-9999-4999-8999-999999999999|tbsp|to coat'
+  ),
+  0,
+  'removed unchecked generated items disappear'
+);
+
+-- Idempotent second refresh with same payload.
+SELECT lives_ok(
+  $$SELECT public.regenerate_grocery_list(
+      '11111111-1111-4111-8111-111111111111',
+      '2025-06-01',
+      '[
+        {
+          "generation_key": "88888888-8888-4888-8888-888888888888|g|",
+          "name": "Spaghetti",
+          "quantity": "400",
+          "unit": "g",
+          "notes": "",
+          "store_section": "Pasta",
+          "ingredient_id": "88888888-8888-4888-8888-888888888888",
+          "sort_order": 0
+        }
+      ]'::jsonb,
+      'Shopping test'
+    )$$,
+  'second identical regenerate succeeds'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.grocery_list_items
+    WHERE list_id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'
+      AND source = 'generated'
+  ),
+  1,
+  'repeated regenerate does not create duplicate buckets'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.grocery_list_items
+    WHERE id = 'd1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1'
+  ),
+  1,
+  'manual items remain after repeated regenerate'
+);
+
+-- Non-Sunday week rejected.
+SELECT throws_ok(
+  $$SELECT public.regenerate_grocery_list(
+      '11111111-1111-4111-8111-111111111111',
+      '2025-06-02',
+      '[]'::jsonb,
+      'Nope'
+    )$$,
+  '23514',
+  NULL,
+  'regenerate rejects a non-Sunday week_start_on'
+);
+
+-- Cross-household ingredient in RPC payload rejected.
+-- Under RLS the foreign ingredient is invisible, so the RPC reports it missing
+-- (23503) rather than leaking cross-household existence via 23514.
+SELECT throws_ok(
+  $$SELECT public.regenerate_grocery_list(
+      '11111111-1111-4111-8111-111111111111',
+      '2025-06-01',
+      '[
+        {
+          "generation_key": "a0000000-0000-4000-8000-000000000001|cup|",
+          "name": "Rice",
+          "quantity": "1",
+          "unit": "cup",
+          "notes": "",
+          "store_section": "",
+          "ingredient_id": "a0000000-0000-4000-8000-000000000001",
+          "sort_order": 0
+        }
+      ]'::jsonb,
+      'Shopping test'
+    )$$,
+  '23503',
+  NULL,
+  'regenerate rejects cross-household ingredient ids'
+);
+
+-- Outsider cannot read household A list.
+SELECT public.test_as_user('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.grocery_lists
+    WHERE id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'
+  ),
+  0,
+  'outsider cannot read another household grocery list'
 );
 
 SELECT * FROM finish();

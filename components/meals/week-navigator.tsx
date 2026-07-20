@@ -12,6 +12,10 @@ import {
 
 type WeekNavigatorProps = {
   weekStart: string;
+  /** Route prefix without query, e.g. `/meals` or `/shopping`. */
+  basePath?: string;
+  /** Prefix for data-testid attributes (default `meals`). */
+  testIdPrefix?: string;
 };
 
 /**
@@ -20,7 +24,11 @@ type WeekNavigatorProps = {
  * "Jump to this week" sits on a reserved second row so it never shifts the
  * main prev / label / next row.
  */
-export function WeekNavigator({ weekStart }: WeekNavigatorProps) {
+export function WeekNavigator({
+  weekStart,
+  basePath = "/meals",
+  testIdPrefix = "meals",
+}: WeekNavigatorProps) {
   const previous = shiftWeekStart(weekStart, -1);
   const next = shiftWeekStart(weekStart, 1);
   const thisWeek = currentWeekStart();
@@ -36,9 +44,9 @@ export function WeekNavigator({ weekStart }: WeekNavigatorProps) {
           asChild
         >
           <Link
-            href={`/meals?week=${previous}`}
+            href={`${basePath}?week=${previous}`}
             aria-label="Previous week"
-            data-testid="meals-prev-week"
+            data-testid={`${testIdPrefix}-prev-week`}
           >
             <ChevronLeft className="size-5" />
           </Link>
@@ -49,7 +57,7 @@ export function WeekNavigator({ weekStart }: WeekNavigatorProps) {
         */}
         <p
           className="w-[12rem] shrink-0 truncate text-center text-sm leading-none text-muted-foreground tabular-nums"
-          data-testid="meals-week-label"
+          data-testid={`${testIdPrefix}-week-label`}
         >
           {formatWeekLabel(weekStart)}
         </p>
@@ -60,9 +68,9 @@ export function WeekNavigator({ weekStart }: WeekNavigatorProps) {
           asChild
         >
           <Link
-            href={`/meals?week=${next}`}
+            href={`${basePath}?week=${next}`}
             aria-label="Next week"
-            data-testid="meals-next-week"
+            data-testid={`${testIdPrefix}-next-week`}
           >
             <ChevronRight className="size-5" />
           </Link>
@@ -77,8 +85,8 @@ export function WeekNavigator({ weekStart }: WeekNavigatorProps) {
             asChild
           >
             <Link
-              href={`/meals?week=${thisWeek}`}
-              data-testid="meals-this-week"
+              href={`${basePath}?week=${thisWeek}`}
+              data-testid={`${testIdPrefix}-this-week`}
             >
               Jump to this week
             </Link>

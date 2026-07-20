@@ -90,13 +90,31 @@ export default defineConfig({
       },
     },
     {
+      name: "shopping-chromium-desktop",
+      testMatch: /shopping\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 800 },
+      },
+    },
+    {
+      name: "shopping-chromium-mobile-360",
+      testMatch: /shopping\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 360, height: 780 },
+      },
+    },
+    {
       name: "webkit-iphone",
-      testMatch: /(shell|recipes|meals)\.webkit\.spec\.ts/,
+      testMatch: /(shell|recipes|meals|shopping)\.webkit\.spec\.ts/,
       use: { ...devices["iPhone 13"] },
     },
     {
       name: "webkit-ipad",
-      testMatch: /(shell|recipes|meals)\.webkit\.spec\.ts/,
+      testMatch: /(shell|recipes|meals|shopping)\.webkit\.spec\.ts/,
       use: { ...devices["iPad Pro 11"] },
     },
   ],

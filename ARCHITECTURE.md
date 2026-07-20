@@ -24,8 +24,8 @@ Companion docs:
 
 - Spreadsheet read/write sync or dual-write
 - Multi-tenant SaaS features (billing, arbitrary household invites, orgs)
-- Product UI for shopping, subscriptions, or calendar beyond the shell
-  (Budget, Recipes, and Meal Planning ship as vertical slices)
+- Product UI for subscriptions or calendar beyond the shell
+  (Budget, Recipes, Meal Planning, and Shopping ship as vertical slices)
 - Native mobile clients
 - Public self-serve sign-up
 
@@ -321,16 +321,23 @@ Notes:
 
 ### Grocery lists
 
+Week-scoped shopping lists (Milestone 6). Tables exist from Milestone 2 core
+schema; slice migration adds week uniqueness + household consistency (see
+ADR-017 in `IMPLEMENTATION.md`). Generation reads `planned_meals` +
+`recipe_ingredients` for the week — ingredients are not denormalized onto meals.
+
 ```text
 grocery_lists
   id              uuid PK
   household_id    uuid NOT NULL REFERENCES households(id) ON DELETE CASCADE
   name            text NOT NULL
-  week_start_on   date NULL
+  week_start_on   date NULL              -- Sunday; same weekStartOn as meals
   status          text NOT NULL DEFAULT 'active'
                   CHECK (status IN ('active', 'archived'))
   created_at      timestamptz NOT NULL DEFAULT now()
   updated_at      timestamptz NOT NULL DEFAULT now()
+  -- M6: UNIQUE (household_id, week_start_on) WHERE status = 'active'
+  --     AND week_start_on IS NOT NULL
 
 grocery_list_items
   id              uuid PK
@@ -346,10 +353,32 @@ grocery_list_items
   ingredient_id   uuid NULL REFERENCES ingredients(id) ON DELETE SET NULL
   recipe_id       uuid NULL REFERENCES recipes(id) ON DELETE SET NULL
   notes           text NOT NULL DEFAULT ''
+  generation_key  text NULL              -- generated buckets only; null for manual
   sort_order      int NOT NULL DEFAULT 0
   created_at      timestamptz NOT NULL DEFAULT now()
   updated_at      timestamptz NOT NULL DEFAULT now()
+  -- UNIQUE (list_id, generation_key) WHERE source = 'generated'
+  --     AND generation_key IS NOT NULL
+  -- trigger: list/ingredient/recipe household_id must match row
 ```
+
+Notes:
+
+- **Week start is Sunday.** Same `weekStartOn` / `resolveWeekStartParam` as
+  meals. `week_start_on` always stores that canonical Sunday.
+- **One active list per week.** Partial unique index prevents duplicate active
+  lists for the same Sunday `week_start_on`.
+- **`generation_key`.** Deterministic bucket id for generated rows (ingredient
+  identity + normalized unit + note identity). Null on manual rows. Partial
+  unique `(list_id, generation_key)` for generated rows.
+- **Regenerate reconcile** (RPC, list row `FOR UPDATE`): update matching
+  generated keys (preserve `is_checked`); insert new keys unchecked; delete
+  unchecked generated keys absent from the payload; keep checked orphans as
+  historical; never touch manual rows. Idempotent for unchanged inputs.
+- **Aggregation** lives in domain TypeScript (`aggregateGroceryLines`): no unit
+  conversion in V1; scale by planned/recipe servings.
+- **Soft section grouping.** Copy `ingredients.store_section` on generate;
+  empty section → flat “List” group. Not a store-routing product feature.
 
 ### Subscriptions
 

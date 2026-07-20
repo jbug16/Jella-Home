@@ -124,3 +124,24 @@ export {
   type PlannedMeal,
   type UpdatePlannedMealInput,
 } from "@/lib/domain/meal-plan";
+
+export {
+  aggregateGroceryLines,
+  buildAggregationInputsFromMeals,
+  buildGenerationKey,
+  createManualItemInputSchema,
+  groupGroceryItems,
+  mapGroceryList,
+  mapGroceryListItem,
+  resolveShoppingWeekStart,
+  scaleLineQuantity,
+  shoppingProgress,
+  sortGroceryItems,
+  updateGroceryItemInputSchema,
+  type CreateManualItemInput,
+  type GroceryAggregationInput,
+  type GroceryAggregationOutput,
+  type GroceryList,
+  type GroceryListItem,
+  type UpdateGroceryItemInput,
+} from "@/lib/domain/shopping";

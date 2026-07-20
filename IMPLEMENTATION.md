@@ -11,16 +11,15 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** 6 — Shopping list  
-**Status:** In progress (planning draft; implementation not started)  
+**Milestone:** 8 — Subscription tracker  
+**Status:** Not started (awaiting plan when ready)  
 **Owner:** Lead Engineer  
-**Goal:** Generate and manage the weekly shopping list from planned meals, with
-manual items, quantities/grouping, checked state, and mobile-first shopping UX.
+**Goal:** Track household subscriptions with cadence conversions, renewal dates,
+and status — clearer than the legacy Subscription Tracker sheet.
 
-Previous: Milestone 5 (Weekly meal planner) **approved** 2026-07-19 and shipped
-to production (hosted migration + Netlify). Recipes (7), Budget (4), and auth
-(2) complete. Meal plan: [Milestone 5](#5-weekly-meal-planner) / ADR-016.
-Shopping draft: [Milestone 6](#6-shopping-list).
+Previous: Milestone 6 (Shopping list) **approved** and shipped 2026-07-19
+(local verify + hosted migration + Netlify). Recipes (7), Meals (5), Budget (4),
+and auth (2) complete. Shopping: [Milestone 6](#6-shopping-list) / ADR-017.
 
 ### Pre-work completed
 
@@ -445,11 +444,11 @@ planned yet” line — do not replace the planner with a single Coming-soon car
 
 #### Future extension points (design only — do not build)
 
-| Future                  | Leave room by                                                                                     | Avoid now                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Grocery generation (M6) | `listPlannedMealsForWeek` + recipe ingredient joins; `grocery_lists.week_start_on` already exists | Denormalized ingredients on meals; meal↔list junction |
-| Leftovers               | Later nullable `source_planned_meal_id` or flag                                                   | Soft-delete + leftover enum on every row              |
-| Recurring meals         | Later template / recurrence table                                                                 | RRULE engine, generated series                        |
+| Future                  | Leave room by                                                                                                                  | Avoid now                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Grocery generation (M6) | `listPlannedMealsForWeek` + recipe ingredient joins; `grocery_lists.week_start_on` already exists — see [§6](#6-shopping-list) | Denormalized ingredients on meals; meal↔list junction |
+| Leftovers               | Later nullable `source_planned_meal_id` or flag                                                                                | Soft-delete + leftover enum on every row              |
+| Recurring meals         | Later template / recurrence table                                                                                              | RRULE engine, generated series                        |
 
 Do not add a “Generate shopping list” CTA on Meals chrome in this slice.
 
@@ -507,104 +506,244 @@ npm run verify
 
 ### 6. Shopping list
 
-**Status:** In progress (planning draft — 2026-07-19; awaiting approval before code)
+**Status:** Complete (2026-07-19; local `verify` + `test:db` green)
 
 Week-scoped shopping list generated from the meal planner, plus manual lines.
-Reuses Sunday `weekStartOn` from meal-plan domain, Budget/Recipes action
-patterns, and existing `grocery_lists` / `grocery_list_items` schema (Milestone
-2). No workbook sync.
+Optimized for **in-store mobile use** (check-off, progress, collapse completed)
+while remaining clear on desktop. Reuses Sunday `weekStartOn`, Budget/Recipes
+action patterns, and existing `grocery_lists` / `grocery_list_items` (Milestone
+2). No workbook sync. Route and nav label stay **Shopping** (`/shopping`).
 
-#### In scope (proposed)
+Specialist reviews: [Frontend/UI](7ddd351a-190d-438d-8cfe-9d9ad2793dcc),
+[Backend/Data](cc098ed2-e2b3-4339-a68b-c739aad48231),
+[QA](03327d5b-8527-4125-9385-a086036590a0). Lead reconciled below (ADR-017).
 
-- One **active** list per household per `week_start_on` (Sunday); navigate weeks
-  like Meals (`?week=YYYY-MM-DD`)
-- **Generate / refresh** from planned meals in that week: join
-  `recipe_ingredients` (+ ingredient name), scale quantities by
-  `planned_meals.servings / recipes.servings` when both present
-- **Aggregate** generated lines by normalized ingredient identity + unit
-  (sum quantities when both numeric; keep separate rows when units differ or
-  quantity is null / “to taste”)
-- Skip meals with no `recipe_id` (custom title only) on generate; optional soft
-  note in UI (“N meals without recipes”)
-- Manual add / edit / delete lines; toggle `is_checked`; clear checked
-- Group UI by `store_section` when set, else a single “List” group; unchecked
-  first within a group
-- Mobile-first check-off (large tap targets); desktop usable list
-- Empty / loading / error / validation states; household-friendly copy only
+#### In scope
 
-#### Out of scope
+- One **active** list per household per Sunday `week_start_on`; `?week=` like Meals
+- **Generate / refresh** from planned meals with `recipe_id` in that week
+- Scale quantities by `(planned.servings ?? recipe.servings) / recipe.servings`
+- **Aggregate** by `(ingredient_id | ingredientNameKey) + normalizeUnit(unit)`
+- **Normalize units** via existing `normalizeUnit` (canonical approved strings);
+  **no conversion** between units in V1 (tbsp vs ml stay separate rows)
+- Preserve ingredient **notes when useful** (identical notes in a merge bucket
+  keep that note; conflicting notes → empty)
+- Manual add / edit / delete; check/uncheck any item; delete any item;
+  **clear checked** (bulk delete checked rows)
+- Regenerate reconciles by `generation_key` (idempotent; manuals untouched;
+  matching checked state preserved; no duplicate buckets)
+- Soft group by `store_section` when non-empty (inherit from ingredients on
+  generate); else single “List” group — not aisle routing
+- Collapse completed items (default: checked collapsed under “Checked (N)”)
+- Shopping progress: “N of M” (+ thin bar); not color-only
+- Empty / loading / error / validation; household-friendly copy only
 
-Price tracking, multi-store routing beyond free-text `store_section`, pantry
-inventory, shared live collaboration beyond RLS, leftovers, recipe soft-archive
-side effects beyond using current ingredient rows, drag-and-drop reorder,
-push notifications.
+#### Out of scope (future extension points only)
 
-#### Schema
+| Deferred                         | Leave room by                                            | Avoid now                                    |
+| -------------------------------- | -------------------------------------------------------- | -------------------------------------------- |
+| Pantry inventory / subtraction   | Later `pantry_items` table; generate stays meal-driven   | Auto-subtract or pantry UI                   |
+| Unit conversion (cup↔ml, etc.)   | Aggregation key stays unit-aware; convert helper later   | Conversion tables / fuzzy merge              |
+| Price / coupons / barcode        | Keep `quantity`/`unit` only                              | Price columns, scanner                       |
+| Store organization / aisle maps  | Free-text `store_section` already on items + ingredients | Taxonomy, drag-to-aisle, multi-store routing |
+| Shared live collaboration        | RLS equal read/write already                             | Realtime sync, presence                      |
+| Recurring grocery items          | Manual rows + regenerate policy                          | Recurrence engine                            |
+| Meals “Add to shopping list” CTA | Generate-from-week is enough for the vertical slice      | Extra Meals chrome                           |
 
-Tables already exist with RLS. Proposed slice changes (small migration if
-needed after review):
+#### Schema — migration `*_shopping_slice.sql` (ADR-017)
 
-1. Prefer **unique** `(household_id, week_start_on)` among `status = 'active'`
-   lists (partial unique index) so get-or-create is safe.
-2. Keep `source` `manual` | `generated`; regenerate replaces **generated** rows
-   for that list and **preserves** manual + checked-generated unless we adopt
-   “full replace generated only” (default: delete unchecked generated, insert
-   fresh aggregation; leave manual and checked-generated alone).
-3. No denormalized ingredients on `planned_meals`.
+Tables + RLS already exist. Slice adds:
 
-#### Domain — `lib/domain/shopping.ts` (+ reuse `dates` / `weekStartOn`)
+1. **`generation_key` text NULL** on `grocery_list_items` — deterministic
+   identity for generated aggregation buckets (null for manual rows)
+2. **Partial unique** `(list_id, generation_key) WHERE source = 'generated' AND generation_key IS NOT NULL`
+3. **Partial unique** `(household_id, week_start_on) WHERE status = 'active' AND week_start_on IS NOT NULL`
+4. **Trigger** `enforce_grocery_list_item_household` — item `household_id` must
+   match parent list; when set, `ingredient_id` / `recipe_id` must match the
+   same household
+5. **RPC** `regenerate_grocery_list(p_household_id, p_week_start_on, p_items jsonb)`  
+   `SECURITY INVOKER`, `SET search_path = ''`: get-or-create list for the
+   **canonical Sunday** week, `SELECT … FOR UPDATE` on the list row, then
+   reconcile generated rows by `generation_key` (see below). Aggregation stays
+   in TypeScript (Vitest).
+6. Optional: index `(list_id, source, is_checked)`
+7. Regenerate types into `lib/supabase/database.types.ts`
+8. No denormalized ingredients on `planned_meals`; no meal↔list junction
 
-- Zod for list + item create/update; positive/nullable quantity rules aligned
-  with recipe ingredients.
-- Pure `aggregateGroceryLines(inputs)` covered by Vitest (scale, merge, unit
-  mismatch, null quantity, servings edge cases).
-- `resolveWeekStartParam` shared with meals (Sunday).
+**`generation_key` format (domain):**  
+`{ingredientId | n:{nameKey}}|{normalizeUnit(unit)}|{noteIdentity}`  
+where `noteIdentity` is the normalized notes string when the merge bucket has a
+single identical note, otherwise empty.
+
+**Regenerate reconcile policy (approved — not delete-all-unchecked):**
+
+Inside one locked transaction:
+
+1. Get-or-create active list for Sunday `week_start_on` (reject if param is not
+   already that Sunday)
+2. Lock the list row (`FOR UPDATE`)
+3. Never modify or delete `source = 'manual'` rows
+4. For each payload bucket with `generation_key`:
+   - if a generated row with that key exists → **UPDATE** quantity, unit, notes,
+     store_section, name, ingredient_id (etc.); **preserve `is_checked`**
+   - else → **INSERT** generated row, `is_checked = false`
+5. Generated rows whose key is **absent** from the payload:
+   - if **unchecked** → **DELETE**
+   - if **checked** → **KEEP** as completed historical (no new duplicate for that
+     key because unique + upsert handles reappearance)
+6. Two refreshes with unchanged inputs → identical DB state (idempotent)
+
+RPC also rejects cross-household ingredient ids in the payload (trigger +
+explicit checks).
+
+#### Domain — `lib/domain/shopping.ts`
+
+Reuse: `weekStartOn` / `resolveWeekStartParam` / `formatWeekLabel` (meal-plan),
+`isoDateSchema` (dates), `ingredientNameKey` / `normalizeUnit` /
+`optionalQuantitySchema` / `isApprovedUnit` (recipe).
+
+- Zod: `groceryListSchema`, `groceryListItemSchema`,
+  `createManualItemInputSchema`, `updateGroceryItemInputSchema`,
+  `setItemCheckedInputSchema`
+- Pure: `scaleLineQuantity`, `buildAggregationInputsFromMeals`,
+  `aggregateGroceryLines`, `compareGroceryItems` (unchecked first, section,
+  sortOrder, name)
+- Aggregation details:
+  - Key: `(ingredient_id ?? nameKey, normalizeUnit(unit))`
+  - Sum scaled numeric quantities (round to 3 dp)
+  - Null qty (“to taste”) merges only with other null-qty same key
+  - Different units → separate rows
+  - `store_section` from ingredient at generate time
+  - `recipe_id` null when multiple recipes contribute; set only if single
+  - Skip meals without `recipe_id`; count for UI notice
+  - Archived recipes with existing rows still generate (meal still linked)
 
 #### Repositories — `lib/repositories/shopping.ts`
 
-Cookie SSR + `requireCurrentMembership()` only.
+Cookie SSR + `requireCurrentMembership()` only. Never admin client.
 
-- `getOrCreateGroceryListForWeek(weekStart)`
-- `listGroceryItems(listId)`
-- `generateGroceryListFromMeals(weekStart)` — load meals → recipe ingredients →
-  aggregate → write
-- `createManualItem`, `updateItem`, `setItemChecked`, `deleteItem`,
-  `clearCheckedItems`
+| Method                                     | Behavior                                    |
+| ------------------------------------------ | ------------------------------------------- |
+| `getOrCreateGroceryListForWeek(weekStart)` | Upsert-safe via unique index                |
+| `getGroceryListForWeek(weekStart)`         | Nullable                                    |
+| `listGroceryItems(listId)`                 | Ordered for UI                              |
+| `generateGroceryListFromMeals(weekStart)`  | Load meals + recipe lines → aggregate → RPC |
+| `createManualItem(listId, input)`          | `source = 'manual'`                         |
+| `updateGroceryItem(id, input)`             | Manual fields; never flip `source`          |
+| `setItemChecked(id, checked)`              | Any source                                  |
+| `deleteGroceryItem(id)`                    | Any source                                  |
+| `clearCheckedItems(listId)`                | Delete where `is_checked`                   |
 
-#### Server actions + UI
+#### Server actions — `app/(app)/shopping/actions.ts`
 
-- `app/(app)/shopping/actions.ts` — same `{ error, success }` pattern
-- Replace Coming-soon on `/shopping` with week nav + list + generate CTA
-- Components under `components/shopping/`; Dialog/Sheet via
-  `ResponsiveFormShell`
-- Optional later: “Add to shopping list” from Meals — **not** required for M6
-  vertical slice (generate-from-week is enough)
+Same `{ error, success }` pattern as meals/budget; Zod at boundary;
+`revalidatePath('/shopping')` after success.
+
+| Action                      | Purpose                                   |
+| --------------------------- | ----------------------------------------- |
+| `generateGroceryListAction` | Generate or refresh week                  |
+| `createManualItemAction`    | Add manual line                           |
+| `updateGroceryItemAction`   | Edit manual (name/qty/unit/section/notes) |
+| `setItemCheckedAction`      | Check / uncheck                           |
+| `deleteGroceryItemAction`   | Remove one item                           |
+| `clearCheckedItemsAction`   | Bulk remove checked                       |
+
+Generated rows in V1: check / uncheck / delete only (no edit form). Qty fixes
+come from regenerate after meal/recipe changes.
+
+#### UX — mobile-first, desktop capable
+
+Parameterize Meals `WeekNavigator` with `basePath` (`/meals` \| `/shopping`) —
+do **not** fork week logic or Sunday helpers.
+
+| Viewport        | Layout                                                                                                                                                    |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phone 360 / 390 | Header → week nav + progress → toolbar (Add, Generate/Refresh, hide/collapse checked) → sectioned check rows (full-row tap ≥44px) → MobileNav + safe-area |
+| iPad portrait   | Same single column; slightly wider toolbar                                                                                                                |
+| Desktop ≥1280   | Sidebar; week nav left, actions right; Dialog forms; same list model                                                                                      |
+
+Components under `components/shopping/`:
+
+- `shopping-panel` — client orchestrator
+- `shopping-toolbar`, `shopping-progress`
+- `shopping-list`, `shopping-section`, `shopping-item-row`
+- `shopping-item-form-dialog` (manual add/edit via `ResponsiveFormShell`)
+- `delete-shopping-item-dialog`, `regenerate-list-dialog` (explains preserve rules)
+- Empty variants: no list yet / nothing from meals / all checked
+
+Install shadcn **Checkbox**, **Progress**, **Collapsible** if missing.
+
+**Copy examples:** “Refresh list”, “3 meals without recipes — link recipes in
+Meals or add items by hand.” No API/DB jargon.
 
 #### Testing strategy
 
-- Vitest: aggregation + scaling
-- pgTAP: member CRUD; non-member deny; household consistency
-- Playwright: generate from seeded week with Fixture Spaghetti → check item →
-  add manual → clear checked; desktop + 360
+- **Vitest** `tests/unit/shopping.test.ts` (+ week helpers): Sunday
+  normalization across month/year boundaries; scale; merge; unit normalize (not
+  convert); null qty; `generation_key` stability; identical-note merge; Zod
+- **Vitest / domain:** repeated `aggregateGroceryLines` identical outputs
+  (idempotent inputs)
+- **pgTAP:** member CRUD; anon/non-member deny; week unique; household trigger;
+  cross-household ingredient/list reject; RPC reconcile:
+  - checked matching item keeps checked + refreshes qty
+  - no duplicate for checked matching key
+  - manuals unchanged
+  - removed unchecked generated deleted
+  - second identical regenerate is idempotent
+  - concurrent/repeated refresh cannot create duplicate buckets (unique)
+- **Playwright** `shopping.chromium.spec.ts` (desktop + 360) +
+  `shopping.webkit.spec.ts` smoke: generate → check → add manual → regenerate
+  (qty refresh, checked kept, no dup) → clear checked → collapse/progress →
+  week nav → no overflow at 360
+- Gate: `npm run test:db` + `npm run verify`
 
-#### Acceptance criteria (draft)
+#### Acceptance criteria
 
-- [ ] Week list get-or-create; invalid `?week=` falls back / canonicalizes to Sunday
-- [ ] Generate populates from planned recipe meals; aggregation correct
-- [ ] Manual items + check toggle + delete; submit disabled while saving
-- [ ] Usable at 360×780 through desktop; no horizontal scroll at 360
-- [ ] Vitest + pgTAP + Playwright green; `verify` + `test:db` pass
-- [ ] No leftover / pantry / pricing features
+**Product**
 
-#### Open questions (confirm before implement)
+- [x] Week-scoped list; `?week=` canonicalizes to **Sunday** like Meals (shared
+      `resolveWeekStartParam` / `weekStartOn`)
+- [x] Generate from recipe-linked meals; aggregation + scaling correct
+- [x] Custom-title meals skipped with count notice
+- [x] Manual add/edit/delete; check/uncheck; clear checked
+- [x] Regenerate reconciles by `generation_key` (idempotent; no duplicate
+      buckets; manuals untouched; checked state preserved on match)
+- [x] Progress “N of M”; checked items collapsible (default collapsed)
+- [x] Soft `store_section` groups when set; flat list otherwise
+- [x] Usable at 360×780 → desktop; no horizontal scroll at 360; ≥44px targets
+- [x] Household-friendly copy; loading/empty/error/saving states
 
-1. On regenerate: preserve checked generated lines, or wipe all generated?
-2. Should custom-title meals appear as a single non-aggregated reminder line?
-3. Default `store_section` empty vs require sections from day one?
+**Technical**
 
-**Proposed defaults if unblocked without answers:** (1) preserve checked
-generated + all manual; replace unchecked generated. (2) skip custom-title
-meals with a count note. (3) empty section + flat list until sections are used.
+- [x] Migration + types + RPC with list row lock; domain + repository + actions
+- [x] Vitest + pgTAP + Playwright green; `verify` + `test:db` pass
+- [x] No pantry, price, barcode, store routing, live collab, or recurring APIs
+
+#### Risks (accepted)
+
+1. **Obsolete checked generated** may linger as historical until cleared —
+   by design; unique `generation_key` prevents duplicates on reappearance.
+2. **No unit conversion** → same food in tbsp and ml appears as two lines.
+3. **Check-off races** between two users remain last-write-wins; regenerate is
+   serialized per list via `FOR UPDATE`.
+4. **WeekNavigator refactor** — touch meals chrome only via `basePath` prop.
+
+#### Verification gate
+
+```bash
+npm run test:db
+npm run verify
+# Playwright includes shopping generate/check/manual/regen at desktop + 360
+```
+
+#### Decisions (approved)
+
+1. **Regenerate:** reconcile by `generation_key` (not blind delete/insert).
+2. **Custom meals:** skip with count note; no reminder pseudo-lines in V1.
+3. **`store_section`:** empty default; inherit from ingredients on generate;
+   soft UI grouping only — not store organization.
+4. **Week:** Sunday-only, shared with Meals (approval note “Monday” treated as
+   typo — Meal Planning uses Sunday).
 
 ### 7. Recipe management
 
@@ -820,15 +959,16 @@ preserved on reload and after edits. Blank quantity ⇒ "to taste".
 
 ### 8. Subscription tracker
 
-**Status:** Not started
+**Status:** Not started (next up after Shopping)
 
-Scope:
+Scope (draft — plan with specialist review before code):
 
 - Subscription list
 - Add and edit subscription
 - Monthly and annual conversions
 - Renewal dates and status
 - Calculation tests
+- Reuse Budget patterns (cents, Dialog/Sheet, Zod, repositories + RLS)
 
 ### 9. Shared calendar
 
@@ -987,6 +1127,62 @@ pgTAP for RLS + trigger + title CHECK; Playwright `meals-*` projects including
 month-boundary week nav. Grocery generation stays out of this slice but will
 query `listPlannedMealsForWeek`.
 
+### ADR-017: Shopping list — week lists, generation_key reconcile
+
+**Status:** Accepted (2026-07-19)  
+**Decision:** For the Shopping / Grocery Lists slice:
+
+1. **Week semantics.** `grocery_lists.week_start_on` is always the **canonical
+   Sunday** for that week, identical to Meal Planning. Both `/meals` and
+   `/shopping` use shared `weekStartOn` / `resolveWeekStartParam` and redirect
+   missing, invalid, or in-week `?week=` values to that Sunday. (Approval text
+   mentioning “Monday” is treated as a typo; Postgres `date_trunc('week')` is
+   Monday-based and must not drive app week bounds.)
+
+2. **Schema.** Keep existing tables/RLS. Add `generation_key` (nullable text)
+   on items; partial unique `(list_id, generation_key)` for generated rows;
+   partial unique `(household_id, week_start_on)` for active lists; household-
+   consistency trigger on items; `SECURITY INVOKER` RPC
+   `regenerate_grocery_list`.
+
+3. **`generation_key`.** Deterministic string from ingredient identity
+   (`ingredient_id` or `n:{nameKey}`), `normalizeUnit(unit)`, and aggregation
+   note identity (normalized notes when the bucket has one identical note,
+   else empty). Manual rows leave `generation_key` null.
+
+4. **Regenerate reconcile (atomic, list row locked with `FOR UPDATE`).**
+   Aggregation runs in TypeScript; RPC receives the bucket payload.
+   - Manual rows are never modified or deleted by regeneration.
+   - Matching generated rows (same `generation_key`) are **updated**
+     (quantity, unit, notes, store_section, name, ingredient refs) and
+     **keep `is_checked`**.
+   - New keys are **inserted** unchecked.
+   - Unchecked generated keys absent from the payload are **deleted**.
+   - Checked generated keys absent from the payload **remain** as completed
+     historical items; the unique index prevents a duplicate when that key
+     returns.
+   - Two refreshes with unchanged inputs yield identical database state.
+
+5. **RPC integrity.** Verifies list `household_id` matches the caller’s
+   household (RLS + explicit check), rejects cross-household
+   `ingredient_id`s, never updates `source = 'manual'`, and requires
+   `p_week_start_on` to equal the canonical Sunday for that date.
+
+6. **Product.** Skip custom-title meals with a visible count notice; soft
+   `store_section` grouping; no cross-unit conversion; identical-note-only
+   note merge; mobile-first `/shopping`; parameterize `WeekNavigator` via
+   `basePath`.
+
+**Reason:** Blind delete-of-unchecked + insert-all creates duplicates and stale
+qty on checked lines. Keyed reconcile keeps progress while refreshing amounts.
+Row locks serialize concurrent regenerates. Sunday alignment avoids meal/
+shopping week drift.
+
+**Consequences:** Shopping-slice migration + types; Vitest for aggregation,
+keys, and Sunday boundaries; pgTAP for unique/trigger/RPC idempotence and
+cross-household deny; Playwright shopping projects. Pantry, conversion,
+pricing, and aisle maps remain extension points only.
+
 ### ADR-002: Initial client strategy
 
 **Status:** Accepted  
@@ -1085,10 +1281,71 @@ Add only questions that materially block or influence implementation.
   `20260716240000` pushed; local/remote migration lists match (5).
 - Resolved (Meal Planning): Sunday week start; title snapshot on
   `custom_title`; append-only `sort_order` (ADR-016 accepted).
+- Resolved (Shopping plan): regenerate preserves checked generated + manuals;
+  skip custom meals with count note; soft `store_section` grouping; no unit
+  conversion in V1 (ADR-017 proposed).
 
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-19 (Ship Milestone 6 + advance to Subscriptions)
+
+- Work completed: User approved Shopping slice; commit/push to `main`; push
+  `20260720012556_shopping_slice` to hosted; roadmap advanced to Milestone 8
+  (Subscription tracker) — not started until planned.
+- Files or areas changed: full shopping vertical slice + docs; this log /
+  current milestone.
+- Validation performed: prior `verify` + `test:db` green for M6.
+- Decisions made: M6 closed; do not start Subscriptions until asked to plan.
+- Remaining issues: Auth leaked-password protection (pre-existing).
+- Next recommended task: Plan Milestone 8 (Subscriptions) when ready.
+
+### 2026-07-19 (Milestone 6 Shopping slice shipped locally)
+
+- Work completed: Implemented Grocery Lists with `generation_key` reconcile RPC,
+  Sunday week nav shared with Meals, mobile-first `/shopping` UI, Vitest/
+  pgTAP/Playwright coverage. ADR-017 accepted with approval corrections.
+- Files or areas changed: migration `20260720012556_shopping_slice.sql`;
+  `lib/domain/shopping.ts`; `lib/repositories/shopping.ts`;
+  `app/(app)/shopping/*`; `components/shopping/*`; WeekNavigator `basePath`;
+  shadcn checkbox/progress/collapsible; e2e + unit + pgTAP; docs.
+- Validation performed: `npm run test:db` (82); `npm run verify` (50 e2e
+  including shopping desktop/360/WebKit).
+- Decisions made: Sunday week (not Monday); reconcile-by-key regenerate;
+  advisory + `FOR UPDATE` serialization.
+- Remaining issues: Push `20260720012556_shopping_slice` to hosted Supabase
+  before production shopping use; Auth leaked-password protection (pre-existing).
+- Next recommended task: Hosted migration push + advisors; then next milestone
+  when asked (do not start until requested).
+
+### 2026-07-19 (Milestone 6 approved — generation_key reconcile)
+
+- Work completed: User approved M6 with corrections: Sunday week semantics;
+  `generation_key` reconcile (not blind delete/insert); list-row lock in RPC;
+  expanded tests. Docs updated; implementation started.
+- Files or areas changed: `IMPLEMENTATION.md` (§6, ADR-017 accepted),
+  `ARCHITECTURE.md`, then shopping slice code.
+- Decisions made: ADR-017 accepted; “canonical Monday” in approval text treated
+  as typo → Sunday (matches Meals).
+- Next recommended task: Complete Shopping implementation + verify gate.
+
+### 2026-07-19 (Milestone 6 Shopping plan — specialist review + reconcile)
+
+- Work completed: Lead coordinated Frontend/UI, Backend/Data, and QA reviews
+  for the Grocery Lists vertical slice; reconciled into one plan. Updated
+  `IMPLEMENTATION.md` §6, ADR-017 (proposed), and `ARCHITECTURE.md` grocery
+  notes. No application code.
+- Files or areas changed: `IMPLEMENTATION.md`, `ARCHITECTURE.md`.
+- Validation performed: schema/repo/UI pattern inspection against meals +
+  core grocery tables; specialist reviews reconciled.
+- Decisions made (pending user approval): partial unique + household trigger +
+  regenerate RPC; aggregation in domain TS; preserve checked-generated; skip
+  custom meals; soft section grouping; parameterize WeekNavigator; mobile-first
+  progress + collapse completed.
+- Remaining issues: User approval before implementation; Auth leaked-password
+  protection (pre-existing dashboard setting).
+- Next recommended task: Approve or adjust M6 plan → implement Shopping slice.
 
 ### 2026-07-19 (Ship Milestone 5 + prepare Milestone 6)
 
