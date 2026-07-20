@@ -74,8 +74,10 @@ const localEnv = {
 };
 
 // Ensure proxy/middleware is compiled against the same Supabase project used at runtime.
+// Next 16 defaults to Turbopack builds, which do not produce a `next start`-ready
+// `.next` output — use webpack for Playwright's production server.
 if (process.env.E2E_SKIP_BUILD !== "1") {
-  run("npx", ["next", "build"], localEnv);
+  run("npx", ["next", "build", "--webpack"], localEnv);
 }
 
 const playwrightArgs = process.argv.slice(2);

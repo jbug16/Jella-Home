@@ -11,19 +11,16 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** 7 — Recipe management vertical slice  
-**Status:** Complete (2026-07-18; final release review passed — verify, test:db 49/49, hosted migrations + advisors)  
+**Milestone:** 6 — Shopping list  
+**Status:** In progress (planning draft; implementation not started)  
 **Owner:** Lead Engineer  
-**Goal:** Recipe list, detail, and create/edit/delete with structured, reusable
-ingredients on Supabase, plus search and responsive/accessible UI. Reuses the
-Budget slice conventions (domain → repository → server action → RSC + shadcn).
-No meal planning, grocery generation, nutrition, scraping, imports, or AI.
+**Goal:** Generate and manage the weekly shopping list from planned meals, with
+manual items, quantities/grouping, checked state, and mobile-first shopping UX.
 
-Previous: Milestone 4 (Budget vertical slice) complete and pushed — derived
-totals, currency-safe cents, Dialog/Sheet forms, Playwright desktop + 360.
-Milestone 2 complete (auth, RLS, hosted). The full Recipe plan reconciled from
-Frontend/UI, Backend/Data, and QA specialist reviews is in
-[Milestone 7 below](#7-recipe-management) and ADR-014.
+Previous: Milestone 5 (Weekly meal planner) **approved** 2026-07-19 and shipped
+to production (hosted migration + Netlify). Recipes (7), Budget (4), and auth
+(2) complete. Meal plan: [Milestone 5](#5-weekly-meal-planner) / ADR-016.
+Shopping draft: [Milestone 6](#6-shopping-list).
 
 ### Pre-work completed
 
@@ -332,29 +329,282 @@ npm run verify
 
 ### 5. Weekly meal planner
 
-**Status:** Not started
+**Status:** Complete — approved 2026-07-19
 
-Scope:
+Week-first meal planner as the household’s central planning surface. Modelled on
+**calendar days** (not spreadsheet rows). Reuses Budget navigator / form-shell
+patterns and Recipe picker / soft-archive conventions. Implemented with Sunday
+week start and title-snapshot integrity (ADR-016). Presentation is the Image
+Week Board (day columns of meal tiles; phone day spine).
 
-- Week navigation
-- Meal slots by date
-- Add, edit, move, and remove planned meals
-- Date-safe persistence
-- Responsive desktop and mobile layouts
-- Playwright coverage
+#### In scope
+
+- Week navigation (`?week=YYYY-MM-DD` Sunday week-start) with prev / next /
+  Jump to this week (stable fixed-width week chrome)
+- Meal slots: **Breakfast, Lunch, Dinner, Snack** (multiple per day/slot ok)
+- Assign an active recipe **or** a custom title (takeout / ad-hoc); multi-day
+  create from one form
+- Optional servings (default from recipe when assigned; hidden when 2) and notes
+- Click tile to edit (including day/slot); compact delete with confirmation
+- Recipe image on tile when present; no placeholder when missing; one-line title
+- Empty, loading, validation, and error states
+- Accessible, responsive layouts (desktop week board; phone day-focus)
+
+#### Out of scope (deferred / other milestones)
+
+Grocery-list generation from planned meals (Milestone 6), leftovers workflows,
+recurring / repeating meal templates, 5-week workbook multi-grid, shared calendar
+events, nutrition, workbook import, drag-and-drop reorder, exposing the DB
+`other` slot in the UI, and dashboard meal summaries.
+
+#### Schema changes — migration `20260718120000_meal_plan_slice.sql` (ADR-016)
+
+`planned_meals` already existed from Milestone 2. This slice added:
+
+1. `sort_order integer NOT NULL DEFAULT 0` — stable order within day+slot.
+2. `CHECK (servings IS NULL OR servings > 0)`.
+3. Strengthened title integrity: `custom_title NOT NULL` +
+   `CHECK (length(btrim(custom_title)) > 0)` (replaces the old
+   `recipe_id OR custom_title` CHECK). `custom_title` is the display title /
+   recipe name snapshot.
+4. Trigger `enforce_planned_meal_recipe_household`.
+5. Regenerated `lib/supabase/database.types.ts`.
+
+**Not changed:** meal_slot CHECK (keep `other` in DB), no unique on
+`(plan_date, meal_slot)`, no soft-delete on meals, no week table, no leftover /
+recurrence columns.
+
+#### Domain — `lib/domain/meal-plan.ts` (+ shared dates)
+
+Extract shared date-only helpers used by Budget into `lib/domain/dates.ts`
+(`isoDateSchema`, `todayIsoDate`, and any purely date utilities) so meal-plan does
+not import the budget module. Budget keeps month helpers; meal-plan owns week
+helpers.
+
+- Zod: `mealSlotSchema` = `breakfast | lunch | dinner | snack` (writes; hide
+  `other`); read mapper accepts DB `other` if present.
+- Schemas: `plannedMealSchema`, `createPlannedMealInputSchema`,
+  `updatePlannedMealInputSchema` — at least one of `recipeId` / `customTitle`.
+- Week helpers (**Sunday** week start — ADR-016): `weekStartOn`, `weekEndOn`,
+  `shiftWeekStart`, `daysInWeek`, `resolveWeekStartParam` (any date → Sunday;
+  invalid/missing → current week). All math on `YYYY-MM-DD` via local
+  `Date(y, m-1, d)` — never UTC midnight / `toISOString`.
+- Ordering: `sort_order`, then `created_at`, then `id`. Append on create and
+  when update changes date/slot.
+- Row→domain mappers include join fields `recipeName`, `recipeArchived`; domain
+  `title` maps to `custom_title`.
+
+#### Repositories — `lib/repositories/meal-plans.ts` (cookie SSR + RLS)
+
+Never the admin client. All call `requireCurrentMembership()`.
+
+- `listPlannedMealsForWeek(weekStart)` — household range query; left-join recipes
+  for name + `archived_at`; order by `plan_date`, slot order, `sort_order`, `id`.
+- `getPlannedMeal(id)` — membership-scoped; null when missing.
+- `createPlannedMeal(input)` — set `household_id` from membership; reject
+  archived recipe on new assign; snapshot recipe name into `custom_title`; copy
+  recipe servings when omitted; append `sort_order`.
+- `updatePlannedMeal(input)` — load first; refresh title snapshot when linking a
+  recipe; append `sort_order` when date/slot changes.
+- `deletePlannedMeal(id)` — hard `DELETE`.
+
+Picker lists active recipes only. Existing meals keep the title snapshot if the
+recipe is later archived or removed.
+
+#### Server actions — `app/(app)/meals/actions.ts`
+
+`{ error, success }` state pattern like Budget/Recipes.
+
+- `createPlannedMealAction`, `updatePlannedMealAction`, `deletePlannedMealAction`
+- Zod validate → repo → `revalidatePath("/meals")`
+- Submit disabled while pending; recoverable errors preserve input; household-
+  friendly messages only
+
+RSC page loads the week via `listPlannedMealsForWeek` (no list action).
+
+#### UI structure
+
+- `app/(app)/meals/page.tsx` (RSC): canonicalize `?week=` to Sunday (redirect);
+  load meals + recipes; render `MealsPanel`.
+- `components/meals/`: `week-navigator`, `meals-panel` (narrow day-strip vs
+  desktop week grid via `matchMedia`), `meal-chip` (click-to-edit + delete),
+  `meal-form-dialog`, `delete-meal-dialog`, `recipe-combobox`.
+- Reuse: `PageHeader`, `ResponsiveFormShell`, `AlertDialog`, `Textarea`, `Select`.
+
+**Layout rules**
+
+| Viewport              | Layout                                                      |
+| --------------------- | ----------------------------------------------------------- |
+| Desktop ≥1280         | 7-column week grid; Dialog forms                            |
+| iPad landscape        | Week grid if columns usable; else day-strip                 |
+| iPad portrait / phone | Day-strip (7 chips) + vertical slot list; Sheet forms       |
+| 360×780               | No page horizontal scroll; ≥44px targets; safe-area padding |
+
+Empty week keeps the full structure with empty Add slots plus a soft “Nothing
+planned yet” line — do not replace the planner with a single Coming-soon card.
+
+#### Future extension points (design only — do not build)
+
+| Future                  | Leave room by                                                                                     | Avoid now                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Grocery generation (M6) | `listPlannedMealsForWeek` + recipe ingredient joins; `grocery_lists.week_start_on` already exists | Denormalized ingredients on meals; meal↔list junction |
+| Leftovers               | Later nullable `source_planned_meal_id` or flag                                                   | Soft-delete + leftover enum on every row              |
+| Recurring meals         | Later template / recurrence table                                                                 | RRULE engine, generated series                        |
+
+Do not add a “Generate shopping list” CTA on Meals chrome in this slice.
+
+#### Testing strategy
+
+- **Vitest** `tests/unit/meal-plan.test.ts` (+ dates helpers): week start/end/
+  shift across month/year; slot validation; create/update Zod; `displayTitle`;
+  row mappers; snack vs `snack` label mapping. No DnD DOM tests.
+- **pgTAP** (extend `rls_household_access.test.sql`; bump `plan()`): anon /
+  non-member denied; member CRUD; cross-household deny; `household_id` reassign
+  denied; CHECK (null recipe + null title fails; invalid slot fails); trigger
+  rejects cross-household `recipe_id`. Prefer **in-test inserts** for fixtures;
+  keep seed `planned_meals` empty so empty-week UX is real. Seed still provides
+  **Fixture Spaghetti** for recipe assign.
+- **Playwright** `tests/e2e/meals.chromium.spec.ts` with serial projects
+  `meals-chromium-desktop` (1280×800) and `meals-chromium-mobile-360` (360×780),
+  plus `meals.webkit.spec.ts` on iPhone/iPad WebKit projects (extend
+  `testMatch` — filename-specific config skips new files otherwise). Flows:
+  empty week → assign Fixture Spaghetti with unique notes → edit notes →
+  delete (cancel + confirm) → week nav isolation → no horizontal scroll at 360.
+  Unique notes/`Date.now()`; never assert global meal counts.
+
+#### Acceptance criteria
+
+- [x] Week-first planner at `/meals` with prev/next/This week; default = current
+      week; invalid `?week=` falls back safely; mid-week dates canonicalize to Sunday.
+- [x] Days expose Breakfast, Lunch, Dinner, Snacks; multiple snacks allowed.
+- [x] Assign recipe or custom title; optional servings + notes persist after reload.
+- [x] Edit can change day/slot; date strings have no timezone off-by-one.
+- [x] Delete confirms; cancel keeps the meal; confirm hard-deletes and stays gone.
+- [x] Mutations Zod-validated; submit disabled while saving; recoverable errors
+      preserve input; no hover-only required actions.
+- [x] Usable at 360×780, 390×844, iPad portrait, desktop ≥1280; no horizontal
+      scroll at 360; ≥44px touch targets; keyboard-reachable actions with focus.
+- [x] Vitest + pgTAP + Playwright (desktop + 360 + WebKit smoke) green;
+      `npm run verify` and `npm run test:db` pass.
+- [x] No grocery generation, leftovers, or recurring APIs/UI in this slice.
+
+#### Risks (accepted)
+
+1. **Week start:** Sunday (household preference). Grocery must share `weekStartOn`.
+2. **Multiple meals per B/L/D:** Allowed; UI stacks chips.
+3. **Drag-and-drop:** Deferred; menus + forms only.
+4. **Title snapshot:** `custom_title` always set; survives recipe archive/delete.
+5. **Concurrent edits:** Last-write-wins; no version token.
+6. **`ResponsiveFormShell`:** Still under `components/budget/` (shared reuse).
+
+#### Verification gate
+
+```bash
+npm run test:db
+npm run verify
+# Playwright includes meals assign/edit/delete at desktop + 360
+```
 
 ### 6. Shopping list
 
-**Status:** Not started
+**Status:** In progress (planning draft — 2026-07-19; awaiting approval before code)
 
-Scope:
+Week-scoped shopping list generated from the meal planner, plus manual lines.
+Reuses Sunday `weekStartOn` from meal-plan domain, Budget/Recipes action
+patterns, and existing `grocery_lists` / `grocery_list_items` schema (Milestone
+2). No workbook sync.
 
-- Generate items from planned meals
-- Manual items
-- Quantities and grouping
-- Checked state
-- Mobile-first shopping interaction
-- Aggregation tests
+#### In scope (proposed)
+
+- One **active** list per household per `week_start_on` (Sunday); navigate weeks
+  like Meals (`?week=YYYY-MM-DD`)
+- **Generate / refresh** from planned meals in that week: join
+  `recipe_ingredients` (+ ingredient name), scale quantities by
+  `planned_meals.servings / recipes.servings` when both present
+- **Aggregate** generated lines by normalized ingredient identity + unit
+  (sum quantities when both numeric; keep separate rows when units differ or
+  quantity is null / “to taste”)
+- Skip meals with no `recipe_id` (custom title only) on generate; optional soft
+  note in UI (“N meals without recipes”)
+- Manual add / edit / delete lines; toggle `is_checked`; clear checked
+- Group UI by `store_section` when set, else a single “List” group; unchecked
+  first within a group
+- Mobile-first check-off (large tap targets); desktop usable list
+- Empty / loading / error / validation states; household-friendly copy only
+
+#### Out of scope
+
+Price tracking, multi-store routing beyond free-text `store_section`, pantry
+inventory, shared live collaboration beyond RLS, leftovers, recipe soft-archive
+side effects beyond using current ingredient rows, drag-and-drop reorder,
+push notifications.
+
+#### Schema
+
+Tables already exist with RLS. Proposed slice changes (small migration if
+needed after review):
+
+1. Prefer **unique** `(household_id, week_start_on)` among `status = 'active'`
+   lists (partial unique index) so get-or-create is safe.
+2. Keep `source` `manual` | `generated`; regenerate replaces **generated** rows
+   for that list and **preserves** manual + checked-generated unless we adopt
+   “full replace generated only” (default: delete unchecked generated, insert
+   fresh aggregation; leave manual and checked-generated alone).
+3. No denormalized ingredients on `planned_meals`.
+
+#### Domain — `lib/domain/shopping.ts` (+ reuse `dates` / `weekStartOn`)
+
+- Zod for list + item create/update; positive/nullable quantity rules aligned
+  with recipe ingredients.
+- Pure `aggregateGroceryLines(inputs)` covered by Vitest (scale, merge, unit
+  mismatch, null quantity, servings edge cases).
+- `resolveWeekStartParam` shared with meals (Sunday).
+
+#### Repositories — `lib/repositories/shopping.ts`
+
+Cookie SSR + `requireCurrentMembership()` only.
+
+- `getOrCreateGroceryListForWeek(weekStart)`
+- `listGroceryItems(listId)`
+- `generateGroceryListFromMeals(weekStart)` — load meals → recipe ingredients →
+  aggregate → write
+- `createManualItem`, `updateItem`, `setItemChecked`, `deleteItem`,
+  `clearCheckedItems`
+
+#### Server actions + UI
+
+- `app/(app)/shopping/actions.ts` — same `{ error, success }` pattern
+- Replace Coming-soon on `/shopping` with week nav + list + generate CTA
+- Components under `components/shopping/`; Dialog/Sheet via
+  `ResponsiveFormShell`
+- Optional later: “Add to shopping list” from Meals — **not** required for M6
+  vertical slice (generate-from-week is enough)
+
+#### Testing strategy
+
+- Vitest: aggregation + scaling
+- pgTAP: member CRUD; non-member deny; household consistency
+- Playwright: generate from seeded week with Fixture Spaghetti → check item →
+  add manual → clear checked; desktop + 360
+
+#### Acceptance criteria (draft)
+
+- [ ] Week list get-or-create; invalid `?week=` falls back / canonicalizes to Sunday
+- [ ] Generate populates from planned recipe meals; aggregation correct
+- [ ] Manual items + check toggle + delete; submit disabled while saving
+- [ ] Usable at 360×780 through desktop; no horizontal scroll at 360
+- [ ] Vitest + pgTAP + Playwright green; `verify` + `test:db` pass
+- [ ] No leftover / pantry / pricing features
+
+#### Open questions (confirm before implement)
+
+1. On regenerate: preserve checked generated lines, or wipe all generated?
+2. Should custom-title meals appear as a single non-aggregated reminder line?
+3. Default `store_section` empty vs require sections from day one?
+
+**Proposed defaults if unblocked without answers:** (1) preserve checked
+generated + all manual; replace unchecked generated. (2) skip custom-title
+meals with a count note. (3) empty section + flat list until sections are used.
 
 ### 7. Recipe management
 
@@ -710,6 +960,33 @@ apply identically on local reset and hosted push. Covered by unit tests
 cross-household storage deny), and Playwright (upload → thumbnail → hero, combobox
 add + reuse).
 
+### ADR-016: Meal planner — calendar days, week-first, hard delete
+
+**Status:** Accepted (2026-07-18)  
+**Decision:** For the Meal Planning slice: (a) keep the existing `planned_meals`
+calendar-day model (`plan_date` + `meal_slot`) with no week table; (b) add
+`sort_order`, a positive-or-null `servings` CHECK,
+`enforce_planned_meal_recipe_household`, and require a non-empty `custom_title`
+(display title / recipe name snapshot) in one migration; (c) treat week bounds
+as pure domain helpers with **Sunday** week start (shared later by grocery
+`week_start_on`); canonicalize `?week=` to that Sunday; (d) expose UI slots
+breakfast/lunch/dinner/snack only (hide DB `other` on writes); (e) allow
+multiple meals per slot; new rows (and date/slot updates) append by `sort_order`
+(secondary `created_at`, `id`) — no manual reorder UI; (f) hard-delete planned
+meals (recipes remain soft-archive); (g) on recipe assign, snapshot
+`recipes.name` into `custom_title` so meals stay labeled after archive or
+`ON DELETE SET NULL`; (h) edit day/slot via the meal form; delete via a direct
+control on each tile (no duplicate/move menus).  
+**Reason:** The core schema already matches a day-centric planner; Sunday matches
+household preference for the week board and future grocery `week_start_on`; a
+required title snapshot avoids blank meals when recipes disappear; click-to-edit
+plus a clear delete control stays accessible.  
+**Consequences:** Migration `20260718120000_meal_plan_slice.sql` + regenerated
+types; Vitest week/date coverage (Sunday normalize, year/leap/invalid query);
+pgTAP for RLS + trigger + title CHECK; Playwright `meals-*` projects including
+month-boundary week nav. Grocery generation stays out of this slice but will
+query `listPlannedMealsForWeek`.
+
 ### ADR-002: Initial client strategy
 
 **Status:** Accepted  
@@ -806,10 +1083,156 @@ Add only questions that materially block or influence implementation.
   FK); no V1 rollover; savings/debt are kinds with positive cents + direction.
 - Resolved: Milestone 4 Budget UI approved and implemented; hosted migration
   `20260716240000` pushed; local/remote migration lists match (5).
+- Resolved (Meal Planning): Sunday week start; title snapshot on
+  `custom_title`; append-only `sort_order` (ADR-016 accepted).
 
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-19 (Ship Milestone 5 + prepare Milestone 6)
+
+- Work completed: Committed Weekly Meal Planner slice; pushed
+  `20260718120000_meal_plan_slice` to hosted Supabase; pushed `main` for
+  Netlify production (`jella-home.netlify.app`). Drafted Milestone 6 Shopping
+  list plan (schema reuse, generate/aggregate, open questions).
+- Files or areas changed: full meals vertical slice + docs; this log /
+  Milestone 6 draft.
+- Validation performed: prior meals unit/e2e green; hosted migration list
+  includes `20260718120000` after push.
+- Decisions made: Ship M5 as-is; M6 planning defaults proposed pending user
+  answers on regenerate / custom-title meals / store sections.
+- Remaining issues: Confirm M6 open questions; Auth leaked-password protection
+  (dashboard, pre-existing).
+- Next recommended task: Approve or adjust M6 plan → implement Shopping slice.
+
+### 2026-07-19 (Milestone 5 approved)
+
+- Work completed: User approved the Weekly Meal Planner milestone (Image Week
+  Board, Sunday weeks, multi-day create, click-to-edit + compact delete; no
+  duplicate/move). Roadmap advanced to Milestone 6 (Shopping list) — not started.
+- Files or areas changed: `IMPLEMENTATION.md` (current milestone, M5 status,
+  this log).
+- Validation performed: prior meals unit + e2e already green for this slice.
+- Decisions made: Milestone 5 closed; do not start Shopping until asked.
+- Remaining issues: Push meal-plan migration to hosted before production meal
+  use (pre-existing); Auth leaked-password protection (pre-existing).
+- Next recommended task: Milestone 6 (Shopping list) when ready — plan first.
+
+### 2026-07-19 (Meals UI fixes — day deselect + recipe combobox)
+
+- Work completed: Allowed clearing the last selected day in the add-meal day
+  picker (empty selection + clear copy; submit stays disabled). Replaced the
+  Radix Popover recipe combobox with a stable absolute dropdown to stop
+  focus/open flashing.
+- Files or areas changed: `components/meals/{meal-form-dialog,recipe-combobox}.tsx`,
+  `app/(app)/meals/page.tsx` comment, this log.
+- Validation performed: unit meal-plan tests + meals Playwright.
+- Decisions made: Combobox uses in-place list (no Popover) for reliable focus.
+- Remaining issues: none for these bugs.
+- Next recommended task: Grocery (M6) when asked.
+
+### 2026-07-19 (Sunday week start)
+
+- Work completed: Switched meal-plan week helpers and UI to Sunday–Saturday;
+  updated ADR-016 / Architecture notes; Vitest + Playwright expectations.
+- Files or areas changed: `lib/domain/meal-plan.ts`,
+  `components/meals/meal-form-dialog.tsx`, `tests/unit/meal-plan.test.ts`,
+  `tests/e2e/meals.chromium.spec.ts`, `ARCHITECTURE.md`, `IMPLEMENTATION.md`.
+- Validation performed: unit + meals e2e (see verify run).
+- Decisions made: Sunday first day of week (overrides prior Monday ADR wording).
+- Remaining issues: none for week-start.
+- Next recommended task: Grocery (M6) when asked — share `weekStartOn`.
+
+### 2026-07-19 (Meals Image Week Board — presentation redesign)
+
+- Work completed: Replaced the slot×day spreadsheet planner with the approved
+  **Image Week Board**: seven day columns of image-forward meal tiles on
+  desktop/tablet; vertical day spine on phone. Summary chips (meals / open days /
+  repeats); single “Plan a meal” CTA; quiet per-day add; servings hidden when 2;
+  notes as icon; actions quiet at rest. No schema/repository/action changes.
+- Files or areas changed: `components/meals/{meals-panel,meal-chip,week-navigator}.tsx`,
+  `app/(app)/meals/page.tsx`, `tests/e2e/meals.chromium.spec.ts`, this log.
+- Validation performed: `npm run verify` green (78 unit, 42 e2e).
+- Decisions made: Day-centric image board over Connected Week list; dashboard
+  scanning over calendar chrome.
+- Remaining issues: Hosted meal-plan migration push (pre-existing).
+- Next recommended task: Verify + push hosted migration when ready; Grocery (M6)
+  when asked.
+
+### 2026-07-18 (Meal Planning UX polish — presentation only)
+
+- Work completed: Calmed the `/meals` week planner without schema, repository,
+  or action changes. Quieted empty slots (ghost `+` / text instead of dashed
+  cards), reduced grid borders to light row dividers, tightened spacing,
+  strengthened day headers with a subtle Today accent, and elevated meal cards
+  (title hierarchy, notes icon, recipe thumbnails via existing `recipes`
+  `imageUrl` map). Mobile day-strip empties match the quieter pattern.
+- Files or areas changed: `components/meals/meals-panel.tsx`,
+  `components/meals/meal-chip.tsx`, this work-log note.
+- Validation performed: `npm run verify` green (78 unit, 42 e2e).
+- Decisions made: Thumbnails resolved from the page’s `RecipeSummary[]` prop
+  (no meal-plan API change). Desktop empties use compact icon-only controls
+  with full `aria-label`s.
+- Remaining issues: Hosted meal-plan migration still needs push before
+  production use (pre-existing).
+- Next recommended task: Push meal-plan migration to hosted; Milestone 6
+  (Shopping) when asked — not started.
+
+### 2026-07-18 (Milestone 5 Meal Planning slice implementation)
+
+- Work completed: Implemented the approved Weekly Meal Planner with Sunday week
+  start and the approved clarifications (title integrity, append-only
+  `sort_order`, canonical `?week=`, recipe title snapshot). Migration
+  `20260718120000_meal_plan_slice.sql`; domain `dates.ts` + `meal-plan.ts`;
+  repository + server actions; responsive `/meals` UI (week grid / day strip);
+  click-to-edit + hard delete confirm; Playwright + Vitest + pgTAP. Did **not**
+  start Grocery Lists. (Later: removed duplicate/move UI and the ⋯ menu.)
+- Files or areas changed: migration + types + seed/pgTAP, `lib/domain/{dates,
+meal-plan,budget,index}.ts`, `lib/repositories/meal-plans.ts`,
+  `app/(app)/meals/{page,actions}.tsx`, `components/meals/*`, Playwright meals
+  projects + specs, `ARCHITECTURE.md`, `IMPLEMENTATION.md`.
+- Validation performed: `npm run verify` green (78 unit, 42 e2e); `npm run
+test:db` 60/60 PASS.
+- Decisions made: ADR-016 accepted (Sunday week start; `custom_title` as
+  required title snapshot; append-only ordering).
+- Remaining issues: Push migration to hosted before production meal use; enable
+  Auth leaked-password protection (pre-existing).
+- Next recommended task: Push meal-plan migration to hosted + advisors; then
+  Milestone 6 (Shopping list) when ready — do not start until asked.
+
+### 2026-07-18 (Milestone 5 Meal Planning slice planning)
+
+- Work completed: Prepared the Weekly Meal Planner vertical-slice plan (planning
+  only — no application code). Reviewed existing `planned_meals` schema + RLS,
+  Budget/Recipe conventions, and nav (`/meals` primary). Ran Frontend/UI,
+  Backend/Data, and QA specialist reviews and reconciled them into Milestone 5
+  and ADR-016.
+- Files or areas changed: `IMPLEMENTATION.md` (current milestone, Milestone 5
+  detail, ADR-016, this log), `ARCHITECTURE.md` (Meal plans section: sort_order,
+  servings check, household trigger, week-first notes, extension points).
+- Reconciled specialist findings:
+  - Backend: no required structural rewrite — optional polish migration
+    (`sort_order`, servings CHECK, recipe household trigger); hard delete meals;
+    hide `other` on writes; week math in pure domain; seed `planned_meals` empty;
+    leave grocery/leftovers/recurring as query/API extension points only.
+  - Frontend: week URL + navigator; desktop 7-col grid / phone day-strip + slot
+    list / iPad hybrid; `ResponsiveFormShell` for add/edit/move/duplicate;
+    AlertDialog delete; no DnD as primary; always-visible meal actions; custom
+    title first-class; empty week keeps structure.
+  - QA: dedicated Playwright `meals-*` projects (filename-specific `testMatch`);
+    unique e2e notes; Vitest week/date helpers; pgTAP RLS + CHECK + trigger;
+    explicit non-goals so tests never require grocery/leftovers/recurring.
+- Lead decisions: Sunday week start (confirmable); menus+forms over DnD;
+  multiple snacks; hard delete; extract `lib/domain/dates.ts` for shared
+  date-only helpers.
+- Validation performed: None (planning only). Verification gate defined in
+  Milestone 5 testing strategy.
+- Decisions made: ADR-016 (proposed, pending approval).
+- Remaining issues: None for week start — later confirmed as Sunday (see 2026-07-19).
+- Next recommended task: On approval, implement migration + types, domain,
+  repositories, server actions, UI, and tests; then `npm run test:db` and
+  `npm run verify`.
 
 ### 2026-07-18 (Milestone 7 pre-commit maintenance fixes)
 

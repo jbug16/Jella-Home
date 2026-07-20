@@ -37,3 +37,11 @@ export {
   type IngredientSuggestion,
   type ListRecipesOptions,
 } from "@/lib/repositories/recipes";
+
+export {
+  createPlannedMeal,
+  deletePlannedMeal,
+  getPlannedMeal,
+  listPlannedMealsForWeek,
+  updatePlannedMeal,
+} from "@/lib/repositories/meal-plans";

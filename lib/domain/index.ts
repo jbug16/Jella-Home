@@ -11,6 +11,8 @@ export {
   type HouseholdMembership,
 } from "@/lib/domain/household";
 
+export { addDays, isoDateSchema, todayIsoDate } from "@/lib/domain/dates";
+
 export {
   budgetCategoryKindSchema,
   budgetCategorySchema,
@@ -28,7 +30,6 @@ export {
   parseDollarInputToCents,
   parseDollarInputToNonNegativeCents,
   shiftMonthStart,
-  todayIsoDate,
   transactionDirectionSchema,
   transactionSchema,
   updateTransactionInputSchema,
@@ -93,3 +94,33 @@ export {
   type RecipeWithIngredients,
   type UpdateRecipeInput,
 } from "@/lib/domain/recipe";
+
+export {
+  MEAL_SLOTS,
+  MEAL_SLOT_LABELS,
+  comparePlannedMeals,
+  createPlannedMealInputSchema,
+  createPlannedMealsInputSchema,
+  currentWeekStart,
+  daysInWeek,
+  formatDayOfMonth,
+  formatWeekLabel,
+  formatWeekdayShort,
+  groupMealsByDate,
+  mapPlannedMeal,
+  mealSlotLabel,
+  mealSlotSchema,
+  parseOptionalServingsInput,
+  plannedMealSchema,
+  resolveWeekStartParam,
+  shiftWeekStart,
+  sortPlannedMeals,
+  updatePlannedMealInputSchema,
+  weekEndOn,
+  weekStartOn,
+  type CreatePlannedMealInput,
+  type CreatePlannedMealsInput,
+  type MealSlot,
+  type PlannedMeal,
+  type UpdatePlannedMealInput,
+} from "@/lib/domain/meal-plan";

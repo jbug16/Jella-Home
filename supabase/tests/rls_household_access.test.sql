@@ -5,7 +5,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(49);
+SELECT plan(60);
 
 CREATE OR REPLACE FUNCTION public.test_as_user(uid uuid)
 RETURNS void
@@ -585,6 +585,155 @@ SELECT is(
   ),
   1,
   'member can see their own uploaded image object'
+);
+
+-- ---------------------------------------------------------------------------
+-- Planned meals (Milestone 5): title integrity, RLS, household trigger.
+-- ---------------------------------------------------------------------------
+RESET ROLE;
+
+SELECT has_column(
+  'public', 'planned_meals', 'sort_order',
+  'planned_meals has a sort_order column'
+);
+
+-- Member A: insert recipe-linked meal with title snapshot.
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT lives_ok(
+  $$INSERT INTO public.planned_meals (
+      id, household_id, plan_date, meal_slot, recipe_id, custom_title, notes, sort_order
+    ) VALUES (
+      'b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1',
+      '11111111-1111-4111-8111-111111111111',
+      CURRENT_DATE,
+      'dinner',
+      '66666666-6666-4666-8666-666666666666',
+      'Fixture Spaghetti',
+      'fixture notes',
+      0
+    )$$,
+  'member can insert a planned meal with recipe + title'
+);
+
+SELECT is(
+  (
+    SELECT custom_title
+    FROM public.planned_meals
+    WHERE id = 'b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1'
+  ),
+  'Fixture Spaghetti',
+  'member can read their planned meal title snapshot'
+);
+
+-- Empty title is rejected (strengthened CHECK).
+SELECT throws_ok(
+  $$INSERT INTO public.planned_meals (
+      household_id, plan_date, meal_slot, custom_title
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      CURRENT_DATE,
+      'lunch',
+      '   '
+    )$$,
+  '23514',
+  NULL,
+  'empty custom_title is rejected'
+);
+
+-- Custom-title-only meal is allowed.
+SELECT lives_ok(
+  $$INSERT INTO public.planned_meals (
+      id, household_id, plan_date, meal_slot, custom_title, sort_order
+    ) VALUES (
+      'b2b2b2b2-b2b2-4b2b-8b2b-b2b2b2b2b2b2',
+      '11111111-1111-4111-8111-111111111111',
+      CURRENT_DATE,
+      'snack',
+      'Takeout tacos',
+      0
+    )$$,
+  'member can insert a custom-title-only planned meal'
+);
+
+-- Cross-household insert denied.
+SELECT throws_ok(
+  $$INSERT INTO public.planned_meals (
+      household_id, plan_date, meal_slot, custom_title
+    ) VALUES (
+      '22222222-2222-4222-8222-222222222222',
+      CURRENT_DATE,
+      'dinner',
+      'Nope'
+    )$$,
+  '42501',
+  NULL,
+  'member cannot insert a planned meal into another household'
+);
+
+-- Outsider cannot read household A meals.
+SELECT public.test_as_user('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.planned_meals
+    WHERE id = 'b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1'
+  ),
+  0,
+  'outsider cannot read another household planned meal'
+);
+
+-- Equal write: member B of household A can update the fixture meal.
+SELECT public.test_as_user('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+
+SELECT lives_ok(
+  $$UPDATE public.planned_meals
+      SET notes = 'updated by member b'
+    WHERE id = 'b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1'$$,
+  'household co-member can update a planned meal'
+);
+
+-- Trigger: recipe from another household is rejected (bypass RLS with RESET ROLE).
+RESET ROLE;
+
+SELECT throws_ok(
+  $$INSERT INTO public.planned_meals (
+      household_id, plan_date, meal_slot, recipe_id, custom_title
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      CURRENT_DATE,
+      'breakfast',
+      '77777777-7777-4777-8777-777777777777',
+      'Stolen recipe'
+    )$$,
+  '23514',
+  NULL,
+  'planned meal recipe must belong to the same household'
+);
+
+-- Invalid slot CHECK (clean assertion).
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT throws_ok(
+  $$INSERT INTO public.planned_meals (
+      household_id, plan_date, meal_slot, custom_title
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      CURRENT_DATE,
+      'brunch',
+      'Brunch'
+    )$$,
+  '23514',
+  NULL,
+  'invalid meal_slot value is rejected'
+);
+
+-- Member can delete their meal.
+SELECT lives_ok(
+  $$DELETE FROM public.planned_meals
+    WHERE id = 'b2b2b2b2-b2b2-4b2b-8b2b-b2b2b2b2b2b2'$$,
+  'member can hard-delete a planned meal'
 );
 
 SELECT * FROM finish();

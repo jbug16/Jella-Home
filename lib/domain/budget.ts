@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import { isoDateSchema, todayIsoDate } from "@/lib/domain/dates";
+
+export { isoDateSchema, todayIsoDate } from "@/lib/domain/dates";
+
 /** Category kinds matching Postgres CHECK and the legacy workbook. */
 export const budgetCategoryKindSchema = z.enum([
   "income",
@@ -25,10 +29,6 @@ export const nonNegativeCentsSchema = z
   .number()
   .int("Amount must be a whole number of cents.")
   .nonnegative("Amount cannot be negative.");
-
-export const isoDateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a YYYY-MM-DD date.");
 
 export const budgetCategorySchema = z.object({
   id: z.uuid(),
@@ -185,14 +185,6 @@ export function formatCents(
 export function monthStartFor(isoDate: string): string {
   const parsed = isoDateSchema.parse(isoDate);
   return `${parsed.slice(0, 7)}-01`;
-}
-
-/** Today's date as YYYY-MM-DD in the local calendar (no UTC shift). */
-export function todayIsoDate(now = new Date()): string {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 export function currentMonthStart(now = new Date()): string {

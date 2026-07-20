@@ -341,7 +341,7 @@ export type Database = {
       planned_meals: {
         Row: {
           created_at: string;
-          custom_title: string | null;
+          custom_title: string;
           household_id: string;
           id: string;
           meal_slot: string;
@@ -349,11 +349,12 @@ export type Database = {
           plan_date: string;
           recipe_id: string | null;
           servings: number | null;
+          sort_order: number;
           updated_at: string;
         };
         Insert: {
           created_at?: string;
-          custom_title?: string | null;
+          custom_title?: string;
           household_id: string;
           id?: string;
           meal_slot: string;
@@ -361,11 +362,12 @@ export type Database = {
           plan_date: string;
           recipe_id?: string | null;
           servings?: number | null;
+          sort_order?: number;
           updated_at?: string;
         };
         Update: {
           created_at?: string;
-          custom_title?: string | null;
+          custom_title?: string;
           household_id?: string;
           id?: string;
           meal_slot?: string;
@@ -373,6 +375,7 @@ export type Database = {
           plan_date?: string;
           recipe_id?: string | null;
           servings?: number | null;
+          sort_order?: number;
           updated_at?: string;
         };
         Relationships: [

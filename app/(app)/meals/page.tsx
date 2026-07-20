@@ -1,21 +1,46 @@
 import type { Metadata } from "next";
-import { UtensilsCrossed } from "lucide-react";
+import { redirect } from "next/navigation";
 
-import { EmptyState } from "@/components/common/empty-state";
+import { MealsPanel } from "@/components/meals/meals-panel";
 import { PageHeader } from "@/components/common/page-header";
+import { todayIsoDate } from "@/lib/domain/dates";
+import { resolveWeekStartParam } from "@/lib/domain/meal-plan";
+import { listPlannedMealsForWeek } from "@/lib/repositories/meal-plans";
+import { listRecipes } from "@/lib/repositories/recipes";
 
 export const metadata: Metadata = {
   title: "Meals",
 };
 
-export default function MealsPage() {
+type MealsPageProps = {
+  searchParams: Promise<{ week?: string }>;
+};
+
+export default async function MealsPage({ searchParams }: MealsPageProps) {
+  const params = await searchParams;
+  const weekStart = resolveWeekStartParam(params.week);
+
+  // Canonicalize ?week= to the Sunday for that week (or current week when
+  // missing/invalid). Avoids ambiguous mid-week URLs without error pages.
+  if (params.week !== weekStart) {
+    redirect(`/meals?week=${weekStart}`);
+  }
+
+  const todayIso = todayIsoDate();
+
+  const [meals, recipes] = await Promise.all([
+    listPlannedMealsForWeek(weekStart),
+    listRecipes({ sort: "name" }),
+  ]);
+
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title="Meals" description="Plan meals across the week." />
-      <EmptyState
-        icon={UtensilsCrossed}
-        title="Coming soon"
-        description="Your weekly meal planner will appear here."
+    <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden">
+      <PageHeader title="Meals" description="What's on the table this week." />
+      <MealsPanel
+        weekStart={weekStart}
+        todayIso={todayIso}
+        meals={meals}
+        recipes={recipes}
       />
     </div>
   );

@@ -72,13 +72,31 @@ export default defineConfig({
       },
     },
     {
+      name: "meals-chromium-desktop",
+      testMatch: /meals\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 800 },
+      },
+    },
+    {
+      name: "meals-chromium-mobile-360",
+      testMatch: /meals\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 360, height: 780 },
+      },
+    },
+    {
       name: "webkit-iphone",
-      testMatch: /(shell|recipes)\.webkit\.spec\.ts/,
+      testMatch: /(shell|recipes|meals)\.webkit\.spec\.ts/,
       use: { ...devices["iPhone 13"] },
     },
     {
       name: "webkit-ipad",
-      testMatch: /(shell|recipes)\.webkit\.spec\.ts/,
+      testMatch: /(shell|recipes|meals)\.webkit\.spec\.ts/,
       use: { ...devices["iPad Pro 11"] },
     },
   ],

@@ -24,7 +24,8 @@ Companion docs:
 
 - Spreadsheet read/write sync or dual-write
 - Multi-tenant SaaS features (billing, arbitrary household invites, orgs)
-- Product UI for meals, shopping, recipes, subscriptions, or calendar beyond the shell
+- Product UI for shopping, subscriptions, or calendar beyond the shell
+  (Budget, Recipes, and Meal Planning ship as vertical slices)
 - Native mobile clients
 - Public self-serve sign-up
 
@@ -273,21 +274,50 @@ Notes:
 
 ### Meal plans
 
+Calendar-day model (not spreadsheet rows). Milestone 5 (weekly planner) builds on
+the core table; migration `20260718120000_meal_plan_slice.sql` adds `sort_order`,
+a positive servings check, non-empty title integrity, and a recipe
+household-consistency trigger (see ADR-016).
+
 ```text
 planned_meals
   id              uuid PK
   household_id    uuid NOT NULL REFERENCES households(id) ON DELETE CASCADE
-  plan_date       date NOT NULL
+  plan_date       date NOT NULL                  -- calendar day (date-only)
   meal_slot       text NOT NULL
                   CHECK (meal_slot IN ('breakfast','lunch','dinner','snack','other'))
   recipe_id       uuid NULL REFERENCES recipes(id) ON DELETE SET NULL
-  custom_title    text NULL
-  servings        numeric NULL
+  custom_title    text NOT NULL                  -- display title / recipe name snapshot
+  servings        numeric NULL CHECK (servings IS NULL OR servings > 0)
   notes           text NOT NULL DEFAULT ''
+  sort_order      int NOT NULL DEFAULT 0          -- order within day+slot
   created_at      timestamptz NOT NULL DEFAULT now()
   updated_at      timestamptz NOT NULL DEFAULT now()
-  CHECK (recipe_id IS NOT NULL OR custom_title IS NOT NULL)
+  CHECK (length(btrim(custom_title)) > 0)        -- never an empty meal
+  -- trigger: when recipe_id is set, recipe.household_id must match row
 ```
+
+Indexes: `(household_id, plan_date)`, `(recipe_id)`.
+
+Notes:
+
+- **Week-first product surface.** Week bounds are pure domain helpers
+  (`weekStartOn` / `daysInWeek`); there is no week table. Week start is
+  **Sunday**; `?week=` accepts any date in the week and canonicalizes to that
+  Sunday. Grocery `week_start_on` should use the same helper.
+- **Title snapshot.** `custom_title` is always the display title. When a recipe
+  is assigned, the app copies `recipes.name` into `custom_title` so the meal
+  stays labeled if the recipe is later archived or hard-deleted
+  (`ON DELETE SET NULL` clears `recipe_id` only).
+- **Ordering.** Within a day+slot: `sort_order`, then `created_at`, then `id`.
+  New meals (and updates that change date/slot) append (`max(sort_order)+1`).
+  No manual reorder UI.
+- **UI slots:** breakfast, lunch, dinner, snack (multiple snacks allowed). DB
+  keeps `other` for import flexibility; write Zod excludes it.
+- **Hard delete** planned meals. Recipes remain soft-archive.
+- **No unique** on `(plan_date, meal_slot)` — multiple meals per slot are allowed.
+- Grocery generation (Milestone 6) will query this table by week range + join
+  recipe ingredients; do not denormalize ingredients onto meals.
 
 ### Grocery lists
 
