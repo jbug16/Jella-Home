@@ -10,7 +10,11 @@
  *   PROVISION_HOUSEHOLD_ID (optional; attach to this household if set)
  */
 
-import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+import {
+  createClient,
+  type SupabaseClient,
+  type User,
+} from "@supabase/supabase-js";
 import { z } from "zod";
 
 import type { Database } from "../lib/supabase/database.types";
@@ -86,7 +90,9 @@ async function main() {
       email_confirm: true,
     });
     if (error) {
-      throw new Error(`Failed to update shared login password: ${error.message}`);
+      throw new Error(
+        `Failed to update shared login password: ${error.message}`,
+      );
     }
   }
 

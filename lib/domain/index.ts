@@ -163,7 +163,6 @@ export {
   buildCalendarDayViewModel,
   calendarDayHours,
   formatCalendarHourLabel,
-  placeholderCalendarDayEvents,
   type CalendarDayEvent,
   type CalendarDayViewModel,
 } from "@/lib/domain/calendar";

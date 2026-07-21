@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { SessionKeepAlive } from "@/components/auth/session-keep-alive";
 import { SignInForm } from "@/components/auth/sign-in-form";
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center px-4 py-8">
+      <SessionKeepAlive />
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold tracking-tight">Jella Home</h1>
         <p className="mt-2 text-sm text-muted-foreground">

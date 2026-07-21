@@ -105,7 +105,9 @@ test.describe("subscriptions flows", () => {
     await expect(deleteDialog).toContainText(
       `“${vendor}” will be removed from your subscriptions.`,
     );
-    await expect(deleteDialog.getByRole("button", { name: "Cancel" })).toBeVisible();
+    await expect(
+      deleteDialog.getByRole("button", { name: "Cancel" }),
+    ).toBeVisible();
     await expect(
       deleteDialog.getByTestId("confirm-delete-subscription"),
     ).toBeVisible();

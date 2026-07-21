@@ -144,15 +144,51 @@ export default defineConfig({
       },
     },
     {
+      name: "calendar-chromium-desktop",
+      testMatch: /calendar\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 800 },
+      },
+    },
+    {
+      name: "calendar-chromium-mobile-360",
+      testMatch: /calendar\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 360, height: 780 },
+      },
+    },
+    {
+      name: "calendar-chromium-mobile-320",
+      testMatch: /calendar\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 320, height: 780 },
+      },
+    },
+    {
+      name: "calendar-chromium-mobile-390",
+      testMatch: /calendar\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+      },
+    },
+    {
       name: "webkit-iphone",
       testMatch:
-        /(shell|recipes|meals|shopping|dashboard|subscriptions)\.webkit\.spec\.ts/,
+        /(shell|recipes|meals|shopping|dashboard|subscriptions|calendar)\.webkit\.spec\.ts/,
       use: { ...devices["iPhone 13"] },
     },
     {
       name: "webkit-ipad",
       testMatch:
-        /(shell|recipes|meals|shopping|dashboard|subscriptions)\.webkit\.spec\.ts/,
+        /(shell|recipes|meals|shopping|dashboard|subscriptions|calendar)\.webkit\.spec\.ts/,
       use: { ...devices["iPad Pro 11"] },
     },
   ],

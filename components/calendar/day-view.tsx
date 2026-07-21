@@ -95,12 +95,8 @@ export function CalendarDayView({
                 </p>
                 <ul className="space-y-2">
                   {allDayEvents.map((event) => (
-                    <li
-                      key={event.id}
-                      className="rounded-xl bg-muted/70 px-3 py-2.5 text-sm font-medium"
-                      data-testid={`calendar-all-day-${event.id}`}
-                    >
-                      {event.title}
+                    <li key={event.id}>
+                      <DayEventChip event={event} allDay />
                     </li>
                   ))}
                 </ul>
@@ -185,20 +181,81 @@ function AgendaEvent({ event }: { event: CalendarDayEvent }) {
       ? `${formatCalendarHourLabel(event.startHour)} – ${formatCalendarHourLabel(event.endHour)}`
       : formatCalendarHourLabel(event.startHour);
 
+  const inner = (
+    <>
+      <p className="pt-0.5 text-right text-xs tabular-nums text-muted-foreground">
+        {formatCalendarHourLabel(event.startHour)}
+      </p>
+      <div
+        className={cn(
+          "rounded-xl border px-3 py-2.5 shadow-sm",
+          event.readonly
+            ? "border-dashed border-muted-foreground/50 bg-muted/40"
+            : "border-border/80 bg-background",
+        )}
+      >
+        <p className="truncate text-sm font-semibold leading-snug">
+          {event.title}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {timeLabel}
+          {event.readonly ? " · Subscription" : ""}
+        </p>
+      </div>
+    </>
+  );
+
+  if (event.href) {
+    return (
+      <Link
+        href={event.href}
+        className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 py-2.5"
+        data-testid={`calendar-event-${event.id}`}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
   return (
     <div
       className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 py-2.5"
       data-testid={`calendar-event-${event.id}`}
     >
-      <p className="pt-0.5 text-right text-xs tabular-nums text-muted-foreground">
-        {formatCalendarHourLabel(event.startHour)}
-      </p>
-      <div className="rounded-xl border border-border/80 bg-background px-3 py-2.5 shadow-sm">
-        <p className="truncate text-sm font-semibold leading-snug">
-          {event.title}
-        </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{timeLabel}</p>
-      </div>
+      {inner}
+    </div>
+  );
+}
+
+function DayEventChip({
+  event,
+  allDay,
+}: {
+  event: CalendarDayEvent;
+  allDay?: boolean;
+}) {
+  const className = cn(
+    "block rounded-xl px-3 py-2.5 text-sm font-medium",
+    event.readonly
+      ? "border border-dashed border-muted-foreground/50 text-muted-foreground"
+      : "bg-muted/70",
+  );
+  const testId = allDay
+    ? `calendar-all-day-${event.id}`
+    : `calendar-event-${event.id}`;
+  const label = event.readonly ? `${event.title} (Subscription)` : event.title;
+
+  if (event.href) {
+    return (
+      <Link href={event.href} className={className} data-testid={testId}>
+        {label}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={className} data-testid={testId}>
+      {label}
     </div>
   );
 }

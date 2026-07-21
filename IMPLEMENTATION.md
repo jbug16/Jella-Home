@@ -12,10 +12,11 @@ This is the live project roadmap and decision log. Keep it current after every m
 ## Current milestone
 
 **Milestone:** 10 — Shared calendar  
-**Status:** Not started (awaiting plan when ready)  
+**Status:** Complete (2026-07-20)  
 **Owner:** Lead Engineer  
-**Goal:** Household events separate from meal-plan entries — clearer than a
-spreadsheet calendar tab, feeding the Dashboard Today card.
+**Goal:** Household events separate from meal-plan entries — Week/Month
+Master–Detail calendar composing native events and subscription renewals,
+feeding Dashboard Today via the shared day composer.
 
 Previous: Milestone 9 (Subscriptions) **shipped** 2026-07-20 (local `verify` +
 `test:db` ×2; migration `20260720204657_subscription_slice`). See
@@ -1363,18 +1364,89 @@ Gate: `npm run test:db` && `npm run verify`.
 
 ### 10. Shared calendar
 
-**Status:** Not started (next — plan with specialist review before code)
+**Status:** Complete (2026-07-20; local `verify` + `test:db` ×2; migration
+`20260721022108_calendar_slice`)
 
-Scope (draft — plan before implementation):
+**Goal:** A calm Week/Month household calendar for appointments, dates,
+birthdays, holidays, chores, trips, and reminders — plus read-only subscription
+renewals. Feeds Dashboard Today through the shared day composer.
 
-- Household event list/calendar
-- Add and edit events
-- Date handling (date-only, timezone-safe)
-- Clear separation from meal-plan entries
-- Dashboard Today card already expects calendar events when this ships
+#### Product constraints
 
-Out of scope until planned: meal entries on the calendar grid, invitations,
-external calendar sync.
+- Private two-person household; events belong to the household (no `created_by`).
+- Views: **Week** and **Month** only (Sunday week start via existing helpers).
+- Concept A Master–Detail: navigator + persistent selected-day agenda.
+- No day/agenda/year views, hourly grid, drag-drop, ICS/sync, invitations,
+  recurrence exceptions, notifications, or meals on the calendar grid.
+
+#### Schema (planned migration `*_calendar_slice.sql`)
+
+**`calendar_events`:** `household_id`, `title`, `notes`, `location`, `category`
+(fixed enum), `all_day`, `start_on`, `end_on`, `start_at`/`end_at`, `recurrence`
+(`none` \| `daily` \| `weekly` \| `every_two_weeks` \| `monthly` \| `yearly`),
+`recurrence_end_on`, timestamps. **No `created_by`.** Hard delete.
+
+**Timed/all-day CHECKs:**
+
+- All-day: times null; `end_on >= start_on` (inclusive).
+- Timed: both times set; `end_on >= start_on`; same-day requires
+  `end_at > start_at`; multi-day/overnight allows any `end_at` vs `start_at`.
+
+**`calendar_source_preferences`:** per `(household_id, user_id, source_key)` with
+keys `household_events`, `subscription_renewals`, `payment_reminders` (reserved).
+
+#### Sources
+
+| Source                | V1 behavior                                                                                                                                     |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Household events      | Native CRUD; whole-series edit/delete                                                                                                           |
+| Subscription renewals | Derived: expand active `renewal_on` across range via cadence + billing-day clamp; deep-link `/subscriptions`; never copy into `calendar_events` |
+| Payment reminders     | Empty adapter + reserved key; **no V1 UI toggle**; no Budget invention                                                                          |
+
+V1 visible toggles: Household events + Subscription renewals only.
+
+#### UX (Concept A)
+
+- Desktop: Week columns or Month grid + selected-day detail panel.
+- Mobile Week: vertically stacked seven-day bands.
+- Mobile Month: compact grid; selected-day **list below grid** (grid stays
+  visible); Sheet only for details/create/edit/delete — never for the day list.
+- Verify 320 / 360 / 390; no horizontal overflow.
+
+#### Dashboard Today
+
+```text
+current local date → get-calendar-day-view-model → Dashboard Today
+```
+
+Same composer as Calendar selected-day. Respects subscription source visibility.
+**No** production `?asOf=` query param — tests inject `now` / fixtures.
+
+#### Architecture modules (planned)
+
+`lib/domain/calendar-event.ts`, `calendar-recurrence.ts`; repositories;
+`lib/calendar/sources/*`; `get-calendar-range-view-model.ts`;
+`get-calendar-day-view-model.ts`; `app/(app)/calendar/actions.ts`.
+
+#### Acceptance criteria (summary)
+
+- [x] Week + Month only; Sunday weeks; Concept A Master–Detail
+- [x] Native CRUD via ResponsiveFormShell; hard delete with series confirm
+- [x] Timed CHECKs: same-day, overnight, multi-day (db + domain tests)
+- [x] Recurrence expansion + whole-series edit only
+- [x] Subscription renewals expand across range; archived excluded; never copied
+- [x] Two V1 source toggles per user; payment reserved/hidden
+- [x] Dashboard Today uses shared day composer for current local date
+- [x] Mobile month: list below grid; 320/360/390; no overflow
+- [x] Vitest + pgTAP + Playwright (chromium + webkit) green; `verify` + `test:db` ×2
+
+#### Out of scope
+
+External sync; invitations; day/agenda/year views; hourly grid; drag-drop;
+recurrence exceptions; notifications; meal/grocery entries; Budget due dates;
+`created_by`; Payment Reminders UI until the source is functional.
+
+See ADR-020 (proposed). Full design: Cursor plan `milestone_10_calendar_*.plan.md`.
 
 ### 11. Release hardening
 
@@ -1670,6 +1742,73 @@ avoids a second path into Budget transactions until demand is clear.
 **Consequences:** Domain module + repository + UI + Vitest/Playwright/pgTAP;
 docs and seed updates; payment/URL/custom/paused explicitly deferred.
 
+### ADR-020: Household Calendar — series events, derived renewals, Concept A
+
+**Status:** Accepted (2026-07-20)  
+**Decision:** For the Shared Calendar vertical slice:
+
+1. **Role.** `/calendar` is a Week \| Month Master–Detail surface for household
+   life events. Selected-day agenda is chrome, not a third view. Meals never
+   appear on the calendar grid. Dashboard Today uses the same
+   `get-calendar-day-view-model` for the current local date.
+
+2. **Ownership.** Native events belong to the household. There is **no**
+   `created_by` (or other creator attribution). Access is household membership
+   - RLS only. Authenticated members may create, edit, and delete any household
+     event.
+
+3. **Schema.** One `calendar_events` row = one series (or one-shot). Fields:
+   title, notes, location, fixed `category`, `all_day`, `start_on`/`end_on`,
+   optional `start_at`/`end_at`, fixed `recurrence` enum, optional
+   `recurrence_end_on`. Hard delete (meals pattern). No soft-archive in V1.
+
+4. **Timed/all-day constraints.** All-day: null times, inclusive
+   `end_on >= start_on`. Timed: both times required; `end_on >= start_on`;
+   same-day requires `end_at > start_at`; when `end_on > start_on`, `end_at`
+   may be earlier than, equal to, or later than `start_at` (overnight and
+   multi-day timed events). Covered by pgTAP and domain tests.
+
+5. **Recurrence.** Support only none / daily / weekly / every_two_weeks /
+   monthly / yearly. Whole-series edit and delete only — no exceptions or
+   detached occurrences. Monthly/yearly clamp via the same billing-day pattern
+   as Subscriptions (29/30/31 and Feb 29 → Feb 28 non-leap).
+
+6. **Derived sources.** Never copy derived rows into `calendar_events`.
+   - **Subscription renewals:** query active subscriptions; treat `renewal_on`
+     as anchor; expand through the visible week/month range with cadence +
+     `billing_day` clamp; deep-link `/subscriptions`; exclude archived before
+     expansion.
+   - **Payment reminders:** Budget has no reliable future due-date source today.
+     Keep `payment_reminders` source key + empty adapter for later. Do **not**
+     invent Budget dues or treat historical transactions as reminders. Do **not**
+     show a Payment Reminders toggle in V1 (no disabled control, no “unavailable”
+     empty copy). V1 UI toggles: Household events + Subscription renewals.
+
+7. **Preferences.** Per-user `calendar_source_preferences` for the three source
+   keys (including reserved payment). Missing rows default visible.
+
+8. **Mobile Month.** Compact Sunday-start grid; selected-day list **below** the
+   grid (grid stays visible); Sheet only for details/create/edit/delete confirm —
+   never for viewing the day list alone. Mobile Week: vertical seven-day bands.
+
+9. **Testing clocks.** Deterministic dates via injected `now` / fixtures in
+   domain and composers, and Calendar URL `week`/`month`/`day`. Do **not**
+   expose a production Dashboard `?asOf=` query parameter for tests.
+
+10. **UX.** Concept A Master–Detail; category icon + label (not color alone);
+    derived entries visibly read-only. Revalidate `/calendar` (and dashboard)
+    from calendar mutations; subscription mutations also revalidate `/calendar`.
+
+**Reason:** Two people need a calm shared calendar, not a multi-tenant product.
+Budget cannot honestly supply future payment reminders yet; subscription
+renewals can. Household-scoped events without creator metadata match equal
+member access. Explicit timed CHECKs prevent overnight/multi-day bugs.
+
+**Consequences:** One calendar-slice migration + types; domain recurrence and
+subscription-renewal expansion modules; source adapters; shared day composer
+wired to Dashboard; Vitest/pgTAP/Playwright; docs. Payment Reminders UI and
+Budget due dates remain future work.
+
 ### ADR-002: Initial client strategy
 
 **Status:** Accepted  
@@ -1778,6 +1917,45 @@ Add only questions that materially block or influence implementation.
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-20 (Ship Milestone 10 Calendar)
+
+- Work completed: Household Calendar shipped (Concept A Master–Detail Week/Month).
+  Native `calendar_events` (no `created_by`; hard delete; timed same-day /
+  overnight / multi-day CHECKs; fixed categories + recurrence). Per-user source
+  prefs with V1 toggles for Household events + Subscription renewals
+  (`payment_reminders` reserved/hidden). Subscription renewals expand across
+  visible range via cadence/billing-day clamp; never copied into events.
+  Shared `get-calendar-day-view-model` feeds Dashboard Today. Playwright
+  calendar chromium (1280/390/360/320) + webkit.
+- Files or areas changed: migration `20260721022108_calendar_slice.sql`,
+  `lib/domain/calendar*.ts`, `lib/calendar/*`, repositories, actions, UI,
+  dashboard composer, subscriptions revalidation, pgTAP, e2e, docs/ADR-020.
+- Validation performed: `npm run test:db` 114/114 twice; `npm run verify` green
+  (unit 165; e2e 96).
+- Decisions made: ADR-020 accepted; Milestone 10 complete.
+- Remaining issues: Push calendar migration to hosted when ready; Auth
+  leaked-password protection (hosted setting).
+- Next recommended task: Milestone 11 Release hardening when asked; do not
+  start Pantry, imports, or sync.
+
+### 2026-07-20 (Milestone 10 plan — revised)
+
+- Work completed: Lead reconciled specialist reviews, then revised the Calendar
+  plan before execute. Updates: no `created_by`; timed CHECKs for same-day /
+  overnight / multi-day; subscription-renewal expansion across visible range;
+  Payment Reminders reserved but **hidden** in V1 UI; mobile Month list locked
+  below grid; remove Dashboard `?asOf=`; Dashboard Today = shared day composer
+  for current local date. Updated plan, `IMPLEMENTATION.md` §10, ADR-020,
+  `ARCHITECTURE.md`. **No application code.**
+- Files or areas changed: Cursor plan `milestone_10_calendar_*.plan.md`,
+  `IMPLEMENTATION.md`, `ARCHITECTURE.md`.
+- Validation performed: documentation review only.
+- Decisions made: ADR-020 proposed (revised); Concept A retained; V1 source
+  toggles = Household events + Subscription renewals only.
+- Remaining issues: Execute approval still required before implementation.
+- Next recommended task: Approve execute of M10 when ready; do not start
+  Release, Pantry, imports, or sync.
 
 ### 2026-07-20 (Ship Milestone 9 Subscriptions)
 

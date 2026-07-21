@@ -62,6 +62,15 @@ export async function goToSubscriptions(page: Page) {
   ).toBeVisible();
 }
 
+export async function goToCalendar(page: Page, query = "") {
+  const path = query ? `/calendar?${query}` : "/calendar";
+  await page.goto(path);
+  await expect(page).toHaveURL(/\/calendar(?:\?|$)/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Calendar" }),
+  ).toBeVisible();
+}
+
 export const E2E_OUTSIDER_EMAIL =
   process.env.E2E_OUTSIDER_EMAIL ?? "outsider@example.test";
 export const E2E_OUTSIDER_PASSWORD =

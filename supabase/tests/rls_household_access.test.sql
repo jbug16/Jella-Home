@@ -5,7 +5,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(97);
+SELECT plan(114);
 
 CREATE OR REPLACE FUNCTION public.test_as_user(uid uuid)
 RETURNS void
@@ -61,7 +61,9 @@ SELECT ok(
         'planned_meals',
         'grocery_lists',
         'grocery_list_items',
-        'subscriptions'
+        'subscriptions',
+        'calendar_events',
+        'calendar_source_preferences'
       )
   ),
   'RLS is enabled on all product tables'
@@ -1246,6 +1248,224 @@ SELECT is(
   ),
   'pgTAP Streaming Updated',
   'outsider could not change another household subscription vendor'
+);
+
+-- ---------------------------------------------------------------------------
+-- Milestone 10: calendar_events + source preferences
+-- ---------------------------------------------------------------------------
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT ok(
+  (
+    SELECT NOT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'calendar_events'
+        AND column_name = 'created_by'
+    )
+  ),
+  'calendar_events has no created_by column'
+);
+
+-- Same-day timed
+SELECT lives_ok(
+  $$INSERT INTO public.calendar_events (
+      id, household_id, title, all_day, start_on, end_on, start_at, end_at, category
+    ) VALUES (
+      'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1',
+      '11111111-1111-4111-8111-111111111111',
+      'Dentist',
+      false,
+      '2026-07-14',
+      '2026-07-14',
+      '14:00',
+      '15:00',
+      'appointment'
+    )$$,
+  'member can insert same-day timed event'
+);
+
+-- Overnight timed
+SELECT lives_ok(
+  $$INSERT INTO public.calendar_events (
+      id, household_id, title, all_day, start_on, end_on, start_at, end_at, category
+    ) VALUES (
+      'c2c2c2c2-c2c2-4c2c-8c2c-c2c2c2c2c2c2',
+      '11111111-1111-4111-8111-111111111111',
+      'Overnight',
+      false,
+      '2026-07-14',
+      '2026-07-15',
+      '22:00',
+      '01:00',
+      'other'
+    )$$,
+  'member can insert overnight timed event'
+);
+
+-- Multi-day timed
+SELECT lives_ok(
+  $$INSERT INTO public.calendar_events (
+      id, household_id, title, all_day, start_on, end_on, start_at, end_at, category
+    ) VALUES (
+      'c3c3c3c3-c3c3-4c3c-8c3c-c3c3c3c3c3c3',
+      '11111111-1111-4111-8111-111111111111',
+      'Weekend trip',
+      false,
+      '2026-07-17',
+      '2026-07-19',
+      '09:00',
+      '17:00',
+      'trip'
+    )$$,
+  'member can insert multi-day timed event'
+);
+
+-- All-day
+SELECT lives_ok(
+  $$INSERT INTO public.calendar_events (
+      id, household_id, title, all_day, start_on, end_on, recurrence, category
+    ) VALUES (
+      'c4c4c4c4-c4c4-4c4c-8c4c-c4c4c4c4c4c4',
+      '11111111-1111-4111-8111-111111111111',
+      'Trash day',
+      true,
+      '2026-07-07',
+      '2026-07-07',
+      'weekly',
+      'household'
+    )$$,
+  'member can insert recurring all-day event'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.calendar_events (
+      household_id, title, all_day, start_on, end_on, start_at, end_at
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'Bad same day',
+      false,
+      '2026-07-14',
+      '2026-07-14',
+      '15:00',
+      '14:00'
+    )$$,
+  '23514',
+  NULL,
+  'same-day timed requires end_at > start_at'
+);
+
+SELECT lives_ok(
+  $$UPDATE public.calendar_events
+     SET title = 'Dentist updated'
+     WHERE id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'$$,
+  'member can update household calendar event'
+);
+
+SELECT lives_ok(
+  $$DELETE FROM public.calendar_events
+     WHERE id = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1'$$,
+  'member can delete household calendar event'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO public.calendar_source_preferences (
+      household_id, user_id, source_key, visible
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'subscription_renewals',
+      false
+    )
+    ON CONFLICT (household_id, user_id, source_key)
+    DO UPDATE SET visible = EXCLUDED.visible$$,
+  'member can upsert own calendar source preference'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.calendar_events (
+      household_id, title, all_day, start_on, end_on
+    ) VALUES (
+      '22222222-2222-4222-8222-222222222222',
+      'Forged',
+      true,
+      '2026-07-01',
+      '2026-07-01'
+    )$$,
+  '42501',
+  NULL,
+  'member cannot insert into another household calendar_events'
+);
+
+SELECT public.test_as_user('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.calendar_events
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+  ),
+  0,
+  'outsider cannot read another household calendar_events'
+);
+
+SELECT lives_ok(
+  $$UPDATE public.calendar_events
+     SET title = 'Hacked'
+     WHERE id = 'c4c4c4c4-c4c4-4c4c-8c4c-c4c4c4c4c4c4'$$,
+  'outsider update on hidden calendar event is a no-op'
+);
+
+RESET ROLE;
+SELECT is(
+  (
+    SELECT title
+    FROM public.calendar_events
+    WHERE id = 'c4c4c4c4-c4c4-4c4c-8c4c-c4c4c4c4c4c4'
+  ),
+  'Trash day',
+  'outsider could not change another household calendar event title'
+);
+
+SELECT public.test_as_user('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.calendar_source_preferences
+    WHERE user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ),
+  0,
+  'outsider cannot read another user calendar preferences'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.calendar_source_preferences (
+      household_id, user_id, source_key, visible
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'household_events',
+      false
+    )$$,
+  '42501',
+  NULL,
+  'user cannot forge another user calendar preferences'
+);
+
+SELECT public.test_as_anon();
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.calendar_events),
+  0,
+  'anonymous cannot read calendar_events'
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.calendar_source_preferences),
+  0,
+  'anonymous cannot read calendar_source_preferences'
 );
 
 SELECT * FROM finish();

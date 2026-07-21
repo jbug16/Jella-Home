@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getCalendarDayViewModel } from "@/lib/calendar/get-calendar-day-view-model";
 import {
   buildBudgetMonthSnapshot,
   currentMonthStart,
@@ -7,7 +8,6 @@ import {
 import {
   buildBudgetCardViewModel,
   buildMealWeekCardViewModel,
-  buildTodayCalendarViewModel,
   buildTodayMealsViewModel,
   resolveDashboardAsOf,
   type DashboardViewModel,
@@ -22,8 +22,8 @@ import { listRecipes } from "@/lib/repositories/recipes";
 
 /**
  * Compose the Dashboard home view model.
- * Today uses household calendar events (empty until Calendar writes exist).
- * Meals for today feed the Meal Planning card only — never the calendar grid.
+ * Today uses the shared calendar day composer (native events + visible
+ * subscription renewals). Meals feed the Meal Planning card only.
  */
 export async function getDashboardViewModel(
   now = new Date(),
@@ -31,7 +31,7 @@ export async function getDashboardViewModel(
   const asOf = resolveDashboardAsOf(now);
   const monthStart = currentMonthStart(now);
 
-  const [weekMeals, recipes, categories, limits, transactions] =
+  const [weekMeals, recipes, categories, limits, transactions, today] =
     await Promise.all([
       listPlannedMealsForWeek(asOf.weekStart),
       // Covers needed for today's meal cards (signed URLs).
@@ -39,6 +39,7 @@ export async function getDashboardViewModel(
       listCategories(),
       listMonthLimits(monthStart),
       listTransactionsForMonth(monthStart),
+      getCalendarDayViewModel({ dateIso: asOf.todayIso, now }),
     ]);
 
   const imageByRecipeId = new Map(
@@ -58,10 +59,7 @@ export async function getDashboardViewModel(
       weekStart: asOf.weekStart,
       monthStart,
     },
-    today: buildTodayCalendarViewModel({
-      todayIso: asOf.todayIso,
-      events: [],
-    }),
+    today,
     todayMeals: buildTodayMealsViewModel({
       todayIso: asOf.todayIso,
       weekMeals,

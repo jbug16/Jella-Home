@@ -19,6 +19,8 @@ function isAssetPath(pathname: string): boolean {
 
 /**
  * Refresh the auth session and enforce route access for the Next.js proxy.
+ * Invalid/stale refresh tokens (common after `supabase db reset` or switching
+ * between hosted and local) are cleared so the user can sign in again.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
@@ -64,20 +66,26 @@ export async function updateSession(request: NextRequest) {
   });
 
   // Prefer getClaims() so the JWT is validated (do not trust getSession alone).
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const isAuthenticated = Boolean(claimsData?.claims?.sub);
+  const { data: claimsData, error: claimsError } =
+    await supabase.auth.getClaims();
+
+  if (claimsError) {
+    // Drop broken cookies left over from a reset or a different Supabase project.
+    await supabase.auth.signOut({ scope: "local" });
+  }
+
+  const isAuthenticated = Boolean(
+    !claimsError && claimsData?.claims?.sub,
+  );
 
   if (!isAuthenticated && !isPublicPath(pathname)) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/sign-in";
+    const redirectUrl = new URL("/sign-in", request.url);
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
   if (isAuthenticated && pathname === "/sign-in") {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/dashboard";
-    redirectUrl.search = "";
+    const redirectUrl = new URL("/dashboard", request.url);
     return NextResponse.redirect(redirectUrl);
   }
 

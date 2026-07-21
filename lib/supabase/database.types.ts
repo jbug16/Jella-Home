@@ -120,6 +120,103 @@ export type Database = {
           },
         ];
       };
+      calendar_events: {
+        Row: {
+          all_day: boolean;
+          category: string;
+          created_at: string;
+          end_at: string | null;
+          end_on: string;
+          household_id: string;
+          id: string;
+          location: string;
+          notes: string;
+          recurrence: string;
+          recurrence_end_on: string | null;
+          start_at: string | null;
+          start_on: string;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          all_day?: boolean;
+          category?: string;
+          created_at?: string;
+          end_at?: string | null;
+          end_on: string;
+          household_id: string;
+          id?: string;
+          location?: string;
+          notes?: string;
+          recurrence?: string;
+          recurrence_end_on?: string | null;
+          start_at?: string | null;
+          start_on: string;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          all_day?: boolean;
+          category?: string;
+          created_at?: string;
+          end_at?: string | null;
+          end_on?: string;
+          household_id?: string;
+          id?: string;
+          location?: string;
+          notes?: string;
+          recurrence?: string;
+          recurrence_end_on?: string | null;
+          start_at?: string | null;
+          start_on?: string;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      calendar_source_preferences: {
+        Row: {
+          household_id: string;
+          id: string;
+          source_key: string;
+          updated_at: string;
+          user_id: string;
+          visible: boolean;
+        };
+        Insert: {
+          household_id: string;
+          id?: string;
+          source_key: string;
+          updated_at?: string;
+          user_id: string;
+          visible?: boolean;
+        };
+        Update: {
+          household_id?: string;
+          id?: string;
+          source_key?: string;
+          updated_at?: string;
+          user_id?: string;
+          visible?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "calendar_source_preferences_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       grocery_list_items: {
         Row: {
           created_at: string;

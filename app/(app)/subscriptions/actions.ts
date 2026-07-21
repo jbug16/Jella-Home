@@ -25,7 +25,7 @@ function formString(formData: FormData, key: string): string {
 }
 
 function revalidateSubscriptions(): void {
-  revalidateModuleAndDashboard("/subscriptions");
+  revalidateModuleAndDashboard("/subscriptions", "/calendar");
 }
 
 function parseSubscriptionForm(formData: FormData) {
