@@ -48,7 +48,7 @@ function BudgetCard({ viewModel }: DashboardPanelProps) {
       actionHref={href}
       actionLabel="View budget"
       actionTestId="dashboard-cta-budget"
-      className="min-h-0"
+      className="min-h-0 shrink-0"
       compact
     >
       {!budget.hasBudgetSetup ? (
@@ -132,8 +132,9 @@ function TodaysMealsCard({ viewModel }: DashboardPanelProps) {
       actionHref={planHref}
       actionLabel="Open planner"
       actionTestId="dashboard-cta-meals"
-      className="min-h-0"
+      className="min-h-0 sidebar:flex-1"
       compact
+      scrollBody
     >
       {todayMeals.length === 0 ? (
         <p className="text-sm text-muted-foreground">
@@ -219,7 +220,7 @@ export function DashboardPanel({ viewModel }: DashboardPanelProps) {
         fillHeight
         className="min-h-[20rem] sidebar:min-h-0"
       />
-      <div className="flex min-h-0 flex-col gap-4 sidebar:overflow-y-auto">
+      <div className="flex min-h-0 flex-col gap-4 sidebar:overflow-hidden">
         <TodaysMealsCard viewModel={viewModel} />
         <BudgetCard viewModel={viewModel} />
       </div>

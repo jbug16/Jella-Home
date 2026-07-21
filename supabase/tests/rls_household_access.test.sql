@@ -5,7 +5,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(82);
+SELECT plan(97);
 
 CREATE OR REPLACE FUNCTION public.test_as_user(uid uuid)
 RETURNS void
@@ -1064,6 +1064,188 @@ SELECT is(
   ),
   0,
   'outsider cannot read another household grocery list'
+);
+
+-- ---------------------------------------------------------------------------
+-- Milestone 9: subscriptions CRUD, isolation, lifecycle & cadence CHECKs
+-- ---------------------------------------------------------------------------
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT ok(
+  (
+    SELECT count(*)::integer >= 6
+    FROM public.subscriptions
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+      AND status = 'active'
+      AND billing_day BETWEEN 1 AND 31
+  ),
+  'member can read seeded active subscriptions with billing_day'
+);
+
+SELECT ok(
+  (
+    SELECT count(*)::integer = 1
+    FROM public.subscriptions
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+      AND vendor = 'Netflix'
+      AND status = 'active'
+  ),
+  'member can read seeded Netflix subscription'
+);
+
+SELECT ok(
+  (
+    SELECT count(*)::integer = 1
+    FROM public.subscriptions
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+      AND vendor = 'Hulu'
+      AND status = 'archived'
+  ),
+  'member can read seeded archived Hulu subscription'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO public.subscriptions (
+      id, household_id, vendor, category_label, amount_cents, cadence,
+      billing_day, renewal_on, status
+    ) VALUES (
+      'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1',
+      '11111111-1111-4111-8111-111111111111',
+      'pgTAP Streaming',
+      'Tech',
+      1299,
+      'bimonthly',
+      31,
+      '2026-01-31',
+      'active'
+    )$$,
+  'member can insert subscription with expanded cadence and billing_day 31'
+);
+
+SELECT lives_ok(
+  $$UPDATE public.subscriptions
+    SET vendor = 'pgTAP Streaming Updated', amount_cents = 1399
+    WHERE id = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1'$$,
+  'member can update own subscription'
+);
+
+SELECT lives_ok(
+  $$UPDATE public.subscriptions
+    SET status = 'archived'
+    WHERE id = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1'$$,
+  'member can archive subscription'
+);
+
+SELECT is(
+  (
+    SELECT status
+    FROM public.subscriptions
+    WHERE id = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1'
+  ),
+  'archived',
+  'archived status persists'
+);
+
+SELECT lives_ok(
+  $$UPDATE public.subscriptions
+    SET status = 'active'
+    WHERE id = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1'$$,
+  'member can restore archived subscription'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.subscriptions (
+      household_id, vendor, amount_cents, cadence, billing_day, status
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'Bad Cadence',
+      100,
+      'custom',
+      1,
+      'active'
+    )$$,
+  '23514',
+  NULL,
+  'cadence CHECK rejects custom'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.subscriptions (
+      household_id, vendor, amount_cents, cadence, billing_day, status
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'Bad Status',
+      100,
+      'monthly',
+      1,
+      'paused'
+    )$$,
+  '23514',
+  NULL,
+  'status CHECK rejects paused'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.subscriptions (
+      household_id, vendor, amount_cents, cadence, billing_day, status
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      'Bad Billing Day',
+      100,
+      'monthly',
+      32,
+      'active'
+    )$$,
+  '23514',
+  NULL,
+  'billing_day CHECK rejects 32'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.subscriptions (
+      household_id, vendor, amount_cents, cadence, billing_day, status
+    ) VALUES (
+      '22222222-2222-4222-8222-222222222222',
+      'Cross Household',
+      100,
+      'monthly',
+      1,
+      'active'
+    )$$,
+  '42501',
+  NULL,
+  'member cannot insert into another household subscriptions'
+);
+
+SELECT public.test_as_user('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.subscriptions
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+  ),
+  0,
+  'outsider cannot read another household subscriptions'
+);
+
+SELECT lives_ok(
+  $$UPDATE public.subscriptions
+    SET vendor = 'Hijack'
+    WHERE id = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1'$$,
+  'outsider update against foreign subscription is a no-op under RLS'
+);
+
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT is(
+  (
+    SELECT vendor
+    FROM public.subscriptions
+    WHERE id = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1'
+  ),
+  'pgTAP Streaming Updated',
+  'outsider could not change another household subscription vendor'
 );
 
 SELECT * FROM finish();

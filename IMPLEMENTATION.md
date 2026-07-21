@@ -11,11 +11,15 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** 9 — Subscription tracker  
+**Milestone:** 10 — Shared calendar  
 **Status:** Not started (awaiting plan when ready)  
 **Owner:** Lead Engineer  
-**Goal:** Track household subscriptions with cadence conversions, renewal dates,
-and status — clearer than the legacy Subscription Tracker sheet.
+**Goal:** Household events separate from meal-plan entries — clearer than a
+spreadsheet calendar tab, feeding the Dashboard Today card.
+
+Previous: Milestone 9 (Subscriptions) **shipped** 2026-07-20 (local `verify` +
+`test:db` ×2; migration `20260720204657_subscription_slice`). See
+[Milestone 9](#9-subscription-tracker) / ADR-019.
 
 Previous: Milestone 8 (Dashboard home) **approved** and shipped 2026-07-20
 (local `verify` + `test:db` ×2; no new migrations). Dashboard:
@@ -1215,27 +1219,162 @@ Suggested testids: `dashboard-panel`, `card-today`, `card-grocery`,
 
 ### 9. Subscription tracker
 
-**Status:** Not started (after Dashboard)
+**Status:** Complete (2026-07-20)
 
-Scope (draft — plan with specialist review before code):
+Manual subscription tracker for the household. Answers: what recurring expenses
+exist, how much they cost per month (normalized), what charges next, and which
+are archived. Not bank-connected detection.
 
-- Subscription list
-- Add and edit subscription
-- Monthly and annual conversions
-- Renewal dates and status
-- Calculation tests
-- Reuse Budget patterns (cents, Dialog/Sheet, Zod, repositories + RLS)
+Specialist reviews (architecture pass): [Frontend/UI](b65e4682-6691-47e1-9a96-12946a95fe3e),
+[Backend/Data](9987606b-540c-410e-bdff-3412ca17efb3),
+[QA](13ad755c-2ad7-40ac-9681-d5b0cd1567b9). Lead reconciled; **2026-07-20
+simplification pass** locked the V1 cuts below (ADR-019).
+
+#### Product goals
+
+- Compact summary: monthly total, yearly total, active count
+- One active list sorted by next billing date (soonest first), then vendor
+- Clear inventory with charge per cycle (amount + cadence) on each row
+
+#### In scope
+
+- List / add / edit / delete subscriptions
+- Delete = soft-archive (`status → archived`) under Delete labeling; no restore UI
+- Fixed cadences: weekly, monthly, every 2 months, quarterly, every 6 months, yearly
+- `nextBillingDate` + `monthlyEquivalentCents` in domain (tested; used for summary)
+- `subscriptionDueStatus` kept in domain for tests/future; not shown in UI
+- Status: `active` | `archived` in schema/repo (UI lists active only)
+- Page order: Summary → active list
+- Reuse Budget patterns (cents, Dialog/Sheet, Zod, repos + RLS)
+
+#### Out of scope (future extension points only)
+
+| Deferred                             | Leave room by                       | Avoid now                                         |
+| ------------------------------------ | ----------------------------------- | ------------------------------------------------- |
+| Management / vendor URL              | Notes only                          | `management_url` column/UI                        |
+| Custom interval                      | Six fixed cadences                  | `custom` / `interval_count`                       |
+| Paused state                         | `active` \| `archived` only         | `paused` / `canceled`                             |
+| Record payment → Budget txn          | Edit Next billing; Budget for spend | Payment RPC, `last_recorded_on`, duplicate guards |
+| Mark billed (date-only advance)      | Manual edit of `renewal_on`         | Extra action                                      |
+| Bank sync / auto-detect / email scan | Manual entry                        | Integrations                                      |
+| Renewal notifications / push         | Due labels on page                  | Notification engine                               |
+| Currency conversion                  | Household USD cents                 | FX                                                |
+| Dashboard subscription card          | `revalidateModuleAndDashboard`      | Home card in M9                                   |
+
+#### Schema — migration `*_subscription_slice.sql`
+
+```text
+subscriptions (altered)
+  cadence         CHECK IN (
+                    'weekly', 'monthly', 'bimonthly', 'quarterly',
+                    'semiannual', 'yearly'
+                  )
+  status          CHECK IN ('active', 'archived') DEFAULT 'active'
+                  -- migrate paused/canceled → archived
+  billing_day     smallint NOT NULL CHECK (1..31)
+                  -- backfill from renewal_on day or 1
+  -- unchanged: vendor, category_label, amount_cents, renewal_on, notes, timestamps
+  -- index: (household_id, status, renewal_on)
+```
+
+No `management_url`, `interval_count`, `last_recorded_on`, or payment RPC.
+Keep ADR-013: `category_label` free text; no budget FK. Monthly equivalents
+derived only.
+
+#### Domain (`lib/domain/subscription.ts`)
+
+Inject `todayIso` / `fromIso` in pure helpers.
+
+**`monthlyEquivalentCents`:** weekly `round(amount * 52 / 12)`; monthly
+`amount`; bimonthly `/2`; quarterly `/3`; semiannual `/6`; yearly `/12`.
+
+**`nextBillingDate`:** weekly +7 days; month cadences add N months with
+`billing_day` clamp (leap / 29–31). Date-only via `lib/domain/dates.ts`.
+
+**`subscriptionDueStatus`:** active + renewal only → overdue / dueToday /
+dueSoon (1–7) / upcoming. Available for domain/tests; UI does not surface it.
+Archived excluded from active totals.
+
+UI rows show charge per cycle (amount + cadence). Monthly/yearly equivalents
+appear in the summary strip only.
+
+#### Repositories / actions
+
+`listSubscriptions`, `getSubscription`, `createSubscription`,
+`updateSubscription`, `archiveSubscription`, `restoreSubscription`.
+
+`deleteSubscriptionAction` soft-archives via `archiveSubscription` (Delete UX).
+Server actions → Zod → repo → `revalidateModuleAndDashboard("/subscriptions")`.
+No Record payment action in V1.
+
+#### UX
+
+1. Summary (monthly total, yearly total, active count)
+2. Single active list sorted by next billing date, then vendor
+3. Per-row Edit + Delete; Delete confirms with AlertDialog (“Remove from your list?”)
+
+`ResponsiveFormShell`; `min-h-11`; no horizontal scroll at 360. No due-status
+chips, urgency groups, or restore UI.
+
+#### Testing
+
+| Layer      | Owns                                                       |
+| ---------- | ---------------------------------------------------------- |
+| Vitest     | Recurrence, normalization, due status, archive totals, Zod |
+| Playwright | Add/edit/delete, sort + amount/cadence, 360 + WebKit       |
+| pgTAP      | Member CRUD; outsider deny; status/cadence CHECKs          |
+
+Seed: Netflix, Spotify, iCloud+, Chewy, Progressive, NordVPN (active) plus
+archived Hulu — staggered `renewal_on` relative to `CURRENT_DATE`.
+
+Gate: `npm run test:db` && `npm run verify`.
+
+#### Acceptance criteria
+
+**Product**
+
+- [x] Summary → active list (billing-date sort)
+- [x] Charge per cycle (amount + cadence) on each active row; summary holds totals
+- [x] Active-only monthly + yearly totals; archived excluded from totals/list
+- [x] Add/edit/delete (soft-archive); six fixed cadences; no restore UI
+- [x] No URL, paused, custom interval, or Record payment
+- [x] Usable at 360 / 390 / iPad / desktop
+
+**Technical**
+
+- [x] Migration + regenerated types; pgTAP green
+- [x] Domain pure + injectable today; integer cents; date-only safe
+- [x] `verify` + `test:db` green
+
+#### Risks
+
+- Overdue catch-up is manual (edit Next billing) — acceptable for V1
+
+#### Decisions (approved)
+
+1. No `management_url` in V1.
+2. Status `active` | `archived` only (`paused`/`canceled` removed).
+3. Six fixed cadences; no custom / `interval_count`.
+4. **Record payment deferred** — Budget remains spend log; edit Next billing for schedule.
+5. Summary first (monthly / yearly / active); one partitioned active list;
+   dual amount display required.
+6. `billing_day` retained for month-end correctness.
+7. ADR-019 accepted; Milestone 9 complete 2026-07-20.
 
 ### 10. Shared calendar
 
-**Status:** Not started
+**Status:** Not started (next — plan with specialist review before code)
 
-Scope:
+Scope (draft — plan before implementation):
 
 - Household event list/calendar
 - Add and edit events
-- Date handling
+- Date handling (date-only, timezone-safe)
 - Clear separation from meal-plan entries
+- Dashboard Today card already expects calendar events when this ships
+
+Out of scope until planned: meal entries on the calendar grid, invitations,
+external calendar sync.
 
 ### 11. Release hardening
 
@@ -1482,6 +1621,55 @@ updates; Vitest builders + Playwright dashboard projects. Charts, favorites,
 notifications, AI, weather, pantry, bank sync, and live updates stay out of
 scope.
 
+### ADR-019: Subscriptions tracker — simplified V1
+
+**Status:** Accepted (2026-07-20)
+**Decision:** For the Subscriptions vertical slice:
+
+1. **Role.** `/subscriptions` is a manual recurring-expense tracker (inventory,
+   normalized monthly cost, upcoming charges, archive). Not bank sync or
+   auto-detection.
+
+2. **Cadences.** Persist only `weekly`, `monthly`, `bimonthly`, `quarterly`,
+   `semiannual`, `yearly`. No `custom` cadence and no `interval_count`. UI
+   labels: Weekly, Monthly, Every 2 months, Quarterly, Every 6 months, Yearly.
+
+3. **Lifecycle.** Status is `active` | `archived` only. Migrate legacy
+   `paused` / `canceled` → `archived`. Archive excludes rows from active
+   monthly totals and Upcoming Charges; restore returns to `active`. Do not
+   add `archived_at`; do not keep `paused`.
+
+4. **Money and dates.** Integer `amount_cents`; SQL `date` for `renewal_on`;
+   persist `billing_day` (1–31) so month-end / 29–31 billing does not drift.
+   Derive monthly equivalents in domain (`monthlyEquivalentCents`); never
+   store them. Rows show charge per cycle; summary shows monthly/yearly totals.
+
+5. **Category.** Keep ADR-013 `category_label` (no budget FK).
+
+6. **No management URL** in V1 (no column, validation, or UI).
+
+7. **No Record payment in V1.** Logging spend stays on Budget; advancing the
+   schedule is done by editing Next billing. Record payment (txn + advance)
+   and Mark billed remain future enhancements — product value does not clearly
+   justify V1 RPC/duplicate-prevention complexity for this household.
+
+8. **UX order.** Summary (monthly / yearly / active count) → one active list
+   sorted by next billing date. Soft-archive remains in schema/repo only.
+
+9. **Schema.** One `*_subscription_slice.sql` migration for cadence/status
+   CHECKs + `billing_day` + index. Existing RLS membership policies remain.
+   No payment RPC.
+
+10. **Dashboard.** Optional future home card only; still
+    `revalidateModuleAndDashboard("/subscriptions")` from module actions.
+
+**Reason:** Simplifies recurrence and lifecycle while covering nearly all
+real subscriptions; keeps the page focused on “what’s due” and monthly burn;
+avoids a second path into Budget transactions until demand is clear.
+
+**Consequences:** Domain module + repository + UI + Vitest/Playwright/pgTAP;
+docs and seed updates; payment/URL/custom/paused explicitly deferred.
+
 ### ADR-002: Initial client strategy
 
 **Status:** Accepted  
@@ -1590,6 +1778,45 @@ Add only questions that materially block or influence implementation.
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-20 (Ship Milestone 9 Subscriptions)
+
+- Work completed: Subscriptions tracker shipped. Schema slice
+  (`billing_day`, six cadences, `active`|`archived`), domain
+  recurrence/normalization, repository + actions, compact summary
+  (monthly/yearly/active), single active list sorted by next billing,
+  add/edit/delete (soft-archive, no restore UI). Realistic seed vendors.
+  No Record payment, management URLs, paused, custom intervals, or due-status
+  groups.
+- Files or areas changed: migration `20260720204657_subscription_slice.sql`,
+  `lib/domain/subscription.ts`, `lib/repositories/subscriptions.ts`,
+  `app/(app)/subscriptions/*`, `components/subscriptions/*`, seed, pgTAP,
+  Playwright, `playwright.config.ts`, docs/ADR-019.
+- Validation performed: `npm run test:db` green; `npm run verify` green;
+  migration list local==remote (13); advisors: Auth leaked-password WARN only
+  (pre-existing); Performance: none.
+- Decisions made: ADR-019 accepted; next milestone is Shared calendar (M10).
+- Remaining issues: Auth leaked-password protection (hosted setting).
+- Next recommended task: Plan Milestone 10 (Shared calendar) when asked; do
+  not start Calendar implementation until planned/approved.
+
+### 2026-07-20 (Milestone 9 plan — simplified V1)
+
+- Work completed: Lead + specialist architecture pass for Subscriptions, then
+  product simplification. Updated plan, `IMPLEMENTATION.md` §9, `ARCHITECTURE.md`
+  Subscriptions section, and proposed ADR-019. **No application code.**
+- Files or areas changed: `IMPLEMENTATION.md`, `ARCHITECTURE.md`, Cursor plan
+  `milestone_9_subscriptions_*.plan.md`.
+- Validation performed: documentation review only.
+- Decisions made: No `management_url`; status `active`|`archived` only (drop
+  paused/canceled); six fixed cadences (no custom/`interval_count`); **defer
+  Record payment** (Budget remains spend log; edit Next billing for schedule);
+  page order Upcoming → Summary → Active → Archived; dual amount display
+  required; keep `billing_day` for month-end.
+- Remaining issues: Implementation not started; ADR-019 proposed until execute
+  approval.
+- Next recommended task: Approve execute of simplified M9 when ready; do not
+  start Calendar.
 
 ### 2026-07-20 (Milestone 8 Dashboard final release review)
 

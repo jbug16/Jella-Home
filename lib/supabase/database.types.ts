@@ -512,6 +512,7 @@ export type Database = {
       subscriptions: {
         Row: {
           amount_cents: number;
+          billing_day: number;
           cadence: string;
           category_label: string;
           created_at: string;
@@ -525,6 +526,7 @@ export type Database = {
         };
         Insert: {
           amount_cents: number;
+          billing_day?: number;
           cadence: string;
           category_label?: string;
           created_at?: string;
@@ -538,6 +540,7 @@ export type Database = {
         };
         Update: {
           amount_cents?: number;
+          billing_day?: number;
           cadence?: string;
           category_label?: string;
           created_at?: string;

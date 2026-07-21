@@ -218,16 +218,88 @@ BEGIN
       50000
     );
 
+  -- Realistic household subscriptions with staggered renewals for sort demos.
   INSERT INTO public.subscriptions (
     household_id,
     vendor,
     category_label,
     amount_cents,
     cadence,
+    billing_day,
+    renewal_on,
     status
   )
   VALUES
-    (household_a, 'Fixture Streaming', 'Entertainment', 1600, 'monthly', 'active');
+    (
+      household_a,
+      'Netflix',
+      'Entertainment',
+      1599,
+      'monthly',
+      EXTRACT(DAY FROM (CURRENT_DATE + 3))::smallint,
+      (CURRENT_DATE + 3)::date,
+      'active'
+    ),
+    (
+      household_a,
+      'Spotify',
+      'Entertainment',
+      1199,
+      'monthly',
+      EXTRACT(DAY FROM (CURRENT_DATE + 10))::smallint,
+      (CURRENT_DATE + 10)::date,
+      'active'
+    ),
+    (
+      household_a,
+      'iCloud+',
+      'Tech',
+      299,
+      'monthly',
+      EXTRACT(DAY FROM (CURRENT_DATE + 16))::smallint,
+      (CURRENT_DATE + 16)::date,
+      'active'
+    ),
+    (
+      household_a,
+      'Chewy',
+      'Pets',
+      4999,
+      'bimonthly',
+      EXTRACT(DAY FROM (CURRENT_DATE + 28))::smallint,
+      (CURRENT_DATE + 28)::date,
+      'active'
+    ),
+    (
+      household_a,
+      'Progressive',
+      'Insurance',
+      86400,
+      'yearly',
+      EXTRACT(DAY FROM (CURRENT_DATE + 45))::smallint,
+      (CURRENT_DATE + 45)::date,
+      'active'
+    ),
+    (
+      household_a,
+      'NordVPN',
+      'Tech',
+      2997,
+      'quarterly',
+      EXTRACT(DAY FROM (CURRENT_DATE + 60))::smallint,
+      (CURRENT_DATE + 60)::date,
+      'active'
+    ),
+    (
+      household_a,
+      'Hulu',
+      'Entertainment',
+      999,
+      'monthly',
+      EXTRACT(DAY FROM (CURRENT_DATE - 14))::smallint,
+      (CURRENT_DATE - 14)::date,
+      'archived'
+    );
 
   -- Recipes: one for household_a (with ingredients) and one for household_b
   -- (cross-household RLS coverage).

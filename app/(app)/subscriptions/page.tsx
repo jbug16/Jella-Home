@@ -1,25 +1,18 @@
 import type { Metadata } from "next";
-import { CreditCard } from "lucide-react";
 
-import { EmptyState } from "@/components/common/empty-state";
-import { PageHeader } from "@/components/common/page-header";
+import { SubscriptionsPanel } from "@/components/subscriptions/subscriptions-panel";
+import { todayIsoDate } from "@/lib/domain/dates";
+import { buildSubscriptionsViewModel } from "@/lib/domain/subscription";
+import { listSubscriptions } from "@/lib/repositories/subscriptions";
 
 export const metadata: Metadata = {
   title: "Subscriptions",
 };
 
-export default function SubscriptionsPage() {
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Subscriptions"
-        description="Track recurring costs and renewals."
-      />
-      <EmptyState
-        icon={CreditCard}
-        title="Coming soon"
-        description="Your subscriptions will appear here."
-      />
-    </div>
-  );
+export default async function SubscriptionsPage() {
+  const todayIso = todayIsoDate();
+  const subscriptions = await listSubscriptions();
+  const viewModel = buildSubscriptionsViewModel(subscriptions, todayIso);
+
+  return <SubscriptionsPanel viewModel={viewModel} />;
 }

@@ -21,6 +21,8 @@ type DashboardCardShellProps = {
   children: ReactNode;
   className?: string;
   compact?: boolean;
+  /** Scroll long body content inside the card instead of growing past it. */
+  scrollBody?: boolean;
 };
 
 /** Consistent summary card shell for the Dashboard home. */
@@ -34,16 +36,21 @@ export function DashboardCardShell({
   children,
   className,
   compact = false,
+  scrollBody = false,
 }: DashboardCardShellProps) {
   const titleId = `${id}-title`;
 
   return (
     <Card
-      className={cn(compact ? "gap-3 py-4" : "gap-4 py-5", className)}
+      className={cn(
+        compact ? "gap-3 py-4" : "gap-4 py-5",
+        scrollBody ? "min-h-0 overflow-hidden" : null,
+        className,
+      )}
       data-testid={id}
       aria-labelledby={titleId}
     >
-      <CardHeader className="px-5 pb-0">
+      <CardHeader className="shrink-0 px-5 pb-0">
         <h2
           id={titleId}
           className="text-base leading-none font-semibold tracking-tight"
@@ -65,7 +72,14 @@ export function DashboardCardShell({
           </CardAction>
         ) : null}
       </CardHeader>
-      <CardContent className="px-5">{children}</CardContent>
+      <CardContent
+        className={cn(
+          "min-h-0 px-5",
+          scrollBody ? "flex-1 overflow-y-auto" : null,
+        )}
+      >
+        {children}
+      </CardContent>
     </Card>
   );
 }

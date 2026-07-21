@@ -126,13 +126,33 @@ export default defineConfig({
       },
     },
     {
+      name: "subscriptions-chromium-desktop",
+      testMatch: /subscriptions\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 800 },
+      },
+    },
+    {
+      name: "subscriptions-chromium-mobile-360",
+      testMatch: /subscriptions\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 360, height: 780 },
+      },
+    },
+    {
       name: "webkit-iphone",
-      testMatch: /(shell|recipes|meals|shopping|dashboard)\.webkit\.spec\.ts/,
+      testMatch:
+        /(shell|recipes|meals|shopping|dashboard|subscriptions)\.webkit\.spec\.ts/,
       use: { ...devices["iPhone 13"] },
     },
     {
       name: "webkit-ipad",
-      testMatch: /(shell|recipes|meals|shopping|dashboard)\.webkit\.spec\.ts/,
+      testMatch:
+        /(shell|recipes|meals|shopping|dashboard|subscriptions)\.webkit\.spec\.ts/,
       use: { ...devices["iPad Pro 11"] },
     },
   ],
