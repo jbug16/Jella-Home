@@ -14,8 +14,8 @@ export default function NotProvisionedPage() {
           Account not ready
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          You are signed in, but this account is not linked to the household
-          yet. Ask Jenna to finish provisioning, then sign in again.
+          This login is not linked to the household yet. Use the shared
+          household email and password, or ask Jenna to finish provisioning.
         </p>
         <div className="mt-8">
           <SignOutButton />

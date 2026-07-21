@@ -5,7 +5,7 @@ export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "local-dev-password";
 
 export async function signInAsMember(page: Page) {
   await page.goto("/sign-in");
-  await page.getByLabel("Email").fill(E2E_EMAIL);
+  await page.getByLabel("Household email").fill(E2E_EMAIL);
   await page.getByLabel("Password").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
@@ -69,7 +69,7 @@ export const E2E_OUTSIDER_PASSWORD =
 
 export async function signInAsOutsider(page: Page) {
   await page.goto("/sign-in");
-  await page.getByLabel("Email").fill(E2E_OUTSIDER_EMAIL);
+  await page.getByLabel("Household email").fill(E2E_OUTSIDER_EMAIL);
   await page.getByLabel("Password").fill(E2E_OUTSIDER_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);

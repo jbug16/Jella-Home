@@ -19,7 +19,7 @@ This is not a public SaaS product. Optimize for two trusted users, ease of use, 
 
 1. Make common household actions faster and clearer than the legacy spreadsheet.
 2. Use Supabase Postgres as the application source of truth.
-3. Use Supabase Auth for the two household members; authorize via household membership and Row Level Security.
+3. Use Supabase Auth for a single shared household login; authorize via household membership and Row Level Security.
 4. Treat the existing Google Sheets / XLSX workbook as a one-time migration source only — do not build spreadsheet synchronization.
 5. Design desktop-first, but make every workflow fully usable on supported mobile and tablet sizes.
 6. Prefer simple, explicit interfaces over dense spreadsheet-style screens.

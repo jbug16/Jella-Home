@@ -1,9 +1,10 @@
 # Jella Home: Architecture
 
 This document describes the application architecture: Supabase Postgres is the
-application database; Supabase Auth authenticates the two household members.
-The existing spreadsheet workbook is a **legacy data source for a one-time
-import only**. There is no ongoing Google Sheets synchronization.
+application database; Supabase Auth authenticates a **single shared household
+login** (one email/password both partners use). The existing spreadsheet
+workbook is a **legacy data source for a one-time import only**. There is no
+ongoing Google Sheets synchronization.
 
 Companion docs:
 
@@ -37,7 +38,7 @@ Companion docs:
 | Layer         | Choice                                                              |
 | ------------- | ------------------------------------------------------------------- |
 | UI            | Next.js App Router, React Server Components, Tailwind, shadcn/ui    |
-| Auth          | Supabase Auth (email/password); no public registration              |
+| Auth          | Supabase Auth — one shared household email/password; no sign-up     |
 | Database      | Supabase Postgres (local for M2 dev/tests; hosted for deploy)       |
 | Authorization | Household membership + Postgres Row Level Security                  |
 | Validation    | Zod (domain + server action inputs)                                 |
@@ -59,9 +60,11 @@ Provisioning / admin only
 
 Auth session cookies use `@supabase/ssr` (not the deprecated auth-helpers
 packages). On Next.js 16, session refresh and unauthenticated redirects run in
-root `proxy.ts` (the replacement for deprecated `middleware.ts`). Client
-components may use a browser Supabase client **only for auth UI** (sign-in,
-sign-out, session refresh). They must not query product tables.
+root `proxy.ts` (the replacement for deprecated `middleware.ts`). A small
+client `SessionKeepAlive` mounts the browser Auth client inside the app shell
+so tokens refresh while the site is open. There is **no sign-out control** in
+the main UI — sessions are meant to persist on each device. Client components
+must not query product tables.
 
 ## Environment variables
 
@@ -83,8 +86,8 @@ publishable/secret variable names above when configuring `.env.local`.
 | Concern                 | Decision                                                         |
 | ----------------------- | ---------------------------------------------------------------- |
 | Source of truth         | Supabase Postgres                                                |
-| Auth                    | Email/password via Supabase Auth; no public sign-up page or flow |
-| Member permissions (V1) | Both household members have equal read/write                     |
+| Auth                    | One shared household email/password; no public sign-up           |
+| Member permissions (V1) | Shared login has full household read/write                       |
 | Google Sheets / XLSX    | Legacy import source only; no sync                               |
 | Stable IDs              | UUID primary keys in Postgres; never sheet row numbers           |
 | Money                   | Integer cents (`amount_cents`)                                   |
@@ -517,9 +520,11 @@ pgTAP (or equivalent) must prove:
 ### App-layer guards
 
 - Protect `app/(app)/*` with Next.js `proxy.ts` session checks + layout membership gate
-- Unauthenticated users → `/sign-in` (email/password only; no sign-up link)
-- Authenticated users without membership → `/not-provisioned`
-- Sign-out clears Supabase session cookies
+- Unauthenticated users → `/sign-in` (shared household email/password; no sign-up)
+- Authenticated users without membership → `/not-provisioned` (escape hatch to switch credentials)
+- No sign-out in the app shell; sessions stay until the browser clears cookies
+- Hosted Auth must **not** enable “single session per user” so phones and
+  computers can stay signed in at the same time with the shared login
 
 ## Repository / service layer
 
@@ -530,7 +535,7 @@ lib/
   dashboard/              # server-only home composer (get-dashboard-view-model)
   supabase/
     server.ts             # createServerClient (@supabase/ssr, cookies)
-    browser.ts            # auth-only browser client
+    browser.ts            # session keep-alive browser client (no product queries)
     admin.ts              # secret-key client (provisioning only; server-only)
     proxy.ts              # session refresh helper used by root proxy.ts
     database.types.ts     # generated (or schema-matched) Database types

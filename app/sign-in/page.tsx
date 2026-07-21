@@ -20,7 +20,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold tracking-tight">Jella Home</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sign in with your household account.
+          One shared household login. After you sign in once, this device stays
+          signed in.
         </p>
         <div className="mt-8">
           <SignInForm nextPath={nextPath} />

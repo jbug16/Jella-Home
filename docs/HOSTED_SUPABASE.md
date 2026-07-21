@@ -22,6 +22,12 @@ In **Authentication → Providers → Email**:
   sign-ups-disabled style error, not create an Auth user.
 - Password sign-in must remain enabled.
 
+In **Authentication → Sessions** (or Advanced):
+
+- Leave **time-box** and **inactivity timeout** off (sessions should last).
+- Do **not** enable **single session per user** — Jenna and her partner share
+  one login across phones and computers at the same time.
+
 In **Authentication → URL configuration**:
 
 - Site URL: your app origin (local `http://127.0.0.1:3000` while developing;
@@ -72,9 +78,12 @@ npm run supabase:advisors
 Resolve security findings before treating the backend as production-ready.
 Document accepted performance findings if they are informational only.
 
-## Provision the household (two members)
+## Provision the household (shared login)
 
 Do **not** put real users in SQL migrations or committed seeds.
+
+Production uses **one shared email/password** that both partners save in their
+password managers and use on every device.
 
 1. Put hosted keys in `.env.local` (gitignored).
 2. Export provision inputs in the shell (or a private, untracked env file):
@@ -83,10 +92,11 @@ Do **not** put real users in SQL migrations or committed seeds.
 export PROVISION_HOUSEHOLD_NAME="Our Home"
 export PROVISION_MEMBER_1_EMAIL="..."
 export PROVISION_MEMBER_1_PASSWORD="..."
-export PROVISION_MEMBER_1_DISPLAY_NAME="..."
-export PROVISION_MEMBER_2_EMAIL="..."
-export PROVISION_MEMBER_2_PASSWORD="..."
-export PROVISION_MEMBER_2_DISPLAY_NAME="..."
+export PROVISION_MEMBER_1_DISPLAY_NAME="Household"
+# Optional second Auth user (local/verification only — omit for production):
+# export PROVISION_MEMBER_2_EMAIL="..."
+# export PROVISION_MEMBER_2_PASSWORD="..."
+# export PROVISION_MEMBER_2_DISPLAY_NAME="..."
 ```
 
 3. Run:
@@ -96,9 +106,9 @@ npm run provision:household
 # → prints householdId and memberUserIds only
 ```
 
-Both members receive equal read/write via identical RLS policies. The `role`
-column (`owner` / `member`) is reserved for future bootstrap distinctions and
-does not change V1 data permissions.
+The shared login has full household read/write via RLS. The `role` column
+(`owner` / `member`) is reserved for future bootstrap distinctions and does
+not change V1 data permissions.
 
 ## Add another member later
 
@@ -143,7 +153,8 @@ npm run supabase:advisors
 
 Manual checks:
 
-1. Sign in as member 1 → shell loads.
-2. Sign in as member 2 → same household data visible.
+1. Sign in with the shared household login → shell loads.
+2. Sign in on a second device with the same login → both stay signed in.
 3. Sign in as an Auth user with no `household_members` row → `/not-provisioned`.
 4. Confirm a non-member cannot read household rows (RLS).
+5. Confirm the app shell has no Sign out control.

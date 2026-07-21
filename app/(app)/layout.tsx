@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { SessionKeepAlive } from "@/components/auth/session-keep-alive";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
@@ -21,6 +22,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-[100dvh] overflow-x-hidden sidebar:h-[100dvh] sidebar:overflow-hidden">
+      <SessionKeepAlive />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow focus:outline-none focus:ring-2 focus:ring-ring"
@@ -31,7 +33,7 @@ export default async function AppLayout({
       <AppSidebar />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <AppHeader displayName={membership.displayName} />
+        <AppHeader />
         <main
           id="main-content"
           className="min-h-0 flex-1 overflow-y-auto px-4 py-6 pb-[calc(3.5rem+env(safe-area-inset-bottom)+1.5rem)] sidebar:px-8 sidebar:pb-8"

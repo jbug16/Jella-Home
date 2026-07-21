@@ -5,7 +5,15 @@ import { useTransition } from "react";
 import { signOut } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 
-export function SignOutButton() {
+/**
+ * Escape hatch only — the app shell has no sign-out. Used when the wrong
+ * credentials leave someone on /not-provisioned.
+ */
+export function SignOutButton({
+  label = "Try a different login",
+}: {
+  label?: string;
+}) {
   const [pending, startTransition] = useTransition();
 
   return (
@@ -21,7 +29,7 @@ export function SignOutButton() {
         });
       }}
     >
-      {pending ? "Signing out…" : "Sign out"}
+      {pending ? "Switching…" : label}
     </Button>
   );
 }

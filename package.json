@@ -23,6 +23,7 @@
     "supabase:reset": "supabase db reset",
     "supabase:types": "supabase gen types typescript --local > lib/supabase/database.types.ts",
     "supabase:advisors": "supabase db advisors --linked --type all",
+    "ensure:shared-login": "tsx scripts/ensure-shared-login.ts",
     "provision:household": "tsx scripts/provision-household.ts",
     "provision:add-member": "tsx scripts/add-household-member.ts",
     "verify:hosted-access": "tsx scripts/verify-hosted-access.ts",

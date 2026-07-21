@@ -26,7 +26,7 @@ const schema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   SUPABASE_SECRET_KEY: z.string().min(1),
   PROVISION_HOUSEHOLD_ID: z.uuid(),
-  PROVISION_MEMBER_EMAIL: z.email(),
+  PROVISION_MEMBER_EMAIL: z.string().trim().min(3).includes("@"),
   PROVISION_MEMBER_PASSWORD: z.string().min(8),
   PROVISION_MEMBER_DISPLAY_NAME: z.string().min(1),
   PROVISION_MEMBER_ROLE: z.enum(["owner", "member"]).default("member"),

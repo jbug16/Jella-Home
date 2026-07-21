@@ -6,7 +6,12 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
 const signInSchema = z.object({
-  email: z.email("Enter a valid email address."),
+  // Allow private / non-public domains (e.g. household@example.home).
+  email: z
+    .string()
+    .trim()
+    .min(3, "Enter a valid email address.")
+    .includes("@", { message: "Enter a valid email address." }),
   password: z.string().min(1, "Password is required."),
   next: z.string().optional(),
 });

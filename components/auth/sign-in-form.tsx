@@ -20,7 +20,7 @@ export function SignInForm({ nextPath }: SignInFormProps) {
 
       <div className="flex flex-col gap-2">
         <label htmlFor="email" className="text-sm font-medium">
-          Email
+          Household email
         </label>
         <input
           id="email"

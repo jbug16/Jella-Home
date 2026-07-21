@@ -3,7 +3,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/lib/supabase/database.types";
 
 /**
- * Browser Supabase client for auth UI only (sign-in / sign-out / session).
+ * Browser Supabase client for auth session keep-alive only.
  * Do not query product tables from Client Components.
  */
 export function createClient() {

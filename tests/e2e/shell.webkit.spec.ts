@@ -14,7 +14,7 @@ test("redirects unauthenticated Safari users to sign-in", async ({ page }) => {
   await expect(
     page.getByRole("heading", { level: 1, name: "Jella Home" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Email")).toBeVisible();
+  await expect(page.getByLabel("Household email")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
   expect(errors).toEqual([]);
