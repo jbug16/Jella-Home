@@ -24,9 +24,9 @@ Companion docs:
 
 - Spreadsheet read/write sync or dual-write
 - Multi-tenant SaaS features (billing, arbitrary household invites, orgs)
-- Product UI for subscriptions or calendar beyond the shell
-  (Budget, Recipes, Meal Planning, Shopping, and Dashboard ship as vertical
-  slices; Subscriptions and Calendar remain later)
+- Product UI for calendar beyond the shell (Budget, Recipes, Meal Planning,
+  Shopping, Dashboard, and Subscriptions ship as vertical slices; Calendar
+  remains later)
 - Dashboard charts, analytics, favorites, notifications, AI recommendations,
   weather, pantry, bank sync, or live updates (summaries + deep-links only)
 - Native mobile clients
@@ -385,6 +385,12 @@ Notes:
 
 ### Subscriptions
 
+Manual recurring-expense tracker (Milestone 9 / ADR-019). Classification stays
+separate from budget kinds: `category_label` is free text with **no** foreign
+key to `budget_categories`. Monthly equivalents are **derived** — store
+cadence + `amount_cents` only. No management URL, custom interval, paused
+state, or Record-payment linkage in V1.
+
 ```text
 subscriptions
   id              uuid PK
@@ -393,18 +399,33 @@ subscriptions
   category_label  text NOT NULL DEFAULT ''   -- free text (e.g. Tech); not a budget kind
   amount_cents    integer NOT NULL CHECK (amount_cents >= 0)
   cadence         text NOT NULL
-                  CHECK (cadence IN ('weekly', 'monthly', 'quarterly', 'yearly'))
-  renewal_on      date NULL
+                  CHECK (cadence IN (
+                    'weekly', 'monthly', 'bimonthly', 'quarterly',
+                    'semiannual', 'yearly'
+                  ))
+  billing_day     smallint NOT NULL CHECK (billing_day BETWEEN 1 AND 31)
+  renewal_on      date NULL               -- next billing; required when active (app)
   status          text NOT NULL DEFAULT 'active'
-                  CHECK (status IN ('active', 'paused', 'canceled'))
+                  CHECK (status IN ('active', 'archived'))
   notes           text NOT NULL DEFAULT ''
   created_at      timestamptz NOT NULL DEFAULT now()
   updated_at      timestamptz NOT NULL DEFAULT now()
 ```
 
-Subscription classification stays separate from budget kinds: `category_label`
-is free text with **no** foreign key to `budget_categories`. Monthly/annual
-equivalents in the workbook are derived — store cadence + `amount_cents` only.
+Index: `(household_id, status, renewal_on)`.
+
+**Lifecycle:** `archived` is the only inactive state (excluded from active
+monthly totals and the active list). Delete in the UI soft-archives
+(`status → archived`); no restore UI in V1.
+
+**UI:** show charge per cycle (amount + cadence) on each active row; monthly
+and yearly totals live in the summary strip. Page order: Summary (monthly /
+yearly / active count) → one active list sorted by next billing date.
+Per-row Delete confirms and soft-archives; no restore UI.
+
+**Domain helpers** (TypeScript): `monthlyEquivalentCents`, `nextBillingDate`
+(month-end / leap via `billing_day`), `subscriptionDueStatus` (domain/tests;
+not surfaced in the list UI).
 
 ### Deferred: shared calendar
 

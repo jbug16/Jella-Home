@@ -57,3 +57,12 @@ export {
   setItemChecked,
   updateGroceryItem,
 } from "@/lib/repositories/shopping";
+
+export {
+  archiveSubscription,
+  createSubscription,
+  getSubscription,
+  listSubscriptions,
+  restoreSubscription,
+  updateSubscription,
+} from "@/lib/repositories/subscriptions";

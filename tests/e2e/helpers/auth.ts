@@ -54,6 +54,14 @@ export async function goToDashboard(page: Page) {
   ).toBeVisible();
 }
 
+export async function goToSubscriptions(page: Page) {
+  await page.goto("/subscriptions");
+  await expect(page).toHaveURL(/\/subscriptions(?:\?|$)/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Subscriptions" }),
+  ).toBeVisible();
+}
+
 export const E2E_OUTSIDER_EMAIL =
   process.env.E2E_OUTSIDER_EMAIL ?? "outsider@example.test";
 export const E2E_OUTSIDER_PASSWORD =
