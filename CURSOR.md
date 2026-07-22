@@ -16,7 +16,7 @@ When an implementation task is **fully complete** (not mid-task):
 7. Verify the hosted staging app at the stable URL.
 8. Return the stable staging URL and a deployment report.
 
-Stable staging URL: `https://staging--jella-home.netlify.app`
+Stable staging URL: `https://jella-home-staging.netlify.app`
 
 Do **not** push partial work, failing builds/tests/migrations, secrets, or `.env.local`.
 Do **not** merge to `main` or deploy production unless the user explicitly asks.

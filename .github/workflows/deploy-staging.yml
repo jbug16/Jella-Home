@@ -1,0 +1,50 @@
+# Deploy staging site on push
+
+# Production still uses the existing Netlify Git build hook on `main`.
+# Staging uses a dedicated Netlify site (`jella-home-staging`) because that
+# build hook always rebuilds the production branch and cannot target `staging`.
+#
+# Required GitHub Actions secret:
+#   NETLIFY_AUTH_TOKEN — personal access token from Netlify user settings
+#
+# Staging site id is public (not a secret). Staging Supabase keys must be set
+# in the Netlify UI for site `jella-home-staging` (production context on that
+# site only). See docs/DEPLOYMENT.md.
+
+name: deploy-staging
+
+on:
+  push:
+    branches:
+      - staging
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NETLIFY_SITE_ID: 9cc03442-3122-467b-b57e-7e0f75ab06c9
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+      - run: npm ci
+      - name: Verify gate
+        run: npm run format:check && npm run lint && npm run typecheck && npm run test
+      - name: Require Netlify auth token
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
+            echo "Missing GitHub Actions secret NETLIFY_AUTH_TOKEN."
+            echo "Create a Netlify personal access token and add it as a repository secret."
+            echo "Then re-run this workflow. Site: https://jella-home-staging.netlify.app"
+            exit 1
+          fi
+      - name: Deploy to Netlify staging site
+        run: npx --yes netlify-cli deploy --build --prod --message "staging ${GITHUB_SHA}"

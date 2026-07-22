@@ -6,10 +6,10 @@
  *
  * Usage:
  *   npm run verify:staging
- *   npm run verify:staging -- --url https://staging--jella-home.netlify.app
+ *   npm run verify:staging -- --url https://jella-home-staging.netlify.app
  */
 
-const DEFAULT_URL = "https://staging--jella-home.netlify.app";
+const DEFAULT_URL = "https://jella-home-staging.netlify.app";
 
 function parseArgs(argv: string[]): { url: string } {
   let url = DEFAULT_URL;

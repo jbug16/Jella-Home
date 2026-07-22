@@ -224,7 +224,7 @@ Short agent pointer: [`CURSOR.md`](CURSOR.md).
 Branch mapping:
 
 - `main` → production (`https://jella-home.netlify.app`) — only when explicitly requested
-- `staging` → stable test environment (`https://staging--jella-home.netlify.app`)
+- `staging` → stable test environment (`https://jella-home-staging.netlify.app`)
 - feature branches → active work; optional temporary Deploy Previews
 
 For every **completed** implementation task:

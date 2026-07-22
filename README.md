@@ -85,11 +85,11 @@ keys in `.env.local`, then `npm run provision:household`.
 
 ## Staging vs production
 
-|         | Staging                                 | Production                     |
-| ------- | --------------------------------------- | ------------------------------ |
-| Branch  | `staging`                               | `main`                         |
-| URL     | https://staging--jella-home.netlify.app | https://jella-home.netlify.app |
-| Backend | Dedicated staging Supabase project      | Hosted `jella-home` Supabase   |
+|         | Staging                                | Production                     |
+| ------- | -------------------------------------- | ------------------------------ |
+| Branch  | `staging`                              | `main`                         |
+| URL     | https://jella-home-staging.netlify.app | https://jella-home.netlify.app |
+| Backend | Dedicated staging Supabase project     | Hosted `jella-home` Supabase   |
 
 Full workflow, env scoping, rollback, and the current staging-Supabase setup
 gate: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). Do not point staging at

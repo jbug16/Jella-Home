@@ -9,11 +9,11 @@ logs, docs, screenshots, or chat transcripts.
 
 ## Environment map
 
-| Environment       | Git branch                      | App URL                                   | Backend                                       |
-| ----------------- | ------------------------------- | ----------------------------------------- | --------------------------------------------- |
-| Local development | feature branches / local `main` | `http://127.0.0.1:3000`                   | Local Supabase (`supabase start`)             |
-| Staging (test)    | `staging`                       | `https://staging--jella-home.netlify.app` | Dedicated hosted Supabase **staging** project |
-| Production        | `main`                          | `https://jella-home.netlify.app`          | Hosted Supabase project `jella-home`          |
+| Environment       | Git branch                      | App URL                                  | Backend                                       |
+| ----------------- | ------------------------------- | ---------------------------------------- | --------------------------------------------- |
+| Local development | feature branches / local `main` | `http://127.0.0.1:3000`                  | Local Supabase (`supabase start`)             |
+| Staging (test)    | `staging`                       | `https://jella-home-staging.netlify.app` | Dedicated hosted Supabase **staging** project |
+| Production        | `main`                          | `https://jella-home.netlify.app`         | Hosted Supabase project `jella-home`          |
 
 Rules:
 
@@ -22,25 +22,34 @@ Rules:
 - `staging` is the always-deployed test environment for phones, tablets, and
   desktops outside the local network.
 - Feature branches may use temporary Netlify Deploy Previews when enabled; the
-  stable test destination is always the `staging` URL above.
+  stable test destination is always the staging URL above.
 - Staging must **never** use the production Supabase project or production data.
 
 ## Provider configuration
 
-| Item               | Value                                                 |
-| ------------------ | ----------------------------------------------------- |
-| Host               | Netlify site `jella-home`                             |
-| Site ID            | `50d77854-6a11-4ca2-b05d-2d406323bda3`                |
-| Production branch  | `main`                                                |
-| Staging branch     | `staging` (branch deploy)                             |
-| Node               | `24` (`.nvmrc` + `netlify.toml`)                      |
-| Build              | `npm run build` via `@netlify/plugin-nextjs`          |
-| Staging build gate | format check, lint, typecheck, unit tests, then build |
+| Item               | Value                                                                      |
+| ------------------ | -------------------------------------------------------------------------- |
+| Production host    | Netlify site `jella-home` (`50d77854-6a11-4ca2-b05d-2d406323bda3`)         |
+| Staging host       | Netlify site `jella-home-staging` (`9cc03442-3122-467b-b57e-7e0f75ab06c9`) |
+| Production branch  | `main` → `https://jella-home.netlify.app`                                  |
+| Staging branch     | `staging` → `https://jella-home-staging.netlify.app`                       |
+| Node               | `24` (`.nvmrc` + `netlify.toml`)                                           |
+| Production build   | `npm run build` via `@netlify/plugin-nextjs`                               |
+| Staging build gate | format check, lint, typecheck, unit tests, then build                      |
 
-Netlify is connected to GitHub (`jbug16/Jella-Home`). Pushes to `staging`
-trigger an automatic branch deploy. Pushes to `main` trigger production.
+### Why two Netlify sites?
 
-Allowed branches for automatic builds: `main`, `staging`.
+The GitHub → Netlify integration for production currently uses a **build hook**.
+Build hooks always rebuild the site’s production branch (`main`). They do **not**
+create branch deploys for `staging`. Pushes to `staging` previously triggered an
+unwanted production rebuild.
+
+Staging therefore uses a dedicated Netlify site. Continuous deploy for staging
+runs via GitHub Actions (`.github/workflows/deploy-staging.yml`) using repository
+secret `NETLIFY_AUTH_TOKEN`.
+
+Production continues to deploy from the existing production build hook on
+`main`. Do not point the staging site at production Supabase keys.
 
 ## Required environment variables (names only)
 
@@ -52,9 +61,10 @@ Allowed branches for automatic builds: `main`, `staging`.
 
 Netlify scoping:
 
-- Production values: Netlify context `production` only.
-- Staging values: Netlify context `branch:staging` only.
-- Do **not** set Supabase keys for “all contexts”.
+- Production site (`jella-home`): Supabase keys in context `production` only.
+- Staging site (`jella-home-staging`): Supabase keys in that site’s `production`
+  context only (staging is that site’s primary deploy).
+- Do **not** share production Supabase keys with the staging site.
 - Never prefix the secret key with `NEXT_PUBLIC_`.
 
 Provisioning / verification scripts may also use shell-only vars such as
@@ -87,7 +97,7 @@ authenticate or load household data.
 
 Creating `jella-home-staging` via the API failed because the free-plan account
 has reached its **active free project limit**. Until a staging project exists,
-do **not** point the Netlify `staging` deploy at production Supabase.
+do **not** point the Netlify staging site at production Supabase.
 
 ### Create the staging project
 
@@ -105,7 +115,7 @@ Then:
 1. Auth → Email: enable password sign-in; **disable public sign-up**.
 2. Auth → Sessions: leave multi-device sessions allowed (same as production).
 3. Auth → URL configuration:
-   - Site URL: `https://staging--jella-home.netlify.app`
+   - Site URL: `https://jella-home-staging.netlify.app`
    - Redirect allowlist: include that origin (and local if you test against it).
 4. Link and push migrations:
 
@@ -126,18 +136,23 @@ export PROVISION_MEMBER_1_DISPLAY_NAME="Household"
 npm run provision:household
 ```
 
-6. Set Netlify staging env vars (values from the staging dashboard only):
+6. Set Netlify env vars on site **`jella-home-staging`** (staging dashboard
+   values only):
 
 ```bash
-npx netlify env:set NEXT_PUBLIC_SUPABASE_URL "<staging-url>" --context branch:staging --force
-npx netlify env:set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY "<staging-publishable>" --context branch:staging --force
-npx netlify env:set SUPABASE_SECRET_KEY "<staging-secret>" --context branch:staging --secret --force
+npx netlify env:set NEXT_PUBLIC_SUPABASE_URL "<staging-url>" --site jella-home-staging --context production --force
+npx netlify env:set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY "<staging-publishable>" --site jella-home-staging --context production --force
+npx netlify env:set SUPABASE_SECRET_KEY "<staging-secret>" --site jella-home-staging --context production --secret --force
 ```
 
-7. Confirm production vars remain scoped to `--context production` only.
+7. Confirm production site (`jella-home`) vars remain production-only and still
+   point at the production Supabase project.
 
-8. Trigger a staging redeploy (push an empty commit to `staging`, or Redeploy in
-   the Netlify UI for the latest `staging` deploy).
+8. Add GitHub Actions secret `NETLIFY_AUTH_TOKEN` (Netlify personal access token)
+   so `.github/workflows/deploy-staging.yml` can deploy on every `staging` push.
+
+9. Push to `staging` (or re-run the workflow) and confirm
+   `https://jella-home-staging.netlify.app` is healthy.
 
 ### Staging sign-in (no credentials in Git)
 
@@ -164,7 +179,7 @@ After an implementation task is **complete and verified**:
 3. Commit completed work (Conventional Commits).
 4. Merge or cherry-pick onto `staging` (do not leave unfinished work there).
 5. Push `staging` to `origin`.
-6. Wait for the Netlify staging deploy to become `ready`.
+6. Wait for the staging GitHub Action / Netlify deploy to succeed.
 7. Verify the live staging URL (smoke checks below).
 8. Report the staging URL and deployment status.
 
@@ -189,8 +204,8 @@ npm run build     # included via e2e path in verify; run explicitly if needed
 `npm run verify` runs: `format:check`, `lint`, `typecheck`, `test` (Vitest), and
 `test:e2e` (Playwright against the production build with local Supabase).
 
-Netlify’s `staging` context also runs format/lint/typecheck/unit tests before
-`build`. It does **not** run Playwright or `test:db` (those need local Supabase).
+The staging deploy workflow also runs format/lint/typecheck/unit tests before
+`netlify deploy --build`. It does **not** run Playwright or `test:db`.
 
 Fix in-scope failures before push. Report unrelated pre-existing failures
 separately and do not deploy on required-check failure.
@@ -199,7 +214,7 @@ separately and do not deploy on required-check failure.
 
 A green Netlify status is not enough. After deploy, confirm:
 
-1. `https://staging--jella-home.netlify.app` loads over HTTPS.
+1. `https://jella-home-staging.netlify.app` loads over HTTPS.
 2. Unauthenticated visitors redirect to sign-in (protected routes stay protected).
 3. Staging test user can sign in; app shell renders.
 4. No missing-env or redirect-loop errors.
@@ -212,7 +227,7 @@ A green Netlify status is not enough. After deploy, confirm:
 Optional automated probe (expects a reachable URL; does not bypass auth):
 
 ```bash
-npm run verify:staging -- --url https://staging--jella-home.netlify.app
+npm run verify:staging -- --url https://jella-home-staging.netlify.app
 ```
 
 ## Deployment report template
@@ -226,17 +241,17 @@ Branch: staging
 Commit: <hash>
 Checks: passed | failed (<which>)
 Database migrations: in sync | pending | blocked (<reason>)
-Provider: Netlify
+Provider: Netlify (jella-home-staging)
 Deployment: successful | failed
-Test URL: https://staging--jella-home.netlify.app
+Test URL: https://jella-home-staging.netlify.app
 Verified: <routes / flows>
 Production changed: no
 ```
 
 ## Rollback (staging)
 
-1. Identify the last known-good staging deploy in Netlify → Deploys (filter
-   branch `staging`, state `ready`) or via `git log origin/staging`.
+1. Identify the last known-good staging deploy in Netlify → site
+   `jella-home-staging` → Deploys (state `ready`), or via `git log origin/staging`.
 2. Prefer one of:
    - Netlify UI → open the good deploy → **Publish deploy** / rollback, or
    - `git revert` the bad commit on `staging` and push, or
@@ -252,3 +267,5 @@ Production changed: no
 - Do not copy staging data into production or vice versa.
 - Do not run destructive `db reset` against hosted projects.
 - Keep public sign-up disabled in every hosted Auth project.
+- Avoid relying on the production build hook for non-`main` branches; staging
+  pushes should deploy only via the staging site / Actions workflow.

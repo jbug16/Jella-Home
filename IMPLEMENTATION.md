@@ -1921,17 +1921,21 @@ Add newest entries first.
 ### 2026-07-22 (Staging workflow + Netlify branch deploy)
 
 - Work completed: Audited hosting (Netlify site `jella-home`), Git (`main` only),
-  and Supabase (one hosted project). Enabled Netlify builds for `staging` with
-  stable URL `https://staging--jella-home.netlify.app`. Rescoped production
-  Supabase env vars to Netlify `production` context only. Added staging build
-  gate in `netlify.toml`, GitHub Actions `verify` workflow, `verify:staging`
-  smoke script, and docs (`docs/DEPLOYMENT.md`, `CURSOR.md`, AGENTS/README/
-  ARCHITECTURE/HOSTED_SUPABASE updates).
+  and Supabase (one hosted project). Created dedicated Netlify staging site
+  `jella-home-staging` (`https://jella-home-staging.netlify.app`) because the
+  production GitHub build hook always rebuilds `main`. Rescoped production
+  Supabase env vars to Netlify `production` context only. Added staging deploy
+  GitHub Action, verify workflow, `verify:staging` smoke script, and docs
+  (`docs/DEPLOYMENT.md`, `CURSOR.md`, AGENTS/README/ARCHITECTURE/HOSTED_SUPABASE).
 - Blocked: Dedicated staging Supabase project could not be created (free-plan
   active project limit). Staging must not use production data until a staging
-  project exists and `branch:staging` env vars are set — see DEPLOYMENT.md.
-- Validation: local `verify` / build for this infra change (product UI unchanged).
+  project exists and staging-site env vars are set — see DEPLOYMENT.md. Staging
+  CD also needs GitHub secret `NETLIFY_AUTH_TOKEN`.
+- Validation: format/lint/typecheck/unit/build green; Playwright mostly green with
+  pre-existing calendar Chromium CRUD failures unrelated to this change.
 - Production changed: no (env var contexts rescoped; production values retained).
+  Note: staging pushes previously fired the production build hook; staging now
+  deploys to a separate site via Actions.
 
 ### 2026-07-20 (Ship Milestone 10 Calendar)
 
