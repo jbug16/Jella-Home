@@ -35,7 +35,8 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           cache: npm
-      - run: npm ci
+      # Prefer install over ci: lockfile optional deps differ across npm/OS.
+      - run: npm install --no-audit --no-fund
       - name: Verify gate
         run: npm run format:check && npm run lint && npm run typecheck && npm run test
       - name: Require Netlify auth token

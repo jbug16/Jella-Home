@@ -27,7 +27,9 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           cache: npm
-      - run: npm ci
+      # Prefer install over ci: lockfile optional deps differ across npm/OS
+      # (GitHub runners currently require @emnapi/* entries not present for macOS).
+      - run: npm install --no-audit --no-fund
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
