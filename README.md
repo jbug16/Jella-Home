@@ -8,6 +8,8 @@ Postgres + RLS) are complete. Product feature UI is not built yet.
 
 - Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - Hosted runbook: [`docs/HOSTED_SUPABASE.md`](docs/HOSTED_SUPABASE.md)
+- Deployment / staging: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+- Agent staging rule: [`CURSOR.md`](CURSOR.md)
 - Roadmap / decisions: [`IMPLEMENTATION.md`](IMPLEMENTATION.md)
 
 ## Tech stack
@@ -81,12 +83,25 @@ See [`docs/HOSTED_SUPABASE.md`](docs/HOSTED_SUPABASE.md). Summary: create a
 project, disable public email sign-up, `supabase link` + `db push`, put hosted
 keys in `.env.local`, then `npm run provision:household`.
 
+## Staging vs production
+
+|         | Staging                                 | Production                     |
+| ------- | --------------------------------------- | ------------------------------ |
+| Branch  | `staging`                               | `main`                         |
+| URL     | https://staging--jella-home.netlify.app | https://jella-home.netlify.app |
+| Backend | Dedicated staging Supabase project      | Hosted `jella-home` Supabase   |
+
+Full workflow, env scoping, rollback, and the current staging-Supabase setup
+gate: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). Do not point staging at
+production data.
+
 ## Scripts
 
 ```bash
 npm run dev                  # development server
 npm run build && npm start   # production build
 npm run verify               # format, lint, typecheck, unit, e2e (e2e rebuilds for local Supabase)
+npm run verify:staging       # HTTPS smoke probe against the staging URL
 npm run test                 # Vitest unit tests
 npm run test:e2e             # Playwright (needs browsers installed)
 npm run test:db              # pgTAP RLS (needs local Supabase)
@@ -118,6 +133,7 @@ supabase/
   tests/                  # pgTAP
 scripts/                  # provision, e2e local runner, hosted verification
 docs/HOSTED_SUPABASE.md
+docs/DEPLOYMENT.md        # local / staging / production hosting
 docs/WORKBOOK_MAPPING.md  # legacy XLSX → schema (import deferred)
 ```
 

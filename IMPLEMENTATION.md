@@ -1918,6 +1918,21 @@ Add only questions that materially block or influence implementation.
 
 Add newest entries first.
 
+### 2026-07-22 (Staging workflow + Netlify branch deploy)
+
+- Work completed: Audited hosting (Netlify site `jella-home`), Git (`main` only),
+  and Supabase (one hosted project). Enabled Netlify builds for `staging` with
+  stable URL `https://staging--jella-home.netlify.app`. Rescoped production
+  Supabase env vars to Netlify `production` context only. Added staging build
+  gate in `netlify.toml`, GitHub Actions `verify` workflow, `verify:staging`
+  smoke script, and docs (`docs/DEPLOYMENT.md`, `CURSOR.md`, AGENTS/README/
+  ARCHITECTURE/HOSTED_SUPABASE updates).
+- Blocked: Dedicated staging Supabase project could not be created (free-plan
+  active project limit). Staging must not use production data until a staging
+  project exists and `branch:staging` env vars are set — see DEPLOYMENT.md.
+- Validation: local `verify` / build for this infra change (product UI unchanged).
+- Production changed: no (env var contexts rescoped; production values retained).
+
 ### 2026-07-20 (Ship Milestone 10 Calendar)
 
 - Work completed: Household Calendar shipped (Concept A Master–Detail Week/Month).

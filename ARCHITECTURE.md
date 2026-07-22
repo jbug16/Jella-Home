@@ -9,8 +9,10 @@ ongoing Google Sheets synchronization.
 Companion docs:
 
 - [`AGENTS.md`](AGENTS.md) — product rules and coding conventions
+- [`CURSOR.md`](CURSOR.md) — staging deployment rule for agents
 - [`IMPLEMENTATION.md`](IMPLEMENTATION.md) — roadmap, ADRs, and work log
 - [`ROLES.md`](ROLES.md) — agent role boundaries
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — local / staging / production hosting
 - [`docs/WORKBOOK_MAPPING.md`](docs/WORKBOOK_MAPPING.md) — legacy XLSX → schema mapping
 
 ## Goals
@@ -38,11 +40,11 @@ Companion docs:
 | ------------- | ------------------------------------------------------------------- |
 | UI            | Next.js App Router, React Server Components, Tailwind, shadcn/ui    |
 | Auth          | Supabase Auth — one shared household email/password; no sign-up     |
-| Database      | Supabase Postgres (local for M2 dev/tests; hosted for deploy)       |
+| Database      | Supabase Postgres (local; dedicated staging; hosted production)     |
 | Authorization | Household membership + Postgres Row Level Security                  |
 | Validation    | Zod (domain + server action inputs)                                 |
 | Data access   | Server-only repositories using the cookie-backed SSR client         |
-| Hosting       | Netlify (existing)                                                  |
+| Hosting       | Netlify (`main` → production; `staging` → branch deploy)            |
 | Legacy import | One-time script reading XLSX from `private-data/` (later milestone) |
 
 ```

@@ -5,5 +5,10 @@ publish = ".next"
 [build.environment]
 NODE_VERSION = "24"
 
+# Staging branch deploy: run the lightweight verification gate before build.
+# Playwright and pgTAP stay local (they need local Supabase).
+[context.staging]
+command = "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+
 [[plugins]]
 package = "@netlify/plugin-nextjs"

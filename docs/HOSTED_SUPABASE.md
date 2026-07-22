@@ -124,12 +124,18 @@ npm run provision:add-member
 V1 schema allows only one household per Auth user (`UNIQUE (user_id)` on
 `household_members`).
 
-## Local vs hosted development
+## Local vs staging vs production
 
-| Mode   | Docker / Colima | Command highlights                      | `.env.local` source          |
-| ------ | --------------- | --------------------------------------- | ---------------------------- |
-| Local  | Required        | `supabase start`, `db reset`, `test:db` | `supabase status` keys       |
-| Hosted | Not required    | `db push`, advisors, provision scripts  | Dashboard publishable/secret |
+Full branch/URL/env map: [DEPLOYMENT.md](DEPLOYMENT.md).
+
+| Mode       | Docker / Colima | Command highlights                      | Keys source                                  |
+| ---------- | --------------- | --------------------------------------- | -------------------------------------------- |
+| Local      | Required        | `supabase start`, `db reset`, `test:db` | `supabase status` → `.env.local`             |
+| Staging    | Not required    | `db push` to staging ref, provision     | Staging dashboard → Netlify `branch:staging` |
+| Production | Not required    | `db push` to prod ref, provision        | Prod dashboard → Netlify `production`        |
+
+Staging must use a **separate** Supabase project from production. Do not share
+production keys with the Netlify `staging` branch deploy.
 
 Local notes:
 
@@ -140,7 +146,8 @@ Hosted notes:
 
 - Never run the fake seed against production.
 - Keep public sign-up disabled.
-- Set the same three env vars on Netlify for deploy (secret as server-only).
+- Set the three env vars on Netlify per context (production vs `branch:staging`;
+  secret as server-only). See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Verify after cutover
 

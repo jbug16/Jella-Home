@@ -74,9 +74,7 @@ export async function updateSession(request: NextRequest) {
     await supabase.auth.signOut({ scope: "local" });
   }
 
-  const isAuthenticated = Boolean(
-    !claimsError && claimsData?.claims?.sub,
-  );
+  const isAuthenticated = Boolean(!claimsError && claimsData?.claims?.sub);
 
   if (!isAuthenticated && !isPublicPath(pathname)) {
     const redirectUrl = new URL("/sign-in", request.url);

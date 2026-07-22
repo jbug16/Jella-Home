@@ -27,6 +27,7 @@
     "provision:household": "tsx scripts/provision-household.ts",
     "provision:add-member": "tsx scripts/add-household-member.ts",
     "verify:hosted-access": "tsx scripts/verify-hosted-access.ts",
+    "verify:staging": "tsx scripts/verify-staging-smoke.ts",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run test:e2e"
   },
   "engines": {

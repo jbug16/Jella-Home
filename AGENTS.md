@@ -216,6 +216,32 @@ After coding:
 3. Check the supported mobile and desktop viewports.
 4. Summarize files changed, behavior implemented, tests run, and any remaining limitations.
 
+## Staging deployment workflow
+
+Environments and hosting details: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+Short agent pointer: [`CURSOR.md`](CURSOR.md).
+
+Branch mapping:
+
+- `main` → production (`https://jella-home.netlify.app`) — only when explicitly requested
+- `staging` → stable test environment (`https://staging--jella-home.netlify.app`)
+- feature branches → active work; optional temporary Deploy Previews
+
+For every **completed** implementation task:
+
+1. Make the requested changes.
+2. Run all relevant verification (`npm run verify`; also `npm run test:db` twice consecutively when migrations or database code changed; ensure `npm run build` succeeds).
+3. Update documentation when required.
+4. Commit completed work (Conventional Commits; still only when the task/user authorizes committing).
+5. Merge or apply the work onto `staging`.
+6. Push `staging` to the remote and confirm the automatic Netlify staging deploy.
+7. Verify the hosted staging application (auth, shell, changed routes, mobile/desktop).
+8. Return the stable staging URL and a compact deployment report.
+
+Do **not** push partially implemented work, knowingly broken builds, failing migrations, failing required tests, secrets, `.env.local`, or temporary debugging code.
+
+Staging must use a dedicated staging Supabase project and staging-only Netlify env vars. Never point staging at production data. Never deploy or merge to production unless the user explicitly asks.
+
 ## Git workflow
 
 Only create commits when the user explicitly asks. When committing, always use [Conventional Commits](https://www.conventionalcommits.org/) with one of these prefixes:
