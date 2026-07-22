@@ -51,6 +51,12 @@ secret `NETLIFY_AUTH_TOKEN`.
 Production continues to deploy from the existing production build hook on
 `main`. Do not point the staging site at production Supabase keys.
 
+**Known quirk:** the production GitHub webhook targets a Netlify build hook, so
+pushes to `staging` may still trigger a production rebuild of the current
+`main` tip (no code change). Preferred follow-up: reconnect Netlify with the
+GitHub App (branch-aware) or move production deploys to an Actions workflow
+that only runs on `main`, then remove the build-hook webhook.
+
 ## Required environment variables (names only)
 
 | Variable                               | Visibility  | Local                     | Staging             | Production             |
