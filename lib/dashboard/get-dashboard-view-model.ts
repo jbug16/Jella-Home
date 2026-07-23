@@ -18,7 +18,7 @@ import {
   listTransactionsForMonth,
 } from "@/lib/repositories/budget";
 import { listPlannedMealsForWeek } from "@/lib/repositories/meal-plans";
-import { listRecipes } from "@/lib/repositories/recipes";
+import { listRecipeCoverUrlsByIds } from "@/lib/repositories/recipes";
 
 /**
  * Compose the Dashboard home view model.
@@ -31,20 +31,20 @@ export async function getDashboardViewModel(
   const asOf = resolveDashboardAsOf(now);
   const monthStart = currentMonthStart(now);
 
-  const [weekMeals, recipes, categories, limits, transactions, today] =
+  const [weekMeals, categories, limits, transactions, today] =
     await Promise.all([
       listPlannedMealsForWeek(asOf.weekStart),
-      // Covers needed for today's meal cards (signed URLs).
-      listRecipes({ sort: "name" }),
       listCategories(),
       listMonthLimits(monthStart),
       listTransactionsForMonth(monthStart),
       getCalendarDayViewModel({ dateIso: asOf.todayIso, now }),
     ]);
 
-  const imageByRecipeId = new Map(
-    recipes.map((recipe) => [recipe.id, recipe.imageUrl]),
-  );
+  const todayRecipeIds = weekMeals
+    .filter((meal) => meal.planDate === asOf.todayIso && meal.recipeId)
+    .map((meal) => meal.recipeId as string);
+
+  const imageByRecipeId = await listRecipeCoverUrlsByIds(todayRecipeIds);
 
   const snapshot = buildBudgetMonthSnapshot({
     monthStart,

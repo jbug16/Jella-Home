@@ -5,6 +5,7 @@ import { CalendarPanel } from "@/components/calendar/calendar-panel";
 import { PageHeader } from "@/components/common/page-header";
 import { getCalendarRangeViewModel } from "@/lib/calendar/get-calendar-range-view-model";
 import { currentMonthStart, monthStartFor } from "@/lib/domain/budget";
+import { clampDayToMonth, clampDayToWeek } from "@/lib/domain/calendar-nav";
 import { isValidIsoDate, todayIsoDate } from "@/lib/domain/dates";
 import {
   currentWeekStart,
@@ -38,7 +39,10 @@ function resolveSelectedDay(args: {
   todayIso: string;
 }): string {
   if (args.raw && isValidIsoDate(args.raw)) {
-    return args.raw;
+    if (args.view === "week") {
+      return clampDayToWeek(args.raw, args.weekStart);
+    }
+    return clampDayToMonth(args.raw, args.monthStart);
   }
   if (args.view === "week") {
     const weekEnd = weekEndOn(args.weekStart);
@@ -77,12 +81,10 @@ export default async function CalendarPage({
     todayIso,
   });
 
-  const canonicalWeek = weekStartOn(selectedDay);
-  const canonicalMonth = monthStartFor(selectedDay);
-
-  // Keep week/month aligned with selected day when navigating.
-  const alignedWeek = view === "week" ? weekStart : canonicalWeek;
-  const alignedMonth = view === "month" ? monthStart : canonicalMonth;
+  // Visible range comes from URL week/month; selected day is always inside it.
+  const alignedWeek = view === "week" ? weekStart : weekStartOn(selectedDay);
+  const alignedMonth =
+    view === "month" ? monthStart : monthStartFor(selectedDay);
 
   const query = new URLSearchParams({
     view,
@@ -113,7 +115,7 @@ export default async function CalendarPage({
   });
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden">
+    <div className="flex min-w-0 flex-col gap-6">
       <PageHeader
         title="Calendar"
         description="Shared household events — separate from meal planning."

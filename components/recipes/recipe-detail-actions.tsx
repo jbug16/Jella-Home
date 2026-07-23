@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { DeleteRecipeDialog } from "@/components/recipes/delete-recipe-dialog";
 import { RecipeFormDialog } from "@/components/recipes/recipe-form-dialog";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import type { RecipeDetail } from "@/lib/domain/recipe";
 import type { IngredientSuggestion } from "@/lib/repositories/recipes";
 
@@ -21,25 +22,24 @@ export function RecipeDetailActions({
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
-    <div className="flex gap-2">
-      <Button
-        type="button"
+    <div className="flex gap-1">
+      <IconButton
+        label="Edit recipe"
         variant="outline"
-        className="min-h-11"
         onClick={() => setEditOpen(true)}
         data-testid="open-edit-recipe"
       >
-        Edit
-      </Button>
-      <Button
-        type="button"
+        <Pencil className="size-4" aria-hidden />
+      </IconButton>
+      <IconButton
+        label="Delete recipe"
         variant="outline"
-        className="min-h-11"
+        className="text-destructive hover:text-destructive"
         onClick={() => setDeleteOpen(true)}
         data-testid="open-delete-recipe"
       >
-        Delete
-      </Button>
+        <Trash2 className="size-4" aria-hidden />
+      </IconButton>
 
       <RecipeFormDialog
         open={editOpen}

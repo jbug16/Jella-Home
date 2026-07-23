@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { formatMonthLabel, shiftMonthStart } from "@/lib/domain/budget";
 
 type MonthNavigatorProps = {
@@ -16,30 +16,25 @@ export function MonthNavigator({ monthStart }: MonthNavigatorProps) {
 
   return (
     <div className="flex items-center justify-between gap-2">
-      <Button variant="outline" size="icon" className="size-11" asChild>
+      <IconButton label="Previous month" variant="outline" asChild>
         <Link
           href={`/budget?month=${previous}`}
-          aria-label="Previous month"
           data-testid="budget-prev-month"
         >
-          <ChevronLeft className="size-5" />
+          <ChevronLeft className="size-5" aria-hidden />
         </Link>
-      </Button>
+      </IconButton>
       <p
         className="text-center text-base font-medium"
         data-testid="budget-month-label"
       >
         {formatMonthLabel(monthStart)}
       </p>
-      <Button variant="outline" size="icon" className="size-11" asChild>
-        <Link
-          href={`/budget?month=${next}`}
-          aria-label="Next month"
-          data-testid="budget-next-month"
-        >
-          <ChevronRight className="size-5" />
+      <IconButton label="Next month" variant="outline" asChild>
+        <Link href={`/budget?month=${next}`} data-testid="budget-next-month">
+          <ChevronRight className="size-5" aria-hidden />
         </Link>
-      </Button>
+      </IconButton>
     </div>
   );
 }

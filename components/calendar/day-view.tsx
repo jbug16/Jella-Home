@@ -60,15 +60,10 @@ export function CalendarDayView({
     >
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
         <div className="min-w-0">
-          <p className="text-xs font-medium tracking-[0.08em] text-muted-foreground uppercase">
-            {day.weekdayShort} · {day.monthLabel}
+          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+          <p className="mt-0.5 truncate text-sm text-muted-foreground">
+            {day.dateLabel}
           </p>
-          <div className="mt-1 flex items-baseline gap-2.5">
-            <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-            <span className="text-xl font-semibold tabular-nums text-muted-foreground">
-              {day.dayOfMonth}
-            </span>
-          </div>
         </div>
         {actionHref && actionLabel ? (
           <Button

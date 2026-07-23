@@ -55,6 +55,52 @@ async function signRecipeImageUrls(
   return urls;
 }
 
+/**
+ * Signed cover URLs for specific recipe ids (Dashboard meal thumbnails).
+ * Avoids loading and signing the full recipe catalog.
+ */
+export async function listRecipeCoverUrlsByIds(
+  recipeIds: string[],
+): Promise<Map<string, string | null>> {
+  const uniqueIds = [...new Set(recipeIds.filter(Boolean))];
+  const result = new Map<string, string | null>();
+  if (uniqueIds.length === 0) {
+    return result;
+  }
+
+  const membership = await requireCurrentMembership();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("recipes")
+    .select("id, image_path")
+    .eq("household_id", membership.household.id)
+    .is("archived_at", null)
+    .in("id", uniqueIds);
+
+  if (error) {
+    throw new Error("Unable to load recipe images.");
+  }
+
+  const rows = data ?? [];
+  const paths = rows
+    .map((row) => row.image_path)
+    .filter((path): path is string => !!path);
+  const urls = await signRecipeImageUrls(supabase, paths);
+
+  for (const id of uniqueIds) {
+    result.set(id, null);
+  }
+  for (const row of rows) {
+    result.set(
+      row.id,
+      row.image_path ? (urls.get(row.image_path) ?? null) : null,
+    );
+  }
+
+  return result;
+}
+
 export type ListRecipesOptions = {
   search?: string;
   sort?: RecipeSort;

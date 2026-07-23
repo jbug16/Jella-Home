@@ -66,14 +66,9 @@ export async function generateGroceryListAction(
       };
     }
 
-    const skipNote =
-      result.skippedCustomMeals > 0
-        ? ` ${result.skippedCustomMeals} meal${result.skippedCustomMeals === 1 ? "" : "s"} without recipes were skipped.`
-        : "";
-
     return {
       error: null,
-      success: `Shopping list updated.${skipNote}`,
+      success: "Shopping list updated.",
     };
   } catch (error) {
     return actionError(error, "Unable to update the shopping list.");

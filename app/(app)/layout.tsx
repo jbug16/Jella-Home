@@ -36,7 +36,7 @@ export default async function AppLayout({
         <AppHeader />
         <main
           id="main-content"
-          className="min-h-0 flex-1 overflow-y-auto px-4 py-6 pb-[calc(3.5rem+env(safe-area-inset-bottom)+1.5rem)] sidebar:px-8 sidebar:pb-8"
+          className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] sidebar:px-8 sidebar:py-6 sidebar:pb-8"
         >
           <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-col sidebar:h-full">
             {children}

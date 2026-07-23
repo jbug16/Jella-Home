@@ -101,6 +101,8 @@ function EventForm({
   const [recurrence, setRecurrence] = useState<CalendarRecurrence>(
     event?.recurrence ?? "none",
   );
+  const [startOn, setStartOn] = useState(event?.startOn ?? defaultStartOn);
+  const [endOn, setEndOn] = useState(event?.endOn ?? defaultStartOn);
 
   useEffect(() => {
     if (state.success) {
@@ -171,7 +173,14 @@ function EventForm({
             name="startOn"
             type="date"
             required
-            defaultValue={event?.startOn ?? defaultStartOn}
+            value={startOn}
+            onChange={(event) => {
+              const next = event.target.value;
+              setStartOn(next);
+              if (endOn < next) {
+                setEndOn(next);
+              }
+            }}
             className="min-h-11"
           />
         </div>
@@ -182,7 +191,8 @@ function EventForm({
             name="endOn"
             type="date"
             required
-            defaultValue={event?.endOn ?? defaultStartOn}
+            value={endOn}
+            onChange={(event) => setEndOn(event.target.value)}
             className="min-h-11"
           />
         </div>

@@ -180,15 +180,33 @@ export default defineConfig({
       },
     },
     {
+      name: "polish-chromium-desktop",
+      testMatch: /polish\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 800 },
+      },
+    },
+    {
+      name: "polish-chromium-mobile-360",
+      testMatch: /polish\.chromium\.spec\.ts/,
+      fullyParallel: false,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 360, height: 780 },
+      },
+    },
+    {
       name: "webkit-iphone",
       testMatch:
-        /(shell|recipes|meals|shopping|dashboard|subscriptions|calendar)\.webkit\.spec\.ts/,
+        /(shell|recipes|meals|shopping|dashboard|subscriptions|calendar|polish)\.webkit\.spec\.ts/,
       use: { ...devices["iPhone 13"] },
     },
     {
       name: "webkit-ipad",
       testMatch:
-        /(shell|recipes|meals|shopping|dashboard|subscriptions|calendar)\.webkit\.spec\.ts/,
+        /(shell|recipes|meals|shopping|dashboard|subscriptions|calendar|polish)\.webkit\.spec\.ts/,
       use: { ...devices["iPad Pro 11"] },
     },
   ],

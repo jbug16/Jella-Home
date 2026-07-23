@@ -15,10 +15,12 @@ test.describe("budget flows", () => {
     await expect(page.getByTestId("summary-planned")).toHaveText("$500.00");
     await expect(page.getByTestId("summary-actual")).toHaveText("$12.50");
     await expect(page.getByTestId("summary-remaining")).toHaveText("+$487.50");
+    await expect(page.getByTestId("budget-summary")).toBeVisible();
     await expect(
       page.getByTestId("category-row-expense-Groceries"),
     ).toBeVisible();
     await expect(page.getByTestId("transactions-list")).toBeVisible();
+    await expect(page.getByText("By type")).toHaveCount(0);
   });
 
   test("adds, edits, and deletes an expense", async ({ page }, testInfo) => {
@@ -39,7 +41,7 @@ test.describe("budget flows", () => {
     await expect(createdRow).toBeVisible();
     await expect(page.getByTestId("summary-actual")).toHaveText("$20.75");
 
-    await createdRow.getByRole("button", { name: "Edit" }).click();
+    await createdRow.getByRole("button", { name: "Edit transaction" }).click();
     await page.getByLabel("Amount").fill("9.00");
     await page.getByLabel("Payee (optional)").fill(`${payee} Updated`);
     await page.getByTestId("save-transaction").click();
@@ -52,7 +54,9 @@ test.describe("budget flows", () => {
     await expect(updatedRow).toBeVisible();
     await expect(page.getByTestId("summary-actual")).toHaveText("$21.50");
 
-    await updatedRow.getByRole("button", { name: "Delete" }).click();
+    await updatedRow
+      .getByRole("button", { name: "Delete transaction" })
+      .click();
     await page.getByTestId("confirm-delete-transaction").click();
 
     await expect(

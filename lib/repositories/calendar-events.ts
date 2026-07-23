@@ -29,6 +29,8 @@ export async function listCalendarEventsOverlappingRange(args: {
 
   // Coarse filter: series that start on/before range end. Domain expansion
   // applies precise overlap (incl. multi-day spill and recurrence end).
+  // Keep this filter simple — nested PostgREST `and()`/`or()` filters have
+  // dropped valid rows in practice; tighten later with a proven lower bound.
   const { data, error } = await supabase
     .from("calendar_events")
     .select(EVENT_SELECT)

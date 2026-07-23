@@ -30,6 +30,7 @@ export {
   deleteRecipeImage,
   getRecipe,
   listIngredientSuggestions,
+  listRecipeCoverUrlsByIds,
   listRecipes,
   setRecipeImagePath,
   updateRecipe,

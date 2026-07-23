@@ -213,7 +213,7 @@ export function DashboardPanel({ viewModel }: DashboardPanelProps) {
     >
       <CalendarDayView
         day={viewModel.today}
-        heading="Today"
+        heading="Today's events"
         actionHref="/calendar"
         actionLabel="Open calendar"
         actionTestId="dashboard-cta-today"

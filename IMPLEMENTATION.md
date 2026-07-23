@@ -11,10 +11,14 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** 10 — Shared calendar  
-**Status:** Complete (2026-07-20)  
+**Milestone:** 11 — UI/UX polish  
+**Status:** Complete (2026-07-23)  
 **Owner:** Lead Engineer  
-**Goal:** Household events separate from meal-plan entries — Week/Month
+**Goal:** Focused performance and UX polish — no new product features. See
+[`POLISH.md`](POLISH.md) for the checklist, Budget proposals, and performance
+notes.
+
+Previous: Milestone 10 (Shared calendar) **Complete** (2026-07-20) — Week/Month
 Master–Detail calendar composing native events and subscription renewals,
 feeding Dashboard Today via the shared day composer.
 
@@ -674,8 +678,9 @@ Components under `components/shopping/`:
 
 Uses shadcn **Checkbox**, **Progress**, **Collapsible**.
 
-**Copy examples:** “Refresh list”, “3 meals without recipes — link recipes in
-Meals or add items by hand.” No API/DB jargon.
+**Copy examples:** “Refresh list”, “Shopping list updated.” Meals without recipes
+are still skipped when generating; there is no persistent skipped-meals banner.
+No API/DB jargon.
 
 #### Testing strategy
 
@@ -1917,6 +1922,18 @@ Add only questions that materially block or influence implementation.
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-23 (Milestone 11 — UI/UX polish)
+
+- Work completed: Performance (`React.cache` for membership; Dashboard recipe
+  image scoping; shopping page dropped unused meals fetch); desktop top header
+  space removed; shared `IconButton`; Dashboard “Today’s events”; Budget
+  ledger-first layout (Proposal A); Shopping skipped-meals notice removed;
+  Calendar week/month selection + highlight clipping; controlled event dates
+  (fixes Chromium create); mobile Sheet/Dialog `dvh` scroll; Playwright + unit
+  coverage. See `POLISH.md`.
+- Validation: format/lint/typecheck/unit 169; Playwright 132 passed; build green.
+- Production changed: no.
 
 ### 2026-07-22 (Staging workflow + Netlify branch deploy)
 

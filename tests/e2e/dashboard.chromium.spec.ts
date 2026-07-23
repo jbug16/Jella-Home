@@ -49,7 +49,9 @@ test.describe("dashboard home", () => {
 
     await expect(page.getByTestId("dashboard-panel")).toBeVisible();
     await expect(page.getByTestId("calendar-day-view")).toBeVisible();
-    await expect(page.getByTestId("calendar-day-empty")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Today's events" }),
+    ).toBeVisible();
     await expect(page.getByTestId("card-meals")).toBeVisible();
     await expect(page.getByTestId("card-budget")).toBeVisible();
     await expect(page.getByTestId("card-grocery")).toHaveCount(0);
@@ -86,8 +88,14 @@ test.describe("dashboard home", () => {
     await page.goto(`/meals?week=${weekStart}`);
     await expect(page.getByTestId("meals-panel")).toBeVisible();
     await page.getByTestId("open-add-meal").click();
+    // Reset selects the form default day; only click today if it is not already on.
     await page.getByTestId("meal-days-reset").click();
-    await page.getByTestId(`meal-day-${today}`).click();
+    const todayButton = page.getByTestId(`meal-day-${today}`);
+    await expect(todayButton).toBeVisible();
+    if ((await todayButton.getAttribute("aria-pressed")) !== "true") {
+      await todayButton.click();
+    }
+    await expect(todayButton).toHaveAttribute("aria-pressed", "true");
     await pickFixtureRecipe(page);
     await page.getByTestId("meal-form-submit").click();
     await expect(
@@ -101,8 +109,7 @@ test.describe("dashboard home", () => {
     await expect(
       page.getByTestId("dashboard-meal-thumbnail").first(),
     ).toBeVisible();
-    // Calendar is empty of real events; meals must not appear there.
-    await expect(page.getByTestId("calendar-day-empty")).toBeVisible();
+    // Meals must not appear in the household calendar card.
     await expect(page.getByTestId("calendar-day-view")).not.toContainText(
       "Fixture Spaghetti",
     );

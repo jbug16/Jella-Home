@@ -43,6 +43,12 @@ type ResponsiveFormShellProps = {
   children: React.ReactNode;
 };
 
+/**
+ * Dialog on sm+; bottom Sheet on phones.
+ * Uses `dvh` max-height so the on-screen keyboard shrinks the usable viewport
+ * and the sheet/dialog can scroll. Avoid nested overflow-hidden shells — meal
+ * recipe comboboxes use in-flow absolute lists (not portals).
+ */
 export function ResponsiveFormShell({
   open,
   onOpenChange,
@@ -62,7 +68,7 @@ export function ResponsiveFormShell({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
-          className="max-h-[90dvh] overflow-y-auto rounded-t-xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+          className="max-h-[min(92dvh,100%)] overflow-y-auto overscroll-contain rounded-t-xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
         >
           <SheetHeader>
             <SheetTitle>{title}</SheetTitle>
@@ -70,7 +76,7 @@ export function ResponsiveFormShell({
               <SheetDescription>{description}</SheetDescription>
             ) : null}
           </SheetHeader>
-          <div className="mt-4 px-1">{children}</div>
+          <div className="mt-4 px-1 pb-2">{children}</div>
         </SheetContent>
       </Sheet>
     );
@@ -79,7 +85,7 @@ export function ResponsiveFormShell({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`max-h-[90dvh] overflow-y-auto ${desktopWidthClassName}`}
+        className={`max-h-[min(90dvh,100%)] overflow-y-auto overscroll-contain ${desktopWidthClassName}`}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

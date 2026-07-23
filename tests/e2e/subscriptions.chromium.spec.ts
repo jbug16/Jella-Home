@@ -81,9 +81,11 @@ test.describe("subscriptions flows", () => {
     await expect(row.getByText(`Next billing ${soon}`)).toBeVisible();
     await expect(row.getByText("Entertainment")).toBeVisible();
     await expect(row.getByText("Monthly equivalent")).toHaveCount(0);
-    await expect(row.getByRole("button", { name: "Delete" })).toBeVisible();
+    await expect(
+      row.getByRole("button", { name: "Delete subscription" }),
+    ).toBeVisible();
 
-    await row.getByRole("button", { name: "Edit" }).click();
+    await row.getByRole("button", { name: "Edit subscription" }).click();
     await page.getByLabel("Amount").fill("720.00");
     await page.getByLabel("Billing frequency").click();
     await page.getByRole("option", { name: "Yearly" }).click();
@@ -97,7 +99,7 @@ test.describe("subscriptions flows", () => {
     await expect(updated.getByText(`Next billing ${later}`)).toBeVisible();
     await expect(updated.getByText("Monthly equivalent")).toHaveCount(0);
 
-    await updated.getByRole("button", { name: "Delete" }).click();
+    await updated.getByRole("button", { name: "Delete subscription" }).click();
     const deleteDialog = page.getByRole("alertdialog");
     await expect(
       deleteDialog.getByRole("heading", { name: "Remove from your list?" }),

@@ -6,12 +6,13 @@ import { EmptyState } from "@/components/common/empty-state";
 import { DeleteSubscriptionDialog } from "@/components/subscriptions/delete-subscription-dialog";
 import { SubscriptionFormDialog } from "@/components/subscriptions/subscription-form-dialog";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { formatCents } from "@/lib/domain/budget";
 import type {
   SubscriptionListItem,
   SubscriptionsViewModel,
 } from "@/lib/domain/subscription";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Pencil, Trash2 } from "lucide-react";
 
 type SubscriptionsPanelProps = {
   viewModel: SubscriptionsViewModel;
@@ -72,23 +73,18 @@ function SubscriptionRow({
           <p className="text-sm text-muted-foreground">{item.notes}</p>
         ) : null}
       </div>
-      <div className="flex shrink-0 flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-11"
-          onClick={onEdit}
-        >
-          Edit
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-11"
+      <div className="flex shrink-0 gap-1">
+        <IconButton label="Edit subscription" variant="ghost" onClick={onEdit}>
+          <Pencil className="size-4" aria-hidden />
+        </IconButton>
+        <IconButton
+          label="Delete subscription"
+          variant="ghost"
+          className="text-destructive hover:text-destructive"
           onClick={onDelete}
         >
-          Delete
-        </Button>
+          <Trash2 className="size-4" aria-hidden />
+        </IconButton>
       </div>
     </li>
   );

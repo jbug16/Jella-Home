@@ -7,7 +7,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Trash2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -36,6 +36,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { IconButton } from "@/components/ui/icon-button";
 import { Progress } from "@/components/ui/progress";
 import { formatQuantity } from "@/lib/domain/recipe";
 import {
@@ -52,15 +53,9 @@ type ShoppingPanelProps = {
   weekStart: string;
   list: GroceryList;
   items: GroceryListItem[];
-  skippedCustomMeals: number;
 };
 
-export function ShoppingPanel({
-  weekStart,
-  list,
-  items,
-  skippedCustomMeals,
-}: ShoppingPanelProps) {
+export function ShoppingPanel({ weekStart, list, items }: ShoppingPanelProps) {
   const router = useRouter();
   const [generateState, generateAction, generatePending] = useActionState(
     generateGroceryListAction,
@@ -214,18 +209,6 @@ export function ShoppingPanel({
           </div>
           <Progress value={percent} aria-hidden="true" />
         </div>
-      ) : null}
-
-      {skippedCustomMeals > 0 ? (
-        <p
-          className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
-          data-testid="shopping-skipped-notice"
-        >
-          {skippedCustomMeals} meal
-          {skippedCustomMeals === 1 ? "" : "s"} without recipes{" "}
-          {skippedCustomMeals === 1 ? "was" : "were"} skipped — link recipes in
-          Meals or add items by hand.
-        </p>
       ) : null}
 
       {bannerError ? (
@@ -458,30 +441,26 @@ function ShoppingItemRow({
         </span>
       </button>
       {onEdit ? (
-        <Button
-          type="button"
+        <IconButton
+          label={`Edit ${item.name}`}
           variant="ghost"
-          size="sm"
-          className="min-h-11 shrink-0"
           onClick={onEdit}
           disabled={disabled}
           data-testid={`shopping-edit-${item.id}`}
         >
-          Edit
-        </Button>
+          <Pencil className="size-4" aria-hidden />
+        </IconButton>
       ) : null}
-      <Button
-        type="button"
+      <IconButton
+        label={`Remove ${item.name}`}
         variant="ghost"
-        size="icon"
-        className="size-11 shrink-0 text-muted-foreground"
+        className="text-muted-foreground"
         onClick={onDelete}
         disabled={disabled}
-        aria-label={`Remove ${item.name}`}
         data-testid={`shopping-delete-${item.id}`}
       >
-        <Trash2 className="size-4" />
-      </Button>
+        <Trash2 className="size-4" aria-hidden />
+      </IconButton>
     </li>
   );
 }

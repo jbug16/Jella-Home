@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/common/page-header";
 import { ShoppingPanel } from "@/components/shopping/shopping-panel";
 import { resolveShoppingWeekStart } from "@/lib/domain/shopping";
-import { listPlannedMealsForWeek } from "@/lib/repositories/meal-plans";
 import {
   getOrCreateGroceryListForWeek,
   listGroceryItems,
@@ -29,12 +28,7 @@ export default async function ShoppingPage({
   }
 
   const list = await getOrCreateGroceryListForWeek(weekStart);
-  const [items, meals] = await Promise.all([
-    listGroceryItems(list.id),
-    listPlannedMealsForWeek(weekStart),
-  ]);
-
-  const skippedCustomMeals = meals.filter((meal) => !meal.recipeId).length;
+  const items = await listGroceryItems(list.id);
 
   return (
     <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden">
@@ -42,12 +36,7 @@ export default async function ShoppingPage({
         title="Shopping"
         description="Your list from this week's meals — check items off as you go."
       />
-      <ShoppingPanel
-        weekStart={weekStart}
-        list={list}
-        items={items}
-        skippedCustomMeals={skippedCustomMeals}
-      />
+      <ShoppingPanel weekStart={weekStart} list={list} items={items} />
     </div>
   );
 }

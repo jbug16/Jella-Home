@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   currentWeekStart,
   formatWeekLabel,
@@ -37,20 +38,19 @@ export function WeekNavigator({
   return (
     <div className="flex min-w-0 max-w-full flex-col gap-0.5">
       <div className="flex h-11 min-w-0 items-center gap-0.5">
-        <Button
+        <IconButton
+          label="Previous week"
           variant="ghost"
-          size="icon"
-          className="size-11 shrink-0 text-muted-foreground"
+          className="text-muted-foreground"
           asChild
         >
           <Link
             href={`${basePath}?week=${previous}`}
-            aria-label="Previous week"
             data-testid={`${testIdPrefix}-prev-week`}
           >
-            <ChevronLeft className="size-5" />
+            <ChevronLeft className="size-5" aria-hidden />
           </Link>
-        </Button>
+        </IconButton>
         {/*
           Fixed width for longest typical label (“Sep 28 – Oct 4, 2026”).
           Centered + truncated so shorter labels never nudge the chevrons.
@@ -61,20 +61,19 @@ export function WeekNavigator({
         >
           {formatWeekLabel(weekStart)}
         </p>
-        <Button
+        <IconButton
+          label="Next week"
           variant="ghost"
-          size="icon"
-          className="size-11 shrink-0 text-muted-foreground"
+          className="text-muted-foreground"
           asChild
         >
           <Link
             href={`${basePath}?week=${next}`}
-            aria-label="Next week"
             data-testid={`${testIdPrefix}-next-week`}
           >
-            <ChevronRight className="size-5" />
+            <ChevronRight className="size-5" aria-hidden />
           </Link>
-        </Button>
+        </IconButton>
       </div>
       {/* Reserved row — keeps prev/label/next rock-solid when Jump appears. */}
       <div className="flex h-5 w-[12rem] max-w-full items-center justify-center self-center">

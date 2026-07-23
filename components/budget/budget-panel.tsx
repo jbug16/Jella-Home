@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { CreateCategoryDialog } from "@/components/budget/create-category-dialog";
 import { DeleteTransactionDialog } from "@/components/budget/delete-transaction-dialog";
@@ -8,19 +9,15 @@ import { MonthNavigator } from "@/components/budget/month-navigator";
 import { SetLimitDialog } from "@/components/budget/set-limit-dialog";
 import { TransactionFormDialog } from "@/components/budget/transaction-form-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { IconButton } from "@/components/ui/icon-button";
+import { Progress } from "@/components/ui/progress";
 import {
   formatCents,
   type BudgetCategory,
   type BudgetMonthSnapshot,
   type Transaction,
 } from "@/lib/domain/budget";
+import { cn } from "@/lib/utils";
 
 const KIND_LABELS: Record<string, string> = {
   income: "Income",
@@ -29,6 +26,9 @@ const KIND_LABELS: Record<string, string> = {
   savings: "Savings",
   debt: "Debt",
 };
+
+/** Categories at or above this share of planned spend need attention. */
+const ATTENTION_RATIO = 0.85;
 
 type BudgetPanelProps = {
   monthStart: string;
@@ -63,6 +63,26 @@ export function BudgetPanel({
     }
     return map;
   }, [snapshot.categorySummaries]);
+
+  const spendingCategories = useMemo(() => {
+    return snapshot.categorySummaries.filter((row) => row.kind !== "income");
+  }, [snapshot.categorySummaries]);
+
+  const attentionCategories = useMemo(() => {
+    return spendingCategories.filter((row) => {
+      if (row.plannedCents <= 0) {
+        return row.actualCents > 0;
+      }
+      return row.actualCents / row.plannedCents >= ATTENTION_RATIO;
+    });
+  }, [spendingCategories]);
+
+  const remainingTone =
+    snapshot.remainingOutCents < 0
+      ? "danger"
+      : snapshot.remainingOutCents === 0
+        ? "muted"
+        : "ok";
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,187 +123,180 @@ export function BudgetPanel({
         </div>
       </div>
 
-      <section aria-labelledby="budget-summary-heading" className="space-y-3">
-        <h2 id="budget-summary-heading" className="text-lg font-semibold">
-          This month
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryStat
-            label="Planned spending"
-            value={formatCents(snapshot.plannedTotalCents)}
-            testId="summary-planned"
-          />
-          <SummaryStat
-            label="Actual spending"
-            value={formatCents(snapshot.actualOutCents)}
-            testId="summary-actual"
-          />
-          <SummaryStat
-            label="Remaining"
-            value={formatCents(snapshot.remainingOutCents, { signed: true })}
-            testId="summary-remaining"
-            tone={
-              snapshot.remainingOutCents < 0
-                ? "danger"
-                : snapshot.remainingOutCents === 0
-                  ? "muted"
-                  : "ok"
-            }
-          />
+      <section
+        aria-labelledby="budget-summary-heading"
+        className="space-y-4"
+        data-testid="budget-summary"
+      >
+        <div className="flex flex-col gap-1">
+          <h2 id="budget-summary-heading" className="sr-only">
+            This month
+          </h2>
+          <p className="text-sm text-muted-foreground">Remaining</p>
+          <p
+            className={cn(
+              "text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl",
+              remainingTone === "danger" && "text-destructive",
+              remainingTone === "muted" && "text-muted-foreground",
+            )}
+            data-testid="summary-remaining"
+          >
+            {formatCents(snapshot.remainingOutCents, { signed: true })}
+          </p>
+          <p
+            className="text-sm text-muted-foreground"
+            data-testid="summary-income"
+          >
+            Income received: {formatCents(snapshot.actualInCents)}
+          </p>
         </div>
-        <p
-          className="text-sm text-muted-foreground"
-          data-testid="summary-income"
-        >
-          Income received: {formatCents(snapshot.actualInCents)}
-        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-border/80 bg-card px-4 py-3">
+            <p className="text-xs text-muted-foreground">Planned</p>
+            <p
+              className="mt-1 text-lg font-semibold tabular-nums tracking-tight"
+              data-testid="summary-planned"
+            >
+              {formatCents(snapshot.plannedTotalCents)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-card px-4 py-3">
+            <p className="text-xs text-muted-foreground">Spent</p>
+            <p
+              className="mt-1 text-lg font-semibold tabular-nums tracking-tight"
+              data-testid="summary-actual"
+            >
+              {formatCents(snapshot.actualOutCents)}
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section aria-labelledby="kind-summary-heading" className="space-y-3">
-        <h2 id="kind-summary-heading" className="text-lg font-semibold">
-          By type
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {snapshot.kindSummaries.map((row) => (
-            <Card key={row.kind}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">
-                  {KIND_LABELS[row.kind] ?? row.kind}
-                </CardTitle>
-                <CardDescription>
-                  Planned {formatCents(row.plannedCents)} · Actual{" "}
-                  {formatCents(row.actualCents)}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p
-                  className={
-                    row.remainingCents < 0
-                      ? "text-sm font-medium text-destructive"
-                      : "text-sm font-medium"
-                  }
-                  data-testid={`kind-remaining-${row.kind}`}
-                >
-                  Remaining {formatCents(row.remainingCents, { signed: true })}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
+      {attentionCategories.length > 0 ? (
+        <section
+          aria-labelledby="budget-attention-heading"
+          className="space-y-3"
+          data-testid="budget-attention"
+        >
+          <h2
+            id="budget-attention-heading"
+            className="text-base font-semibold tracking-tight"
+          >
+            Needs attention
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {attentionCategories.map((row) => (
+              <CategoryProgressRow
+                key={row.categoryId}
+                name={row.name}
+                kindLabel={KIND_LABELS[row.kind] ?? row.kind}
+                plannedCents={row.plannedCents}
+                actualCents={row.actualCents}
+                remainingCents={row.remainingCents}
+                testId={`attention-row-${row.kind}-${row.name}`}
+                onSetLimit={() => {
+                  setLimitCategoryId(row.categoryId);
+                  setLimitOpen(true);
+                }}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section aria-labelledby="category-summary-heading" className="space-y-3">
-        <h2 id="category-summary-heading" className="text-lg font-semibold">
-          Categories
-        </h2>
+        <div className="flex items-baseline justify-between gap-2">
+          <h2
+            id="category-summary-heading"
+            className="text-base font-semibold tracking-tight"
+          >
+            Categories
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Planned vs spent this month
+          </p>
+        </div>
         {snapshot.categorySummaries.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No categories yet. Add a category to start planning.
           </p>
         ) : (
-          <ul className="divide-y rounded-lg border">
+          <ul className="flex flex-col gap-2">
             {snapshot.categorySummaries.map((row) => (
-              <li
+              <CategoryProgressRow
                 key={row.categoryId}
-                className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                data-testid={`category-row-${row.kind}-${row.name}`}
-              >
-                <div>
-                  <p className="font-medium">{row.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {KIND_LABELS[row.kind] ?? row.kind}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 sm:items-end">
-                  <div className="text-sm sm:text-right">
-                    <p>
-                      Planned {formatCents(row.plannedCents)} · Actual{" "}
-                      {formatCents(row.actualCents)}
-                    </p>
-                    <p
-                      className={
-                        row.remainingCents < 0
-                          ? "font-medium text-destructive"
-                          : "text-muted-foreground"
-                      }
-                    >
-                      Remaining{" "}
-                      {formatCents(row.remainingCents, { signed: true })}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11 w-fit"
-                    onClick={() => {
-                      setLimitCategoryId(row.categoryId);
-                      setLimitOpen(true);
-                    }}
-                    data-testid={`set-limit-${row.name}`}
-                  >
-                    Set limit
-                  </Button>
-                </div>
-              </li>
+                name={row.name}
+                kindLabel={KIND_LABELS[row.kind] ?? row.kind}
+                plannedCents={row.plannedCents}
+                actualCents={row.actualCents}
+                remainingCents={row.remainingCents}
+                testId={`category-row-${row.kind}-${row.name}`}
+                onSetLimit={() => {
+                  setLimitCategoryId(row.categoryId);
+                  setLimitOpen(true);
+                }}
+              />
             ))}
           </ul>
         )}
       </section>
 
       <section aria-labelledby="transactions-heading" className="space-y-3">
-        <h2 id="transactions-heading" className="text-lg font-semibold">
-          Transactions
+        <h2
+          id="transactions-heading"
+          className="text-base font-semibold tracking-tight"
+        >
+          Recent activity
         </h2>
         {transactions.length === 0 ? (
           <p
             className="text-sm text-muted-foreground"
             data-testid="transactions-empty"
           >
-            No transactions this month.
+            No transactions this month. Add one to update what&apos;s left.
           </p>
         ) : (
           <ul
-            className="divide-y rounded-lg border"
+            className="divide-y rounded-xl border border-border/80"
             data-testid="transactions-list"
           >
             {transactions.map((transaction) => (
               <li
                 key={transaction.id}
-                className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex items-center gap-3 px-3 py-3 sm:px-4"
                 data-testid={`transaction-row-${transaction.id}`}
               >
-                <div className="min-w-0">
-                  <p className="font-medium">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium tabular-nums">
+                    {transaction.direction === "out" ? "−" : "+"}
                     {formatCents(transaction.amountCents)}
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      {transaction.direction === "in" ? "in" : "out"}
-                    </span>
                   </p>
                   <p className="truncate text-sm text-muted-foreground">
-                    {categoryNameById.get(transaction.categoryId) ?? "Category"}{" "}
-                    · {transaction.occurredOn}
+                    {categoryNameById.get(transaction.categoryId) ?? "Category"}
+                    {" · "}
+                    {transaction.occurredOn}
                     {transaction.payee ? ` · ${transaction.payee}` : ""}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11"
+                <div className="flex shrink-0 gap-1">
+                  <IconButton
+                    label="Edit transaction"
+                    variant="ghost"
                     onClick={() => setEditing(transaction)}
                     data-testid={`edit-transaction-${transaction.id}`}
                   >
-                    Edit
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11"
+                    <Pencil className="size-4" aria-hidden />
+                  </IconButton>
+                  <IconButton
+                    label="Delete transaction"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
                     onClick={() => setDeleting(transaction)}
                     data-testid={`delete-transaction-${transaction.id}`}
                   >
-                    Delete
-                  </Button>
+                    <Trash2 className="size-4" aria-hidden />
+                  </IconButton>
                 </div>
               </li>
             ))}
@@ -335,32 +348,77 @@ export function BudgetPanel({
   );
 }
 
-function SummaryStat({
-  label,
-  value,
+function CategoryProgressRow({
+  name,
+  kindLabel,
+  plannedCents,
+  actualCents,
+  remainingCents,
   testId,
-  tone = "muted",
+  onSetLimit,
 }: {
-  label: string;
-  value: string;
+  name: string;
+  kindLabel: string;
+  plannedCents: number;
+  actualCents: number;
+  remainingCents: number;
   testId: string;
-  tone?: "muted" | "ok" | "danger";
+  onSetLimit: () => void;
 }) {
-  const valueClass =
-    tone === "danger"
-      ? "text-2xl font-semibold tracking-tight text-destructive"
-      : tone === "ok"
-        ? "text-2xl font-semibold tracking-tight text-foreground"
-        : "text-2xl font-semibold tracking-tight";
+  const percent =
+    plannedCents > 0
+      ? Math.min(100, Math.round((actualCents / plannedCents) * 100))
+      : actualCents > 0
+        ? 100
+        : 0;
+  const over = remainingCents < 0;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className={valueClass} data-testid={testId}>
-          {value}
-        </CardTitle>
-      </CardHeader>
-    </Card>
+    <li
+      className="rounded-xl border border-border/80 px-3 py-3 sm:px-4"
+      data-testid={testId}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium">{name}</p>
+          <p className="text-xs text-muted-foreground">{kindLabel}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <p
+            className={cn(
+              "text-sm font-medium tabular-nums",
+              over ? "text-destructive" : "text-muted-foreground",
+            )}
+          >
+            {over
+              ? `${formatCents(Math.abs(remainingCents))} over`
+              : `${formatCents(remainingCents)} left`}
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11 px-2"
+            onClick={onSetLimit}
+            data-testid={`set-limit-${name}`}
+          >
+            Set limit
+          </Button>
+        </div>
+      </div>
+      <div className="mt-2 space-y-1">
+        <Progress
+          value={percent}
+          aria-label={`${name}: ${percent}% of planned`}
+          className={cn(
+            over && "[&_[data-slot=progress-indicator]]:bg-destructive",
+          )}
+        />
+        <p className="text-xs text-muted-foreground tabular-nums">
+          Spent {formatCents(actualCents)}
+          {plannedCents > 0 ? ` of ${formatCents(plannedCents)} planned` : ""}
+        </p>
+      </div>
+    </li>
   );
 }

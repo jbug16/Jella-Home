@@ -12,9 +12,11 @@ import {
   Home,
   MapPin,
   PartyPopper,
+  Pencil,
   Plane,
   Plus,
   Stethoscope,
+  Trash2,
 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
@@ -22,6 +24,7 @@ import { setCalendarSourceVisibleAction } from "@/app/(app)/calendar/actions";
 import { CalendarEventFormDialog } from "@/components/calendar/event-form-dialog";
 import { DeleteCalendarEventDialog } from "@/components/calendar/delete-event-dialog";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import type { CalendarRangeViewModel } from "@/lib/calendar/get-calendar-range-view-model";
 import {
   CALENDAR_EVENT_CATEGORY_LABELS,
@@ -32,13 +35,16 @@ import {
   type CalendarOccurrence,
   type CalendarSourceKey,
 } from "@/lib/domain/calendar-event";
-import { formatMonthLabel, shiftMonthStart } from "@/lib/domain/budget";
+import { formatMonthLabel, monthStartFor } from "@/lib/domain/budget";
+import {
+  shiftSelectedDayByMonths,
+  shiftSelectedDayByWeeks,
+} from "@/lib/domain/calendar-nav";
 import {
   daysInWeek,
   formatDayOfMonth,
   formatWeekdayShort,
   formatWeekLabel,
-  shiftWeekStart,
   weekStartOn,
 } from "@/lib/domain/meal-plan";
 import { cn } from "@/lib/utils";
@@ -177,33 +183,45 @@ export function CalendarPanel({
 
   const prevHref =
     view === "week"
-      ? calendarHref({
-          view,
-          week: shiftWeekStart(weekStart, -1),
-          month: monthStart,
-          day: shiftWeekStart(weekStart, -1),
-        })
-      : calendarHref({
-          view,
-          week: weekStart,
-          month: shiftMonthStart(monthStart, -1),
-          day: shiftMonthStart(monthStart, -1),
-        });
+      ? (() => {
+          const day = shiftSelectedDayByWeeks(selectedDay, -1);
+          return calendarHref({
+            view,
+            week: weekStartOn(day),
+            month: monthStartFor(day),
+            day,
+          });
+        })()
+      : (() => {
+          const day = shiftSelectedDayByMonths(selectedDay, -1);
+          return calendarHref({
+            view,
+            week: weekStartOn(day),
+            month: monthStartFor(day),
+            day,
+          });
+        })();
 
   const nextHref =
     view === "week"
-      ? calendarHref({
-          view,
-          week: shiftWeekStart(weekStart, 1),
-          month: monthStart,
-          day: shiftWeekStart(weekStart, 1),
-        })
-      : calendarHref({
-          view,
-          week: weekStart,
-          month: shiftMonthStart(monthStart, 1),
-          day: shiftMonthStart(monthStart, 1),
-        });
+      ? (() => {
+          const day = shiftSelectedDayByWeeks(selectedDay, 1);
+          return calendarHref({
+            view,
+            week: weekStartOn(day),
+            month: monthStartFor(day),
+            day,
+          });
+        })()
+      : (() => {
+          const day = shiftSelectedDayByMonths(selectedDay, 1);
+          return calendarHref({
+            view,
+            week: weekStartOn(day),
+            month: monthStartFor(day),
+            day,
+          });
+        })();
 
   const todayHref = calendarHref({
     view,
@@ -263,26 +281,22 @@ export function CalendarPanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-1">
-          <Button variant="ghost" size="icon" className="size-11" asChild>
-            <Link
-              href={prevHref}
-              aria-label="Previous"
-              data-testid="calendar-prev"
-            >
-              <ChevronLeft className="size-5" />
+          <IconButton label="Previous" variant="ghost" asChild>
+            <Link href={prevHref} data-testid="calendar-prev">
+              <ChevronLeft className="size-5" aria-hidden />
             </Link>
-          </Button>
+          </IconButton>
           <p
             className="min-w-[10rem] text-center text-sm font-medium tabular-nums"
             data-testid="calendar-range-label"
           >
             {rangeLabel}
           </p>
-          <Button variant="ghost" size="icon" className="size-11" asChild>
-            <Link href={nextHref} aria-label="Next" data-testid="calendar-next">
-              <ChevronRight className="size-5" />
+          <IconButton label="Next" variant="ghost" asChild>
+            <Link href={nextHref} data-testid="calendar-next">
+              <ChevronRight className="size-5" aria-hidden />
             </Link>
-          </Button>
+          </IconButton>
           <Button variant="outline" size="sm" className="min-h-11" asChild>
             <Link href={todayHref} data-testid="calendar-today">
               Today
@@ -395,7 +409,7 @@ function WeekLayout(props: {
     <>
       {/* Desktop / tablet: seven columns */}
       <div
-        className="hidden gap-2 md:grid md:grid-cols-7"
+        className="hidden gap-2 p-0.5 md:grid md:grid-cols-7"
         data-testid="calendar-week-desktop"
       >
         {props.weekDays.map((dayIso) => (
@@ -417,7 +431,7 @@ function WeekLayout(props: {
 
       {/* Mobile: stacked bands */}
       <div
-        className="flex flex-col gap-2 md:hidden"
+        className="flex flex-col gap-2 p-0.5 md:hidden"
         data-testid="calendar-week-mobile"
       >
         {props.weekDays.map((dayIso) => (
@@ -452,7 +466,7 @@ function MonthLayout(props: {
   const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <div data-testid="calendar-month-grid">
+    <div data-testid="calendar-month-grid" className="p-0.5">
       <div className="mb-1 grid grid-cols-7 gap-1">
         {weekdayLabels.map((label) => (
           <div
@@ -488,9 +502,9 @@ function MonthLayout(props: {
               aria-current={isToday ? "date" : undefined}
               data-testid={`calendar-month-day-${dayIso}`}
               className={cn(
-                "flex min-h-11 flex-col items-center justify-start gap-0.5 rounded-lg border p-1 text-center transition-colors",
+                "flex min-h-11 flex-col items-center justify-start gap-0.5 rounded-lg border-2 border-transparent p-1 text-center transition-colors",
                 inMonth ? "bg-card" : "bg-muted/40 text-muted-foreground",
-                selected && "border-primary ring-1 ring-primary",
+                selected && "border-primary bg-primary/5",
                 isToday && !selected && "border-foreground/40",
               )}
             >
@@ -534,9 +548,11 @@ function DayColumn(props: {
     <Link
       href={props.href}
       data-testid={`calendar-week-day-${props.dayIso}`}
+      aria-selected={props.selected}
+      aria-current={props.isToday ? "date" : undefined}
       className={cn(
-        "flex min-h-40 flex-col gap-1 rounded-xl border p-2 transition-colors",
-        props.selected && "border-primary ring-1 ring-primary",
+        "flex min-h-40 flex-col gap-1 rounded-xl border-2 border-transparent p-2 transition-colors",
+        props.selected && "border-primary bg-primary/5",
         props.isToday && !props.selected && "border-foreground/30",
       )}
     >
@@ -581,9 +597,12 @@ function DayBand(props: {
     <Link
       href={props.href}
       data-testid={`calendar-week-band-${props.dayIso}`}
+      aria-selected={props.selected}
+      aria-current={props.isToday ? "date" : undefined}
       className={cn(
-        "flex min-h-11 items-start gap-3 rounded-xl border px-3 py-2",
-        props.selected && "border-primary ring-1 ring-primary",
+        "flex min-h-11 items-start gap-3 rounded-xl border-2 border-transparent px-3 py-2",
+        props.selected && "border-primary bg-primary/5",
+        props.isToday && !props.selected && "border-foreground/30",
       )}
     >
       <div className="w-14 shrink-0">
@@ -721,22 +740,21 @@ function SelectedDayList(props: {
                 {body}
                 {occ.seriesId ? (
                   <div className="ml-auto flex gap-1">
-                    <Button
+                    <IconButton
+                      label="Edit event"
                       variant="ghost"
-                      size="sm"
-                      className="min-h-11"
                       onClick={() => props.onEdit(occ.seriesId!)}
                     >
-                      Edit
-                    </Button>
-                    <Button
+                      <Pencil className="size-4" aria-hidden />
+                    </IconButton>
+                    <IconButton
+                      label="Delete event"
                       variant="ghost"
-                      size="sm"
-                      className="min-h-11 text-destructive"
+                      className="text-destructive hover:text-destructive"
                       onClick={() => props.onDelete(occ.seriesId!)}
                     >
-                      Delete
-                    </Button>
+                      <Trash2 className="size-4" aria-hidden />
+                    </IconButton>
                   </div>
                 ) : null}
               </li>
