@@ -157,8 +157,21 @@ npx netlify env:set SUPABASE_SECRET_KEY "<staging-secret>" --site jella-home-sta
 8. Add GitHub Actions secret `NETLIFY_AUTH_TOKEN` (Netlify personal access token)
    so `.github/workflows/deploy-staging.yml` can deploy on every `staging` push.
 
-9. Push to `staging` (or re-run the workflow) and confirm
-   `https://jella-home-staging.netlify.app` is healthy.
+9. Publish the first staging deploy (either path works):
+
+```bash
+# Local one-shot (uses your logged-in Netlify CLI; does not touch production)
+npm run deploy:staging
+
+# Or push to staging after NETLIFY_AUTH_TOKEN is set in GitHub Actions secrets
+git push origin staging
+```
+
+10. Confirm `https://jella-home-staging.netlify.app` is healthy:
+
+```bash
+npm run verify:staging
+```
 
 ### Staging sign-in (no credentials in Git)
 
