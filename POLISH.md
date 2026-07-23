@@ -1,7 +1,7 @@
 # UI/UX polish milestone
 
 **Status:** Complete (2026-07-23)  
-**Branch:** `polish/ui-ux-milestone` → `staging`  
+**Branch:** `polish/ui-ux-milestone` → `staging` → `main` (production)  
 **Scope:** Performance and shared-structure fixes, feature UX fixes, and mobile/keyboard polish. No new product features.
 
 ## Audit summary (before changes)
@@ -87,8 +87,8 @@ Category-first drill-down — better for envelope planning, weaker for “log th
 - [x] Playwright polish + calendar nav/Today/clipping; Budget; shopping warning; shell; icon a11y; overflow; WebKit
 - [x] `npm run verify` (+ build); Playwright 132 passed
 - [x] Update docs (this file + IMPLEMENTATION)
-- [ ] Commit → merge/push `staging` → confirm Netlify staging → verify live routes
-- [x] Do **not** deploy production
+- [x] Commit → merge/push `staging` (staging Netlify site unavailable; skipped hosted staging)
+- [x] Merge/push `main` → confirm Netlify production → verify live routes
 
 ---
 

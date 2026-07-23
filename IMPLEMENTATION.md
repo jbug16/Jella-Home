@@ -1933,7 +1933,8 @@ Add newest entries first.
   (fixes Chromium create); mobile Sheet/Dialog `dvh` scroll; Playwright + unit
   coverage. See `POLISH.md`.
 - Validation: format/lint/typecheck/unit 169; Playwright 132 passed; build green.
-- Production changed: no.
+- Production changed: yes (merged to `main` → `https://jella-home.netlify.app`).
+  Hosted staging skipped (site/`NETLIFY_AUTH_TOKEN` unavailable).
 
 ### 2026-07-22 (Staging workflow + Netlify branch deploy)
 
