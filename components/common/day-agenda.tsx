@@ -6,7 +6,7 @@ type DayAgendaProps = {
   className?: string;
 };
 
-/** Week-at-a-glance list for phone layouts (meals, calendar). */
+/** Week-at-a-glance list for phone meal-planning layouts. */
 export function DayAgenda({ children, testId, className }: DayAgendaProps) {
   return (
     <div

@@ -122,7 +122,7 @@ control system inside Jella Home.
 ### User value
 
 Allow both household members to control lights from the same application used
-for budgeting, meals, shopping, and calendar planning.
+for budgeting, meals, and shopping.
 
 ### Possible V1
 
@@ -175,7 +175,6 @@ directly with each bulb.
 - schedules
 - automation shortcuts
 - Dashboard quick controls
-- Calendar-driven scenes
 - away mode
 - energy use where supported
 
@@ -268,47 +267,11 @@ Not currently planned
 
 ---
 
-## Calendar import/sync
-
-### Summary
-
-Import or sync external calendars (Google, iCloud, work) alongside native
-household events.
-
-### User value
-
-One place to see household plans plus external commitments without double entry.
-
-### Possible V1
-
-Read-only ICS URL subscription for one external calendar, merged into the
-Calendar day view as a separate source (similar to subscription renewals).
-
-### Later expansion
-
-Two-way sync, multiple calendars, and per-member visibility rules.
-
-### Dependencies
-
-Calendar source adapter pattern (see Milestone 10); OAuth or signed ICS URLs.
-
-### Risks or unknowns
-
-External sync is explicitly out of scope for Calendar V1 per ADR-020. Conflict
-resolution and timezone rules need design before write sync.
-
-### Status
-
-Not currently planned
-
----
-
 ## Notifications and reminders
 
 ### Summary
 
-Push or email reminders for bills, subscription renewals, meal prep, or calendar
-events.
+Push or email reminders for bills, subscription renewals, or meal prep.
 
 ### User value
 
@@ -316,13 +279,11 @@ Timely nudges without opening the app — especially for shared financial dates.
 
 ### Possible V1
 
-Browser notification opt-in for subscription renewals due within seven days
-(requires a real reminder source; Payment Reminders adapter is reserved in
-Calendar but has no V1 data source).
+Browser notification opt-in for subscription renewals due within seven days.
 
 ### Later expansion
 
-Email digests, SMS, and calendar-linked meal reminders.
+Email digests, SMS, and meal-planning reminders.
 
 ### Dependencies
 
@@ -426,7 +387,7 @@ the apartment.”
 ### Possible V1
 
 Simple task list with title, due date, recurrence, and done/archive state (may
-overlap with Calendar or Dashboard countdown patterns).
+overlap with Dashboard countdown patterns).
 
 ### Later expansion
 
@@ -435,13 +396,12 @@ or expenses.
 
 ### Dependencies
 
-Possibly reuses `calendar_events` patterns or a dedicated `maintenance_tasks`
-table.
+A dedicated `maintenance_tasks` table.
 
 ### Risks or unknowns
 
-Scope overlap with Calendar and Dashboard countdowns — consolidate UX before
-adding a fourth surface.
+Scope overlap with Dashboard countdowns — consolidate UX before adding another
+surface.
 
 ### Status
 

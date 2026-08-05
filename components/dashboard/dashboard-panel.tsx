@@ -1,12 +1,10 @@
 import Link from "next/link";
 
-import { CalendarDayView } from "@/components/calendar/day-view";
 import { BudgetExpenseChart } from "@/components/dashboard/budget-expense-chart";
 import { CountdownsCard } from "@/components/dashboard/countdowns-card";
 import { DashboardCardShell } from "@/components/dashboard/dashboard-card-shell";
 import { formatCents } from "@/lib/domain/budget";
 import type { DashboardViewModel } from "@/lib/domain/dashboard";
-import { CALENDAR_ENABLED } from "@/lib/features/calendar";
 import { cn } from "@/lib/utils";
 
 type DashboardPanelProps = {
@@ -168,36 +166,5 @@ function DashboardGrid({ viewModel }: DashboardPanelProps) {
 
 /** Presentational Dashboard — fills the desktop viewport without page scroll. */
 export function DashboardPanel({ viewModel }: DashboardPanelProps) {
-  if (!CALENDAR_ENABLED || !viewModel.today) {
-    return <DashboardGrid viewModel={viewModel} />;
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5 sidebar:overflow-hidden">
-      <div
-        className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 sidebar:grid-cols-2 sidebar:grid-rows-[auto_1fr] sidebar:items-start sidebar:gap-4 sidebar:overflow-hidden"
-        data-testid="dashboard-panel"
-      >
-        <BudgetCard
-          viewModel={viewModel}
-          className="order-1 sidebar:order-none sidebar:col-start-2 sidebar:row-start-1"
-        />
-        <div className="order-2 flex min-h-0 flex-col gap-2.5 self-start sidebar:order-none sidebar:col-start-1 sidebar:row-start-1 sidebar:gap-4 sidebar:overflow-hidden">
-          <TodaysMealsCard viewModel={viewModel} />
-          <CalendarDayView
-            day={viewModel.today}
-            heading="Today"
-            actionHref="/calendar"
-            actionLabel="Open calendar"
-            actionTestId="dashboard-cta-today"
-            compact
-            className="order-4 sidebar:order-none"
-          />
-        </div>
-        <div className="order-3 sidebar:order-none sidebar:col-start-2 sidebar:row-start-2">
-          <CountdownsCard countdowns={viewModel.countdowns} />
-        </div>
-      </div>
-    </div>
-  );
+  return <DashboardGrid viewModel={viewModel} />;
 }

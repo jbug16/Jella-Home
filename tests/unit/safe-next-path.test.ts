@@ -6,8 +6,8 @@ describe("safeNextPath", () => {
   it("allows internal paths and query strings", () => {
     expect(safeNextPath("/dashboard")).toBe("/dashboard");
     expect(safeNextPath("/budget?month=2026-07")).toBe("/budget?month=2026-07");
-    expect(safeNextPath("/calendar?view=week&day=2026-07-23")).toBe(
-      "/calendar?view=week&day=2026-07-23",
+    expect(safeNextPath("/meals?week=2026-07-19")).toBe(
+      "/meals?week=2026-07-19",
     );
   });
 

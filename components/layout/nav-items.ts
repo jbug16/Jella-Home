@@ -1,6 +1,5 @@
 import {
   BookOpen,
-  CalendarDays,
   CreditCard,
   LayoutDashboard,
   ShoppingCart,
@@ -8,8 +7,6 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-
-import { CALENDAR_ENABLED } from "@/lib/features/calendar";
 
 export type NavItem = {
   label: string;
@@ -30,7 +27,7 @@ export type NavItem = {
  * sidebar (desktop + iPad landscape) and the mobile navigation (phones +
  * iPad portrait) so the two modes never drift apart.
  */
-const allNavItems: NavItem[] = [
+export const navItems: NavItem[] = [
   {
     label: "Dashboard",
     shortLabel: "Home",
@@ -54,12 +51,7 @@ const allNavItems: NavItem[] = [
     icon: CreditCard,
     primary: false,
   },
-  { label: "Calendar", href: "/calendar", icon: CalendarDays, primary: false },
 ];
-
-export const navItems: NavItem[] = CALENDAR_ENABLED
-  ? allNavItems
-  : allNavItems.filter((item) => item.href !== "/calendar");
 
 export const primaryNavItems = navItems.filter((item) => item.primary);
 export const secondaryNavItems = navItems.filter((item) => !item.primary);

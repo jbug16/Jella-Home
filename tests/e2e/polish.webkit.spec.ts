@@ -17,6 +17,7 @@ test.describe("UI/UX polish (WebKit)", () => {
   test("dashboard and shopping warning cleanup", async ({ page }) => {
     await goToDashboard(page);
     await expect(page.getByTestId("card-meals")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Calendar" })).toHaveCount(0);
 
     await goToShopping(page);
     await expect(page.getByTestId("shopping-skipped-notice")).toHaveCount(0);

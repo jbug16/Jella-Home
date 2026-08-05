@@ -46,7 +46,6 @@ test.describe("dashboard home", () => {
     await goToDashboard(page);
 
     await expect(page.getByTestId("dashboard-panel")).toBeVisible();
-    await expect(page.getByTestId("calendar-day-view")).toHaveCount(0);
     await expect(page.getByTestId("card-meals")).toBeVisible();
     await expect(page.getByTestId("card-budget")).toBeVisible();
     await expect(page.getByTestId("card-countdowns")).toBeVisible();
@@ -129,6 +128,5 @@ test.describe("dashboard home", () => {
     await goToDashboard(page);
 
     await expect(page.getByTestId("card-budget")).not.toContainText("355.50");
-    await expect(page.getByTestId("calendar-day-view")).toHaveCount(0);
   });
 });

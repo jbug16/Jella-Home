@@ -25,7 +25,7 @@ function formString(formData: FormData, key: string): string {
 }
 
 function revalidateSubscriptions(): void {
-  revalidateModuleAndDashboard("/subscriptions", "/calendar");
+  revalidateModuleAndDashboard("/subscriptions");
 }
 
 function conflictOr(error: unknown, fallback: string): SubscriptionActionState {

@@ -1,10 +1,10 @@
 # Jella Home
 
-A private household web app for budgets, meals, shopping, recipes,
-subscriptions, and a shared calendar.
+A private household web app for budgets, meals, shopping, recipes, and
+subscriptions.
 
 **Current checkpoint:** V1 production cutover is complete. Dashboard, Budget,
-Meals, Shopping, Recipes, Subscriptions, and Calendar use Supabase Auth,
+Meals, Shopping, Recipes, and Subscriptions use Supabase Auth,
 Postgres/RLS, private recipe-image Storage, and a responsive app shell. Supabase
 is the sole source of truth; the legacy workbook was a one-time migration source
 only. See [`IMPLEMENTATION.md`](IMPLEMENTATION.md) for the decision log.

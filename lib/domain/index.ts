@@ -165,20 +165,11 @@ export {
   buildHouseholdCardViewModel,
   buildMealWeekCardViewModel,
   buildRecipesRecentCardViewModel,
-  buildTodayCalendarViewModel,
   buildTodayMealsViewModel,
   clampProgressPercent,
   resolveDashboardAsOf,
   type DashboardViewModel,
 } from "@/lib/domain/dashboard";
-
-export {
-  buildCalendarDayViewModel,
-  calendarDayHours,
-  formatCalendarHourLabel,
-  type CalendarDayEvent,
-  type CalendarDayViewModel,
-} from "@/lib/domain/calendar";
 
 export {
   CADENCE_MONTHS,

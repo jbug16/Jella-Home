@@ -11,7 +11,6 @@ The current workbook includes these functional areas:
 - Weekly shopping list
 - Monthly budget and transaction logging
 - Subscription tracking
-- Shared calendar entries
 
 This is not a public SaaS product. Optimize for two trusted users, ease of use, reliability, and low maintenance rather than multi-tenant complexity.
 
@@ -85,7 +84,8 @@ Use this separation:
 
 Schema, RLS, migrations, and import strategy are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-Use UUID primary keys for recipes, meals, expenses, subscriptions, ingredients, grocery items, and calendar entries. Do not identify records solely by display name.
+Use UUID primary keys for recipes, meals, expenses, subscriptions, ingredients,
+and grocery items. Do not identify records solely by display name.
 
 Treat writes as potentially concurrent. Read the current record before destructive updates when practical, and return clear conflicts rather than silently overwriting unexpected data.
 
@@ -100,7 +100,6 @@ Keep these domains separate in schema and repositories:
 - `shopping` / grocery: generated and manually added items, quantities, stores, checked state
 - `budget`: income, bills, expenses, savings, debt, categories, monthly summaries
 - `subscriptions`: vendor, category, cadence, cost, renewal date, status
-- `calendar`: household events that are not meal-plan entries
 
 Put calculations in domain utilities or repository functions and cover important calculations with tests. Do not reproduce legacy spreadsheet formulas in React components.
 
@@ -188,7 +187,6 @@ Recommended order:
 4. Shopping list
 5. Recipe management
 6. Subscription tracker
-7. Shared calendar
 
 Do not add native mobile code in version 1. A later mobile version should reuse domain schemas, validation, and server APIs where practical.
 

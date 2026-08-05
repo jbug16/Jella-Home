@@ -1,7 +1,5 @@
 import "server-only";
 
-import { getCalendarDayViewModel } from "@/lib/calendar/get-calendar-day-view-model";
-import { CALENDAR_ENABLED } from "@/lib/features/calendar";
 import {
   buildBudgetMonthSnapshot,
   currentMonthStart,
@@ -25,8 +23,7 @@ import { listRecipeCoverUrlsByIds } from "@/lib/repositories/recipes";
 
 /**
  * Compose the Dashboard home view model.
- * Today uses the shared calendar day composer (native events + visible
- * subscription renewals). Meals feed the Meal Planning card only.
+ * Meals, budget, and countdowns remain owned by their feature repositories.
  */
 export async function getDashboardViewModel(
   now = new Date(),
@@ -34,16 +31,13 @@ export async function getDashboardViewModel(
   const asOf = resolveDashboardAsOf(now);
   const monthStart = currentMonthStart(now);
 
-  const [weekMeals, categories, limits, transactions, countdownRows, today] =
+  const [weekMeals, categories, limits, transactions, countdownRows] =
     await Promise.all([
       listPlannedMealsForWeek(asOf.weekStart),
       listCategories(),
       listMonthLimits(monthStart),
       listTransactionsForMonth(monthStart),
       listCountdowns(),
-      CALENDAR_ENABLED
-        ? getCalendarDayViewModel({ dateIso: asOf.todayIso, now })
-        : Promise.resolve(undefined),
     ]);
 
   const todayRecipeIds = weekMeals
@@ -65,7 +59,6 @@ export async function getDashboardViewModel(
       weekStart: asOf.weekStart,
       monthStart,
     },
-    ...(today ? { today } : {}),
     countdowns: buildDashboardCountdownsViewModel({
       todayIso: asOf.todayIso,
       countdowns: countdownRows,

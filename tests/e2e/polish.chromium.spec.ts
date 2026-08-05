@@ -36,6 +36,7 @@ test.describe("UI/UX polish", () => {
       page.locator("header").filter({ hasText: "Jella's Home" }),
     ).toBeHidden();
     await expect(page.getByTestId("card-meals")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Calendar" })).toHaveCount(0);
   });
 
   test("mobile shell keeps page title header and bottom nav", async ({
@@ -92,12 +93,24 @@ test.describe("UI/UX polish", () => {
         height: width === 390 ? 844 : 780,
       });
       await goToDashboard(page);
+      const primaryNav = page.getByRole("navigation", { name: "Primary" });
+      await expect(primaryNav).toBeVisible();
+      await expect(
+        primaryNav.getByRole("link", { name: "Calendar" }),
+      ).toHaveCount(0);
       await assertNoHorizontalOverflow(page);
       await goToBudget(page);
       await assertNoHorizontalOverflow(page);
       await goToShopping(page);
       await assertNoHorizontalOverflow(page);
     }
+  });
+
+  test("removed calendar route returns the standard 404", async ({ page }) => {
+    const response = await page.goto("/calendar");
+    expect(response?.status()).toBe(404);
+    await expect(page).toHaveURL(/\/calendar$/);
+    await expect(page.getByText("This page could not be found.")).toBeVisible();
   });
 
   test("short viewport keeps form actions reachable", async ({ page }) => {

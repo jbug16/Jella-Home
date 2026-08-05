@@ -12,7 +12,7 @@ type PeriodPanelHeaderProps = {
 };
 
 /**
- * Standard top row for budget, meals, shopping, and calendar:
+ * Standard top row for budget, meals, and shopping:
  * period navigator on the left, icon action(s) on the right — one row on all widths.
  */
 export function PeriodPanelHeader({

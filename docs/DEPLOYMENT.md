@@ -236,8 +236,6 @@ A green Netlify status is not enough. After deploy, confirm:
 5. Static assets load; no obvious runtime exceptions.
 6. Changed routes for the task work (server actions + Supabase queries).
 7. Responsive checks at 320, 360, 390, tablet portrait/landscape, and desktop.
-8. When Calendar changed: `/calendar`, Week, Month, create/edit/delete, mobile
-   selected-day, Dashboard Today, subscription-derived entries.
 
 Optional automated probe (expects a reachable URL; does not bypass auth):
 

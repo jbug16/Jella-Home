@@ -30,8 +30,6 @@ Companion docs:
 - Multi-tenant SaaS features (billing, arbitrary household invites, orgs)
 - Dashboard charts, analytics, favorites, notifications, AI recommendations,
   weather, pantry, bank sync, or live updates (summaries + deep-links only)
-- External calendar sync, invitations, day/agenda/year views, or hourly grids
-  (Calendar Milestone 10 is Week/Month household events only — see ADR-020)
 - Native mobile clients
 - Public self-serve sign-up
 
@@ -432,41 +430,11 @@ Per-row Delete confirms and soft-archives; no restore UI.
 (month-end / leap via `billing_day`), `subscriptionDueStatus` (domain/tests;
 not surfaced in the list UI).
 
-### Shared calendar (Milestone 10 — planned)
+### Calendar removal
 
-Household calendar events follow the same `household_id` + RLS membership
-pattern as other domains. Native events live in `calendar_events` (series rows;
-hard delete; **no** `created_by`). The Calendar page composes:
-
-1. **Native household events** — created/edited in Calendar; whole-series
-   recurrence only (`none` / `daily` / `weekly` / `every_two_weeks` / `monthly` /
-   `yearly`).
-2. **Subscription renewals** — derived at read time from active subscriptions’
-   `renewal_on`, expanded across the visible week/month range with existing
-   cadence + `billing_day` clamping; deep-linked to `/subscriptions`; **never**
-   inserted into `calendar_events`.
-3. **Payment reminders** — architecturally reserved (`payment_reminders` source
-   key + empty adapter). Budget V1 has **no** reliable future due-date source
-   (transactions are historical; month limits have no due dates). Do not invent
-   Budget recurrence or treat ledger rows as reminders. The Payment Reminders
-   toggle is **omitted from the V1 UI** until a real source exists; keeping the
-   key/adapter avoids a Calendar restructure later.
-
-**Timed/all-day rules:** all-day uses inclusive `end_on` and null times. Timed
-events require both times; same-day requires `end_at > start_at`; overnight and
-multi-day timed events (`end_on > start_on`) allow any `end_at` relative to
-`start_at`.
-
-**Preferences:** per-user `calendar_source_preferences` for the three source
-keys. V1 UI exposes Household events + Subscription renewals only.
-
-**Views:** Week \| Month Master–Detail (Concept A). Sunday week start via
-`weekStartOn`. Mobile Month: selected-day list below the grid (not a Sheet).
-Dashboard Today uses `get-calendar-day-view-model` for the current local date
-(same composer as Calendar selected-day). Tests inject reference dates — no
-production Dashboard `?asOf=` override.
-
-See `IMPLEMENTATION.md` Milestone 10 and ADR-020.
+Calendar was intentionally removed from V1 because the household uses another
+calendar solution. No Calendar data was retained. Subscription recurrence and
+payment tracking remain within Subscriptions and Budget respectively.
 
 ## Authorization model
 
@@ -604,14 +572,11 @@ Rules:
 
 ### Dashboard home (composition)
 
-`/dashboard` is the authenticated landing page. It surfaces a household calendar
-day agenda (events only — never meals), today's planned meals (with recipe
-covers when linked), and the current-month budget summary. It owns **no new
-tables** — only a server-only composer and pure view-model builders over
-existing repositories. When Calendar ships, Today calls the shared
-`get-calendar-day-view-model` for the current local date (native events +
-visible subscription renewals). Until then the day agenda is empty. See
-`IMPLEMENTATION.md` Milestone 8 / ADR-018 and Milestone 10 / ADR-020.
+`/dashboard` is the authenticated landing page. It surfaces today's planned
+meals (with recipe covers when linked), the current-month budget summary, and
+household countdowns. It owns **no new tables** — only a server-only composer
+and pure view-model builders over existing repositories. See
+`IMPLEMENTATION.md` Milestone 8 / ADR-018.
 
 ## Migrations, seeds, and TypeScript types
 

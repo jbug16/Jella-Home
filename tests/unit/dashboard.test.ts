@@ -7,7 +7,6 @@ import {
   buildHouseholdCardViewModel,
   buildMealWeekCardViewModel,
   buildRecipesRecentCardViewModel,
-  buildTodayCalendarViewModel,
   buildTodayMealsViewModel,
   clampProgressPercent,
   resolveDashboardAsOf,
@@ -100,31 +99,6 @@ describe("clampProgressPercent", () => {
     expect(clampProgressPercent(100)).toBe(100);
     expect(clampProgressPercent(250)).toBe(100);
     expect(clampProgressPercent(Number.NaN)).toBe(0);
-  });
-});
-
-describe("buildTodayCalendarViewModel", () => {
-  it("builds a calendar day without meals", () => {
-    const today = buildTodayCalendarViewModel({
-      todayIso: "2026-07-15",
-      events: [
-        {
-          id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-          title: "Dentist",
-          startHour: 10,
-          endHour: 11,
-          allDay: false,
-        },
-      ],
-    });
-    expect(today.dayOfMonth).toBe(15);
-    expect(today.events).toHaveLength(1);
-    expect(today.events[0]?.title).toBe("Dentist");
-  });
-
-  it("defaults to an empty event list", () => {
-    const today = buildTodayCalendarViewModel({ todayIso: "2026-07-15" });
-    expect(today.events).toEqual([]);
   });
 });
 

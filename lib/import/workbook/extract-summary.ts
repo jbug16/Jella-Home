@@ -12,7 +12,7 @@ const STATIC_ASSUMPTIONS = [
   "billing_day defaults to 1 when the workbook leaves it blank.",
   "Budget limits come from Monthly Budget line trackers for the month shown in D9/D10 only (not a full history).",
   "Log transactions require date, kind, subcategory, and positive amount on the same row.",
-  "Shopping list, meal plans, and calendar sheets are out of scope for this migration.",
+  "Shopping-list and meal-plan sheets are out of scope for this migration.",
 ] as const;
 
 function duplicateResolutionsFromWarnings(warnings: string[]): string[] {

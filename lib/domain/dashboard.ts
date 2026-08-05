@@ -4,11 +4,6 @@ import {
   type BudgetCategoryKind,
   type BudgetMonthSnapshot,
 } from "@/lib/domain/budget";
-import {
-  buildCalendarDayViewModel,
-  type CalendarDayEvent,
-  type CalendarDayViewModel,
-} from "@/lib/domain/calendar";
 import { todayIsoDate } from "@/lib/domain/dates";
 import {
   buildCountdownsCardViewModel,
@@ -99,8 +94,6 @@ export type DashboardViewModel = {
     weekStart: string;
     monthStart: string;
   };
-  /** Household calendar day (events only — never meals). Omitted when calendar is disabled. */
-  today?: CalendarDayViewModel;
   /** Upcoming fun things to count down to. */
   countdowns: CountdownsCardViewModel;
   /** Meals planned to eat today (Meal Planning card). */
@@ -169,17 +162,6 @@ export function buildTodayMealsViewModel(args: {
     .slice()
     .sort(comparePlannedMeals)
     .map((meal) => toMealSummary(meal, imageLookup(meal.recipeId)));
-}
-
-/** Calendar day for the Dashboard Today panel (events only). */
-export function buildTodayCalendarViewModel(args: {
-  todayIso: string;
-  events?: CalendarDayEvent[];
-}): CalendarDayViewModel {
-  return buildCalendarDayViewModel({
-    dateIso: args.todayIso,
-    events: args.events ?? [],
-  });
 }
 
 export function buildGroceryCardViewModel(args: {

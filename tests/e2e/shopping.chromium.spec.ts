@@ -47,8 +47,13 @@ test.describe("shopping list flows", () => {
     await expect(page.getByTestId("meals-panel")).toBeVisible();
     await page.getByTestId("open-add-meal").click();
     await page.getByTestId("meal-days-reset").click();
-    await page.getByTestId(`meal-day-${planDate}`).click();
+    const planDateButton = page.getByTestId(`meal-day-${planDate}`);
+    if ((await planDateButton.getAttribute("aria-pressed")) !== "true") {
+      await planDateButton.click();
+    }
+    await expect(planDateButton).toHaveAttribute("aria-pressed", "true");
     await pickFixtureRecipe(page);
+    await expect(page.getByTestId("meal-form-submit")).toBeEnabled();
     await page.getByTestId("meal-form-submit").click();
     await expect(
       page.locator('[data-testid^="meal-chip-"]').first(),
