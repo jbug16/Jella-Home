@@ -1,7 +1,8 @@
 /**
- * Local / hosted demo helpers for Dashboard UI testing.
+ * Local-only demo helpers for Dashboard UI testing.
  *
- * Prefers local Supabase (`supabase status`). Falls back to `.env.local`.
+ * Refuses any non-loopback Supabase URL so fixture data can never be written to
+ * staging or production.
  *
  *   npx tsx scripts/prepare-dashboard-demo.ts           # image + today's meal
  *   npx tsx scripts/prepare-dashboard-demo.ts --image   # fixture recipe image only
@@ -12,7 +13,6 @@ import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import type { Database } from "../lib/supabase/database.types";
-import { loadEnvLocal } from "./lib/load-env-local";
 
 const HOUSEHOLD_A = "11111111-1111-4111-8111-111111111111";
 const RECIPE_SPAGHETTI = "66666666-6666-4666-8666-666666666666";
@@ -27,10 +27,7 @@ function readLocalSupabaseEnv(): {
   const result = spawnSync("npx", ["supabase", "status", "-o", "env"], {
     encoding: "utf8",
     shell: process.platform === "win32",
-    env: {
-      ...process.env,
-      HOME: process.env.HOME,
-    },
+    env: process.env,
   });
 
   if (result.status !== 0) {
@@ -62,16 +59,13 @@ function readLocalSupabaseEnv(): {
   return { url, secret };
 }
 
-function readEnvLocalSupabase(): { url: string; secret: string } {
-  loadEnvLocal();
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const secret = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !secret) {
+function assertLocalSupabaseUrl(url: string): void {
+  const hostname = new URL(url).hostname;
+  if (hostname !== "127.0.0.1" && hostname !== "localhost") {
     throw new Error(
-      "No local Supabase and .env.local is missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SECRET_KEY.",
+      "Dashboard demo preparation is restricted to local Supabase.",
     );
   }
-  return { url, secret };
 }
 
 function todayIsoLocal(): string {
@@ -116,7 +110,7 @@ async function resolveFixtureRecipe(supabase: AdminClient): Promise<{
     };
   }
 
-  // Hosted/dev: use the first active recipe with an image opportunity.
+  // Local development fallback: use the first active recipe with an image opportunity.
   const anyRecipe = await supabase
     .from("recipes")
     .select("id, household_id, name")
@@ -211,10 +205,13 @@ async function resetTodaysDemoMeal(
 async function main() {
   const imageOnly = process.argv.includes("--image");
   const local = readLocalSupabaseEnv();
-  const { url, secret } = local ?? readEnvLocalSupabase();
   if (!local) {
-    console.log("Local Supabase unavailable — using .env.local");
+    throw new Error(
+      "Local Supabase is unavailable. Start it before preparing dashboard fixtures.",
+    );
   }
+  const { url, secret } = local;
+  assertLocalSupabaseUrl(url);
 
   const supabase = createClient<Database>(url, secret, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -232,9 +229,9 @@ async function main() {
   console.log(`Cover image attached for “${recipeTitle}”.`);
 
   if (!imageOnly) {
-    if (householdId !== HOUSEHOLD_A && !process.argv.includes("--force")) {
+    if (householdId !== HOUSEHOLD_A) {
       console.log(
-        "Skipping meal reset (non-fixture household). Pass --force to replace today's meals.",
+        "Skipping meal reset because the selected local household is not the fixture household.",
       );
     } else {
       const today = await resetTodaysDemoMeal(
@@ -247,11 +244,7 @@ async function main() {
     }
   }
 
-  if (householdId === HOUSEHOLD_A) {
-    console.log("Sign in: member-a@example.test / local-dev-password");
-  } else {
-    console.log("Sign in with your household account from .env.local / Auth.");
-  }
+  console.log("Use a local seeded test account to sign in.");
   console.log("Open: http://localhost:3000/dashboard");
 }
 

@@ -101,7 +101,7 @@ Category-first drill-down — better for envelope planning, weaker for “log th
 | Calendar events SQL    | `start_on <= end` only              | Unchanged — PostgREST lower-bound attempt dropped valid rows; deferred |
 | Shopping page          | Extra meals fetch for warning count | Removed (warning UI gone)                                              |
 
-**Files changed (high level):** `lib/repositories/households.ts`, `lib/supabase/server.ts`, `lib/dashboard/get-dashboard-view-model.ts`, `lib/repositories/recipes.ts`, `lib/repositories/calendar-events.ts`, `components/layout/app-header.tsx`, `components/ui/icon-button.tsx`, `components/budget/*`, `components/calendar/*`, `components/shopping/*`, `components/budget/responsive-form-shell.tsx`, e2e/unit tests, `POLISH.md`.
+**Files changed (high level):** `lib/repositories/households.ts`, `lib/supabase/server.ts`, `lib/dashboard/get-dashboard-view-model.ts`, `lib/repositories/recipes.ts`, `lib/repositories/calendar-events.ts`, `components/layout/app-header.tsx`, `components/ui/icon-button.tsx`, `components/budget/*`, `components/calendar/*`, `components/shopping/*`, `components/budget/responsive-form-shell.tsx`, e2e/unit tests, this file (archived as `docs/archive/POLISH.md`).
 
 **Remaining bottlenecks:** Large client panels; full recipe catalogs on Meals; first-visit query-param redirects.
 

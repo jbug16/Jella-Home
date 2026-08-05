@@ -29,7 +29,10 @@ async function deleteTransaction(page: Page, row: ReturnType<Page["locator"]>) {
   const rowTestId = await row.getAttribute("data-testid");
   const transactionId = rowTestId?.replace("transaction-row-", "");
   await openEditTransaction(page, row);
-  await page.getByTestId(`delete-transaction-${transactionId}`).click();
+  await page
+    .getByTestId(`delete-transaction-${transactionId}`)
+    .filter({ visible: true })
+    .click();
 }
 
 test.describe("budget flows", () => {
@@ -44,10 +47,10 @@ test.describe("budget flows", () => {
     await expect(page.getByTestId("summary-actual")).toHaveText("$294.50");
     await expect(page.getByTestId("summary-remaining")).toHaveText("$355.50");
     await expect(page.getByTestId("budget-summary")).toBeVisible();
-    await expect(
-      page.getByTestId("category-row-expense-Food"),
-    ).toBeVisible();
+    await expect(page.getByTestId("category-row-expense-Food")).toBeVisible();
+    await page.getByRole("tab", { name: "Transactions" }).click();
     await expect(page.getByTestId("transactions-list")).toBeVisible();
+    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByText("By type")).toHaveCount(0);
   });
 
@@ -60,6 +63,7 @@ test.describe("budget flows", () => {
     await page.getByLabel("Amount").fill("8.25");
     await page.getByLabel("Payee (optional)").fill(payee);
     await page.getByTestId("add-transaction-submit").click();
+    await page.getByRole("tab", { name: "Transactions" }).click();
 
     const createdRow = page
       .locator('[data-testid^="transaction-row-"]')
@@ -67,8 +71,10 @@ test.describe("budget flows", () => {
         hasText: payee,
       });
     await expect(createdRow).toBeVisible();
+    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByTestId("summary-actual")).toHaveText("$302.75");
 
+    await page.getByRole("tab", { name: "Transactions" }).click();
     await openEditTransaction(page, createdRow);
     await page.getByLabel("Amount").fill("9.00");
     await page.getByLabel("Payee (optional)").fill(`${payee} Updated`);
@@ -80,8 +86,10 @@ test.describe("budget flows", () => {
         hasText: `${payee} Updated`,
       });
     await expect(updatedRow).toBeVisible();
+    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByTestId("summary-actual")).toHaveText("$303.50");
 
+    await page.getByRole("tab", { name: "Transactions" }).click();
     await deleteTransaction(page, updatedRow);
     await page.getByTestId("confirm-delete-transaction").click();
 
@@ -90,6 +98,7 @@ test.describe("budget flows", () => {
         hasText: `${payee} Updated`,
       }),
     ).toHaveCount(0);
+    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByTestId("summary-actual")).toHaveText("$294.50");
   });
 

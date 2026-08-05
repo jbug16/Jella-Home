@@ -5,8 +5,11 @@ import { resolve } from "node:path";
  * Load KEY=VALUE pairs from `.env.local` into `process.env` when unset.
  * Does not override variables already present in the environment.
  */
-export function loadEnvLocal(cwd = process.cwd()): void {
-  const path = resolve(cwd, ".env.local");
+export function loadEnvLocal(
+  cwd = process.cwd(),
+  fileName = ".env.local",
+): void {
+  const path = resolve(cwd, fileName);
   if (!existsSync(path)) {
     return;
   }

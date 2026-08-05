@@ -3,16 +3,23 @@
 A private household web app for budgets, meals, shopping, recipes,
 subscriptions, and a shared calendar.
 
-**Current checkpoint:** V1 household features are implemented — Dashboard,
-Budget, Meals, Shopping, Recipes, Subscriptions, and Calendar — with Supabase
-Auth, Postgres RLS, and a responsive app shell. See
-[`IMPLEMENTATION.md`](IMPLEMENTATION.md) for the work log and remaining polish.
+**Current checkpoint:** V1 production cutover is complete. Dashboard, Budget,
+Meals, Shopping, Recipes, Subscriptions, and Calendar use Supabase Auth,
+Postgres/RLS, private recipe-image Storage, and a responsive app shell. Supabase
+is the sole source of truth; the legacy workbook was a one-time migration source
+only. See [`IMPLEMENTATION.md`](IMPLEMENTATION.md) for the decision log.
 
-- Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md)
-- Hosted runbook: [`docs/HOSTED_SUPABASE.md`](docs/HOSTED_SUPABASE.md)
-- Deployment / staging: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
-- Agent staging rule: [`CURSOR.md`](CURSOR.md)
-- Roadmap / decisions: [`IMPLEMENTATION.md`](IMPLEMENTATION.md)
+## Documentation
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — schema, RLS, repositories, and stack
+- [`IMPLEMENTATION.md`](IMPLEMENTATION.md) — roadmap, milestones, and work log
+- [`AGENTS.md`](AGENTS.md) — product rules and agent conventions
+- [`ROLES.md`](ROLES.md) — specialist role boundaries
+- [`docs/FUTURE_FEATURES.md`](docs/FUTURE_FEATURES.md) — idea backlog (not a roadmap)
+- [`docs/archive/`](docs/archive/) — completed planning and review notes
+
+Additional runbooks: [`docs/HOSTED_SUPABASE.md`](docs/HOSTED_SUPABASE.md),
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), [`CURSOR.md`](CURSOR.md) (staging deploy rule).
 
 ## Tech stack
 
@@ -69,12 +76,8 @@ npm run dev
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000). You should be redirected to
 `/sign-in`.
 
-Local seed users (fake only, from `supabase/seed.sql`):
-
-| Email                   | Password             |
-| ----------------------- | -------------------- |
-| `member-a@example.test` | `local-dev-password` |
-| `member-b@example.test` | `local-dev-password` |
+Local seed users are fake test identities defined in `supabase/seed.sql`.
+Do not reuse local test credentials in any hosted environment.
 
 Public sign-up is disabled. There is no sign-up page. Local analytics is off in
 `supabase/config.toml` for Colima compatibility.
@@ -136,7 +139,7 @@ supabase/
 scripts/                  # provision, e2e local runner, hosted verification
 docs/HOSTED_SUPABASE.md
 docs/DEPLOYMENT.md        # local / staging / production hosting
-docs/WORKBOOK_MAPPING.md  # legacy XLSX → schema (import deferred)
+docs/WORKBOOK_MAPPING.md  # completed legacy XLSX → schema migration record
 ```
 
 ## Security notes

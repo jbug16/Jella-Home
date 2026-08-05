@@ -14,13 +14,14 @@ Companion docs:
 - [`ROLES.md`](ROLES.md) — agent role boundaries
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — local / staging / production hosting
 - [`docs/WORKBOOK_MAPPING.md`](docs/WORKBOOK_MAPPING.md) — legacy XLSX → schema mapping
+- [`docs/FUTURE_FEATURES.md`](docs/FUTURE_FEATURES.md) — idea backlog (not a roadmap)
 
 ## Goals
 
 1. Persist household data in a normalized Postgres schema owned by the app.
 2. Authorize every row through household membership (Supabase RLS + server checks).
 3. Keep UI code free of direct database queries.
-4. Support a later one-time import from the existing XLSX workbook.
+4. Preserve the completed one-time XLSX migration as historical provenance only.
 5. Stay simple: two trusted users, one household, low maintenance.
 
 ## Non-goals (current phase)
@@ -36,16 +37,16 @@ Companion docs:
 
 ## High-level stack
 
-| Layer         | Choice                                                              |
-| ------------- | ------------------------------------------------------------------- |
-| UI            | Next.js App Router, React Server Components, Tailwind, shadcn/ui    |
-| Auth          | Supabase Auth — one shared household email/password; no sign-up     |
-| Database      | Supabase Postgres (local; dedicated staging; hosted production)     |
-| Authorization | Household membership + Postgres Row Level Security                  |
-| Validation    | Zod (domain + server action inputs)                                 |
-| Data access   | Server-only repositories using the cookie-backed SSR client         |
-| Hosting       | Netlify (`main` → production; `staging` → branch deploy)            |
-| Legacy import | One-time script reading XLSX from `private-data/` (later milestone) |
+| Layer         | Choice                                                           |
+| ------------- | ---------------------------------------------------------------- |
+| UI            | Next.js App Router, React Server Components, Tailwind, shadcn/ui |
+| Auth          | Supabase Auth — one shared household email/password; no sign-up  |
+| Database      | Supabase Postgres (local; dedicated staging; hosted production)  |
+| Authorization | Household membership + Postgres Row Level Security               |
+| Validation    | Zod (domain + server action inputs)                              |
+| Data access   | Server-only repositories using the cookie-backed SSR client      |
+| Hosting       | Netlify (`main` → production; `staging` → branch deploy)         |
+| Legacy import | Completed one-time migration; no runtime spreadsheet access      |
 
 ```
 Browser
@@ -477,8 +478,7 @@ See `IMPLEMENTATION.md` Milestone 10 and ADR-020.
 3. **Normal repositories use the authenticated cookie-backed SSR client** so
    RLS stays enforced. The secret/admin client is **not** the default.
 4. The secret key client may be used only in explicit server-only provisioning
-   or administrative code (e.g. `scripts/provision-household.ts`, one-time
-   import later).
+   or administrative code (e.g. `scripts/provision-household.ts`).
 5. Public registration is disabled. There is no sign-up page. Auth users are
    created manually in the dashboard or via the provisioning script.
 6. Committed migrations define schema only. Local seeds use **fake** users and
@@ -668,13 +668,16 @@ log analytics are needed locally.
 7. Netlify env uses publishable + secret key names (secret server-only).
 8. Site URL / redirect allowlist includes local and production origins.
 
-## One-time workbook import (later)
+## Completed one-time workbook migration
 
-Not part of Milestone 2. Deferred to its own milestone after repositories for
-the imported domains exist.
+The V1 cutover imported 42 ingredients, 12 recipes, and 61 recipe-ingredient
+rows, then recovered 12 mapped recipe photos into the private `recipe-images`
+bucket. Supabase is now the sole source of truth. The application has no runtime
+XLSX access, spreadsheet synchronization, or dual-write path.
 
-Constraints: service-role/secret key only, XLSX under `private-data/`, no
-bidirectional sync, no real workbook in git.
+The single-use production loader was removed after verification. Read-only
+mapping/extraction code remains for auditability; the workbook and normalized
+extracts stay under gitignored `private-data/` and are never committed.
 
 ## Security notes
 

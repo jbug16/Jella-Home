@@ -90,7 +90,7 @@ function TodaysMealsCard({ viewModel }: DashboardPanelProps) {
       {todayMeals.length > 0 ? (
         <ul className="flex flex-col gap-1" data-testid="dashboard-today-meals">
           {todayMeals.map((meal) => (
-            <li key={meal.id} className="relative z-20">
+            <li key={meal.id}>
               <Link
                 href={mealHref(meal, asOf.weekStart)}
                 className="flex min-h-11 items-center gap-2.5 rounded-lg p-1 pr-2 transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-14 sm:gap-3 sm:p-1.5 sm:pr-3"

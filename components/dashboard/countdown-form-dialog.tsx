@@ -105,12 +105,6 @@ function CountdownForm({
     }
   }, [state.success, onClose, router]);
 
-  useEffect(() => {
-    if (countdown) {
-      setColor(countdown.color);
-    }
-  }, [countdown]);
-
   const defaultTarget = countdown?.targetOn ?? todayIso;
 
   return (
@@ -224,6 +218,7 @@ export function CountdownFormDialog({
     >
       {open ? (
         <CountdownForm
+          key={countdown?.id ?? "new"}
           todayIso={todayIso}
           countdown={countdown}
           onClose={() => onOpenChange(false)}

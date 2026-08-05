@@ -51,20 +51,23 @@ export function DashboardCardShell({
       data-testid={id}
       aria-labelledby={titleId}
     >
-      {href ? (
-        <Link
-          href={href}
-          className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          aria-label={linkLabel ?? `Open ${title}`}
-          data-testid={linkTestId}
-        />
-      ) : null}
-      <CardHeader className="relative z-10 grid-cols-1 items-center gap-y-0 px-3 pb-0 sm:px-5">
+      <CardHeader className="relative z-20 grid-cols-1 items-center gap-y-0 px-3 pb-0 sm:px-5">
         <h2
           id={titleId}
           className="text-sm leading-none font-semibold tracking-tight sm:text-base"
         >
-          {title}
+          {href ? (
+            <Link
+              href={href}
+              className="inline-flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label={linkLabel ?? `Open ${title}`}
+              data-testid={linkTestId}
+            >
+              {title}
+            </Link>
+          ) : (
+            title
+          )}
         </h2>
         {description ? (
           <CardDescription className="mt-1">{description}</CardDescription>

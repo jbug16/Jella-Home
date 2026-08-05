@@ -11,12 +11,17 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** 11 — UI/UX polish  
-**Status:** Complete (2026-07-23)  
-**Owner:** Lead Engineer  
-**Goal:** Focused performance and UX polish — no new product features. See
-[`POLISH.md`](POLISH.md) for the checklist, Budget proposals, and performance
-notes.
+**Milestone:** V1 production cutover
+**Status:** Complete (2026-08-05)
+**Owner:** Lead Engineer
+**Goal:** Retain one shared production login and one household; finalize the
+one-time recipe/ingredient migration, recover recipe photos, and establish
+Supabase as the sole application source of truth. See
+[Milestone 3](#3-one-time-workbook-import) and
+[`docs/WORKBOOK_MAPPING.md`](docs/WORKBOOK_MAPPING.md).
+
+Previous: Milestone 11 (UI/UX polish) **Complete** (2026-07-23) — archived
+checklist and performance notes in [`docs/archive/POLISH.md`](docs/archive/POLISH.md).
 
 Previous: Milestone 10 (Shared calendar) **Complete** (2026-07-20; remodeled
 2026-08-02 to meals-style week day-list with color-coded calendar toggles) —
@@ -30,6 +35,24 @@ Previous: Milestone 9 (Subscriptions) **shipped** 2026-07-20 (local `verify` +
 Previous: Milestone 8 (Dashboard home) **approved** and shipped 2026-07-20
 (local `verify` + `test:db` ×2; no new migrations). Dashboard:
 [Milestone 8](#8-dashboard-home) / ADR-018.
+
+### Deferred follow-ups
+
+Items preserved from archived reviews — not blocking current milestone work:
+
+- **Performance:** Meals and Recipes still ship full recipe catalogs (with signed
+  cover URLs) into client panels; Dashboard already scopes images to today's meals.
+  See [`docs/FUTURE_FEATURES.md`](docs/FUTURE_FEATURES.md) (Performance entry).
+- **Calendar SQL:** PostgREST lower-bound filter on event date range was deferred
+  after it dropped valid rows; revisit with a tested query shape.
+- **QA / a11y (low priority):** Automated touch-target assertions at 360/390px,
+  iPad landscape projects on both sides of the 1120px nav breakpoint, keyboard-only
+  dialog flows, and route-level accessibility scans (from
+  [`docs/archive/REVIEW.md`](docs/archive/REVIEW.md)).
+- **Schema alignment:** Align `transactions.amount_cents` DB constraint with the
+  domain schema (positive-only at write boundary).
+- **Staging infrastructure:** Dedicated staging Supabase project and Netlify CD
+  secrets — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ### Pre-work completed
 
@@ -238,23 +261,45 @@ npm run supabase:start && npm run supabase:reset && npm run test:db
 npm run supabase:advisors   # requires supabase link
 ```
 
-### 3. One-time workbook import (deferred)
+### 3. One-time workbook import
 
-**Status:** Not started
+**Status:** Complete (production load verified 2026-08-05)
 
 Scope:
 
 - Read-only parse of the legacy XLSX under `private-data/`
 - Map tabs into Postgres domain tables for one household
-- Idempotent or clear-and-reload import with service role
+- Single-use administrative load with explicit production confirmation
 - Validation/spot-check of counts and totals
-- Explicit documentation of workbook → schema mapping
+- Explicit documentation of workbook → schema mapping (`docs/WORKBOOK_MAPPING.md`)
+
+Implemented (2026-08-05):
+
+- Refreshed workbook discovery (12 sheets; recipes, ingredients, subscriptions in scope)
+- `lib/import/workbook/` pipeline: parse → normalize → validate → map → preview → write → verify
+- Normalized private extract plus a guarded single-use production loader
+- Unit tests under `tests/import/`
+- Loaded targets: `ingredients`, `recipes`, `recipe_ingredients`, and private recipe images
+- Reviewed but not loaded: subscriptions (final approved extract was empty)
+- Out of scope: budget (sparse export), meal calendar, weekly shopping checklist state, calendar
+
+Cutover result:
+
+- [x] Provisioned and verified the shared production login without committing credentials
+- [x] Ran a conflict-free production preflight against the empty target household
+- [x] Loaded and verified 42 ingredients, 12 recipes, and 61 recipe-ingredient rows
+- [x] Recovered and verified 12 recipe photos in private Supabase Storage
+- [x] Confirmed the household owner can authenticate and read the exact imported counts through RLS
+- [x] Retained one shared production login, household, and membership
+- [x] Removed one-time production loader/runbook tooling after success
+- [x] Confirmed Supabase is the sole application source of truth; no spreadsheet sync exists
+- [ ] Optional: budget import after a fresh Sheets re-export
 
 Out of scope:
 
 - Live Google Sheets API sync
 - Dual-write back to the spreadsheet
-- Blocking product verticals (budget/meals may proceed on empty/seed data before import)
+- Runtime spreadsheet access from the Next.js app
 
 ### 4. Budget vertical slice
 
@@ -1929,6 +1974,69 @@ Add only questions that materially block or influence implementation.
 
 Add newest entries first.
 
+### 2026-08-05 (V1 production cutover complete)
+
+- Work completed: Retained one shared production login, one household, and one
+  membership; removed obsolete hosted validation identities and a redundant
+  household only after proving its migrated recipe dataset was identical and it
+  contained no unique household activity. Recovered 12 high-confidence workbook
+  recipe photos into the existing private Storage architecture, attached one
+  unique object path per recipe, removed one confirmed unreferenced object, and
+  excluded all four decorative workbook charts. Hardened local demo tooling so it
+  cannot target hosted Supabase, sanitized public project identifiers and test
+  credential documentation, and expanded private-artifact ignore rules.
+- Production data verified: 42 ingredients, 12 active recipes, 61
+  recipe-ingredient rows, 12 image paths, 12 referenced Storage objects, one Auth
+  user, one household, and one membership. Supabase is the sole source of truth;
+  no workbook synchronization or runtime workbook access exists.
+- Security verified: Public sign-up remains disabled; anonymous database and
+  recipe-image reads are denied; the recipe-image bucket remains private;
+  authenticated signed access succeeds for all 12 photos. Current-tree and full
+  Git-history scans found no real secret or tracked private artifact. The secret
+  key remains server-only and no admin client is imported by browser code.
+- Migration tooling: The single-use production loader and runbook were removed
+  after success. Read-only extraction/mapping code remains for auditability and
+  tests; private workbook and extract files remain gitignored.
+- Remaining issues: Supabase reports leaked-password protection unavailable or
+  disabled at the project level; public sign-up and RLS protections are active.
+
+### 2026-08-05 (Milestone 3 — workbook import foundation)
+
+- Work completed: Refreshed read-only workbook discovery (12 sheets; recipes,
+  ingredients, subscriptions in scope; budget still sparse). Rewrote
+  `docs/WORKBOOK_MAPPING.md`. Added administrative import pipeline
+  `lib/import/workbook/` (parse → normalize → validate → map → preview → write →
+  verify) plus administrative dry-run/write tooling that was later removed after
+  cutover. Added `exceljs` devDependency and `tests/import/` unit tests.
+- Validation performed: Real workbook parse (42 ingredients, 12 recipes, 4
+  subscriptions; validation OK). Unit tests 6/6; `npm run typecheck` green.
+  No Supabase writes (per instruction).
+- Decisions made: Import recipes/ingredients/subscriptions only; skip budget,
+  meal calendar, weekly shopping checklist; use `save_recipe_with_ingredients`
+  RPC for recipe writes; dry-run falls back to empty household snapshot when DB
+  unreachable.
+- Remaining issues at that checkpoint: 5 recipes in workbook had no ingredient
+  lines (skipped); subscriptions lacked `renewal_on`; hosted import had not run.
+- Next recommended task at that checkpoint: guarded hosted preflight and import.
+
+### 2026-08-05 (Milestone 3 — production cutover)
+
+- Work completed: Configured the gitignored shared household login, ran the
+  production preflight against an empty household, and loaded the reviewed final
+  extract. Removed the single-use production loader and runbook after success.
+- Validation performed: Loader post-write verification returned exactly 42
+  ingredients, 12 active recipes, and 61 recipe-ingredient rows. A separate
+  publishable-client check authenticated the household owner and read the same
+  counts through RLS. Production `/sign-in` returned HTTP 200.
+- Decisions made: Proceeded directly to the guarded production insert after the
+  dedicated staging project was unavailable; the load was insert-only and the
+  production preflight found zero target rows and zero conflicts. Subscriptions,
+  budget, meals, shopping, and calendar were not modified.
+- Remaining issues: Visual browser spot-check was unavailable in this session.
+  Budget import remains optional after a fresh workbook export.
+- Next recommended task: Open Recipes in production for a brief visual spot-check,
+  then choose the next product milestone.
+
 ### 2026-07-23 (REVIEW.md remediation)
 
 - Work completed: Patched Next.js 16.2.11 + overrides for postcss/sharp (audit
@@ -1937,7 +2045,7 @@ Add newest entries first.
   records + recipe RPC; atomic multi-day meal insert; strict month/date URL
   validation; 44px dialog/sheet/shopping controls; Shopping GET no longer
   creates lists; security headers; README + `.playwright-mcp` ignore. See
-  `REVIEW.md`.
+  [`docs/archive/REVIEW.md`](docs/archive/REVIEW.md).
 - Validation: format/lint/typecheck; unit 181; `test:db` ×2 (114); build;
   Playwright 140 passed; `npm audit --omit=dev` clean.
 - Production changed: no (feature branch `fix/review-remediation`). Apply
@@ -1952,7 +2060,7 @@ Add newest entries first.
   ledger-first layout (Proposal A); Shopping skipped-meals notice removed;
   Calendar week/month selection + highlight clipping; controlled event dates
   (fixes Chromium create); mobile Sheet/Dialog `dvh` scroll; Playwright + unit
-  coverage. See `POLISH.md`.
+  coverage. See [`docs/archive/POLISH.md`](docs/archive/POLISH.md).
 - Validation: format/lint/typecheck/unit 169; Playwright 132 passed; build green.
 - Production changed: yes (merged to `main` → `https://jella-home.netlify.app`).
   Hosted staging skipped (site/`NETLIFY_AUTH_TOKEN` unavailable).
@@ -2409,7 +2517,7 @@ test:db` 60/60 PASS.
   iPhone + iPad). `npm run test:db` 49/49 PASS on a freshly reset local DB (an
   initial run reported 3 failures — count assertions inflated because the e2e
   suite in `verify` had just written rows to the shared local DB; a `supabase db
-reset` before `test:db` restored 49/49). Hosted (`ggyvfkgeudcqbozlsify`):
+reset` before `test:db` restored 49/49). Hosted production:
   `list_migrations` shows all 8 migrations incl. `recipe_slice`, `recipe_images`,
   `recipe_images_private_fn`. Security Advisor: only the pre-existing
   `auth_leaked_password_protection` WARN (Auth dashboard toggle, not code).
@@ -2646,9 +2754,9 @@ reset` before `test:db` restored 49/49). Hosted (`ggyvfkgeudcqbozlsify`):
 
 ### 2026-07-16 (hosted project linked + validated)
 
-- Work completed: Linked `ggyvfkgeudcqbozlsify` (`jella-home`, us-east-2). Pushed 4 migrations. Security Advisor initially warned that `public.is_household_member` was executable as SECURITY DEFINER via RPC — moved helper to `private` schema (migration `20260716233000`). Re-ran Security + Performance advisors: **0 findings**. Wrote hosted keys into gitignored `.env.local`. Provisioned validation household (2 members) via script; `verify:hosted-access` confirmed equal read/write and non-member denial. App auth against hosted: member sign-in + membership load OK. Hosted Auth public email sign-up disabled (`signUp` → "Signups not allowed for this instance").
+- Work completed: Linked the production project and pushed 4 migrations. Security Advisor initially warned that `public.is_household_member` was executable as SECURITY DEFINER via RPC — moved helper to `private` schema (migration `20260716233000`). Re-ran Security + Performance advisors: **0 findings**. Wrote hosted keys into gitignored `.env.local`. Provisioned validation household (2 members) via script; `verify:hosted-access` confirmed equal read/write and non-member denial. App auth against hosted: member sign-in + membership load OK. Hosted Auth public email sign-up disabled (`signUp` → "Signups not allowed for this instance").
 - Commands/results:
-  - `supabase link --project-ref ggyvfkgeudcqbozlsify` — OK
+  - `supabase link --project-ref <production-project-ref>` — OK
   - `supabase db push` — 4 migrations applied
   - `supabase migration list` — local == remote
   - `supabase db advisors --linked --type security|performance` — 0 / 0 after fix

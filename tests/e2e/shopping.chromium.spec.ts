@@ -62,9 +62,10 @@ test.describe("shopping list flows", () => {
     });
     await expect(page.getByText("Spaghetti").first()).toBeVisible();
 
-    const spaghettiRow = page.locator('[data-source="generated"]').filter({
-      hasText: "Spaghetti",
-    });
+    const spaghettiRow = page
+      .locator('[data-testid^="shopping-item-"]')
+      .filter({ has: page.locator('[data-source="generated"]') })
+      .filter({ hasText: "Spaghetti" });
     const spaghettiId = (
       (await spaghettiRow.first().getAttribute("data-testid")) ?? ""
     ).replace("shopping-item-", "");

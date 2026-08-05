@@ -56,6 +56,9 @@ export default async function RecipeDetailPage({ params }: RecipePageProps) {
       </Link>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <h1 className="text-xl font-semibold tracking-tight sidebar:hidden">
+          {recipe.name}
+        </h1>
         <PageHeader title={recipe.name} />
         <RecipeDetailActions recipe={recipe} suggestions={suggestions} />
       </div>

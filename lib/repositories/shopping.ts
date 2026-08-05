@@ -267,7 +267,9 @@ export async function loadOrSyncShoppingPageData(weekStart: string): Promise<{
 export async function syncShoppingListsForPlanDates(
   planDates: string[],
 ): Promise<void> {
-  const weeks = [...new Set(planDates.map((planDate) => weekStartOn(planDate)))];
+  const weeks = [
+    ...new Set(planDates.map((planDate) => weekStartOn(planDate))),
+  ];
   for (const weekStart of weeks) {
     await generateGroceryListFromMeals(weekStart);
   }
@@ -307,13 +309,20 @@ export async function generateGroceryListFromMeals(
     );
   }
 
-  const list = await getGroceryListForWeek(start);
-  if (!list) {
+  const { data: listRow, error: listError } = await supabase
+    .from("grocery_lists")
+    .select(LIST_COLUMNS)
+    .eq("id", listId)
+    .eq("household_id", membership.household.id)
+    .single();
+
+  if (listError || !listRow) {
     throw new ShoppingError(
       "Shopping list was created but could not be loaded.",
     );
   }
 
+  const list = mapGroceryList(asListRow(listRow));
   const items = await listGroceryItems(list.id);
   return {
     list,

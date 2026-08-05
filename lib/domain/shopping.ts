@@ -367,9 +367,7 @@ export function groupGroceryItems(items: GroceryListItem[]): GrocerySection[] {
     sections.push({
       key,
       label:
-        key === GROCERY_OTHER_SECTION_KEY
-          ? GROCERY_OTHER_SECTION_LABEL
-          : key,
+        key === GROCERY_OTHER_SECTION_KEY ? GROCERY_OTHER_SECTION_LABEL : key,
       items: map.get(key) ?? [],
     });
   }

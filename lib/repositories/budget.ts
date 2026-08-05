@@ -111,14 +111,16 @@ async function ensureDefaultCategories(householdId: string): Promise<void> {
     return;
   }
 
-  const { error: insertError } = await supabase.from("budget_categories").insert(
-    DEFAULT_BUDGET_CATEGORIES.map((category, index) => ({
-      household_id: householdId,
-      name: category.name,
-      kind: category.kind,
-      sort_order: index,
-    })),
-  );
+  const { error: insertError } = await supabase
+    .from("budget_categories")
+    .insert(
+      DEFAULT_BUDGET_CATEGORIES.map((category, index) => ({
+        household_id: householdId,
+        name: category.name,
+        kind: category.kind,
+        sort_order: index,
+      })),
+    );
 
   if (insertError) {
     throw new Error("Unable to create default budget categories.");
@@ -132,9 +134,7 @@ export async function listCategories(): Promise<BudgetCategory[]> {
 
   const { data, error } = await supabase
     .from("budget_categories")
-    .select(
-      "id, household_id, name, kind, sort_order, archived_at, updated_at",
-    )
+    .select("id, household_id, name, kind, sort_order, archived_at, updated_at")
     .eq("household_id", membership.household.id)
     .is("archived_at", null)
     .order("kind")
@@ -162,9 +162,7 @@ export async function createCategory(
       name: parsed.name,
       kind: parsed.kind,
     })
-    .select(
-      "id, household_id, name, kind, sort_order, archived_at, updated_at",
-    )
+    .select("id, household_id, name, kind, sort_order, archived_at, updated_at")
     .single();
 
   if (error || !data) {

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { buildBudgetMonthSnapshot } from "@/lib/domain/budget";
 import {
   buildBudgetCardViewModel,
-  buildBudgetExpenseSlices,
   buildGroceryCardViewModel,
   buildHouseholdCardViewModel,
   buildMealWeekCardViewModel,

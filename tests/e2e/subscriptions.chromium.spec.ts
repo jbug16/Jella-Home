@@ -18,6 +18,29 @@ async function localTodayIso(page: Page): Promise<string> {
   });
 }
 
+async function openSubscriptionEditor(
+  page: Page,
+  row: ReturnType<Page["locator"]>,
+): Promise<void> {
+  if ((page.viewportSize()?.width ?? 0) >= 640) {
+    await row.getByRole("button", { name: "Edit subscription" }).click();
+    return;
+  }
+  await row.getByRole("button").first().click();
+}
+
+async function deleteSubscription(
+  page: Page,
+  row: ReturnType<Page["locator"]>,
+): Promise<void> {
+  if ((page.viewportSize()?.width ?? 0) >= 640) {
+    await row.getByRole("button", { name: "Delete subscription" }).click();
+    return;
+  }
+  await openSubscriptionEditor(page, row);
+  await page.getByRole("button", { name: "Delete subscription" }).click();
+}
+
 function addDaysIso(iso: string, delta: number): string {
   const [y, m, d] = iso.split("-").map(Number);
   const date = new Date(y!, m! - 1, d!);
@@ -33,7 +56,11 @@ function formatUsDate(iso: string): string {
   return `${month}-${day}-${year}`;
 }
 
-function nextBillingText(iso: string, today: string, deltaDays: number): string {
+function nextBillingText(
+  iso: string,
+  today: string,
+  deltaDays: number,
+): string {
   const relative =
     deltaDays === 0
       ? "today"
@@ -44,7 +71,7 @@ function nextBillingText(iso: string, today: string, deltaDays: number): string 
           : Math.abs(deltaDays) === 1
             ? "1 day ago"
             : `${Math.abs(deltaDays)} days ago`;
-  return `Next billing ${formatUsDate(iso)} (${relative})`;
+  return `Renews ${formatUsDate(iso)} · ${relative}`;
 }
 
 test.describe("subscriptions flows", () => {
@@ -101,11 +128,7 @@ test.describe("subscriptions flows", () => {
     await expect(row.getByLabel("Entertainment")).toBeVisible();
     await expect(row.getByText("Entertainment")).toHaveCount(0);
     await expect(row.getByText("Monthly equivalent")).toHaveCount(0);
-    await expect(
-      row.getByRole("button", { name: "Delete subscription" }),
-    ).toBeVisible();
-
-    await row.getByRole("button", { name: "Edit subscription" }).click();
+    await openSubscriptionEditor(page, row);
     await page.getByLabel("Amount").fill("720.00");
     await page.getByLabel("Billing frequency").click();
     await page.getByRole("option", { name: "Yearly" }).click();
@@ -121,8 +144,10 @@ test.describe("subscriptions flows", () => {
     ).toBeVisible();
     await expect(updated.getByText("Monthly equivalent")).toHaveCount(0);
 
-    await updated.getByRole("button", { name: "Delete subscription" }).click();
-    const deleteDialog = page.getByRole("alertdialog");
+    await deleteSubscription(page, updated);
+    const deleteDialog = page
+      .getByRole("alertdialog")
+      .or(page.getByRole("dialog", { name: "Remove from your list?" }));
     await expect(
       deleteDialog.getByRole("heading", { name: "Remove from your list?" }),
     ).toBeVisible();

@@ -107,9 +107,9 @@ test.describe("dashboard home", () => {
       .first()
       .click();
     await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]+/);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      "Fixture Spaghetti",
-    );
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Fixture Spaghetti" }),
+    ).toBeVisible();
   });
 
   test("360px layout has no horizontal overflow", async ({ page }) => {

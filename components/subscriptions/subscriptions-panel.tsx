@@ -12,10 +12,7 @@ import {
 import { PanelList, PanelListItem } from "@/components/common/panel-list";
 import { PrimaryAddButton } from "@/components/common/primary-add-button";
 import { RowEditDeleteActions } from "@/components/common/row-edit-delete-actions";
-import {
-  SummaryStat,
-  SummaryStatGrid,
-} from "@/components/common/summary-stat-grid";
+import { SummaryStat } from "@/components/common/summary-stat-grid";
 import { SummaryStatRow } from "@/components/common/summary-stat-row";
 import { DeleteSubscriptionDialog } from "@/components/subscriptions/delete-subscription-dialog";
 import { SubscriptionFormDialog } from "@/components/subscriptions/subscription-form-dialog";

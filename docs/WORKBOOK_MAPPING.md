@@ -1,44 +1,59 @@
-# Legacy workbook → Postgres mapping (Budget)
+# Legacy workbook → Postgres mapping
 
 Read-only discovery of `private-data/workbook.xlsx` (exported from the household
-Google Sheets workbook). **No data has been imported.** This document is the
-authoritative mapping for the Budget domain and for a future one-time importer.
+Google Sheets workbook) and the sanitized record of the completed one-time
+production migration. The application never imported or synchronized workbook
+data at runtime.
 
-Source inspection used openpyxl with both formula and cached-value loads.
-Detailed private cell dumps stay under `private-data/` (gitignored) and are not
-committed.
+Source inspection uses openpyxl (discovery) and ExcelJS (importer) with formula
+and cached-value reads. Detailed private cell dumps stay under `private-data/`
+(gitignored) and are not committed.
 
-**Export caveat:** This `.xlsx` appears sparse for budget line items and the
-transaction Log (template rows dominate). Re-export from Google Sheets before
-running a real import if the live workbook has more categories or history.
+**Last discovery refresh:** 2026-08-05 (workbook mtime 2026-07-16 — unchanged
+since prior budget-only analysis).
 
-## Workbook inventory
+**Export caveat:** Budget line items and the transaction Log remain sparse in
+this export (template rows dominate; **0** complete ledger rows). Recipe,
+ingredient, and subscription data are populated. Re-export from Google Sheets
+before any separately reviewed future budget migration.
 
-| #   | Sheet                | State   | Budget relevance                                       |
-| --- | -------------------- | ------- | ------------------------------------------------------ |
-| 1   | Setup                | visible | No (recipe/ingredient setup)                           |
-| 2   | Recipe Management    | visible | No                                                     |
-| 3   | 5-Week Meal Calendar | visible | No                                                     |
-| 4   | Weekly Shopping List | visible | No                                                     |
-| 5   | data                 | hidden  | No (meal/recipe backend)                               |
-| 6   | Start                | visible | Yes — dashboard + category line-name sources           |
-| 7   | Search Recipe        | hidden  | No (recipe prices only)                                |
-| 8   | Log                  | visible | Yes — transaction ledger                               |
-| 9   | Monthly Budget       | visible | Yes — month selector, planned limits, budget vs actual |
-| 10  | Subscription Tracker | visible | Yes — recurring vendors                                |
-| 11  | Calendar             | hidden  | No (household calendar; deferred product domain)       |
-| 12  | Back-end             | hidden  | Yes — named-range lists for category line items        |
+## Import scope (Milestone: one-time migration)
 
-## Category model in the workbook
+| Domain                                    | Import?                  | Source sheets                                | Postgres targets                          |
+| ----------------------------------------- | ------------------------ | -------------------------------------------- | ----------------------------------------- |
+| Ingredients catalog                       | **Yes**                  | `Setup`                                      | `ingredients`                             |
+| Recipes                                   | **Yes**                  | `Recipe Management`                          | `recipes`                                 |
+| Recipe lines                              | **Yes**                  | `Recipe Management` (+ dedupe vs `data`)     | `recipe_ingredients` + `ingredients`      |
+| Subscriptions                             | **Reviewed; not loaded** | `Subscription Tracker`                       | Final approved extract was empty          |
+| Grocery persistent                        | **Optional / skip V1**   | `Setup` prices only if present               | — (no durable grocery master in workbook) |
+| Weekly shopping checklist                 | **No**                   | `Weekly Shopping List`                       | — (derived + ephemeral `is_checked`)      |
+| Meal calendar                             | **No**                   | `5-Week Meal Calendar`, `data` meal columns  | — (import later if needed)                |
+| Budget categories / limits / transactions | **No** (this milestone)  | `Start`, `Back-end`, `Monthly Budget`, `Log` | — (sparse export; app is source of truth) |
+| Calendar events                           | **No**                   | `Calendar`                                   | —                                         |
+| Dashboard / summary / nutrition totals    | **No**                   | `Start`, `Search Recipe`, formula columns    | — (derived)                               |
 
-Two levels:
+There is **no** Google Sheets sync, dual write, or runtime spreadsheet access.
 
-1. **Kind** (Log column C / named ranges): `Income`, `Bills`, `Expenses`,
-   `Savings`, `Debt`
-2. **Line item / subcategory** (Log column D / Start + Back-end lists): e.g.
-   `Citi`, `Hotel Room`
+---
 
-Defined names:
+## Workbook inventory (12 sheets)
+
+| #   | Sheet                | State      | Rows × cols (used) | Non-empty rows | Merged ranges |
+| --- | -------------------- | ---------- | ------------------ | -------------- | ------------- |
+| 1   | Setup                | visible    | 1000 × 15          | 46             | 6             |
+| 2   | Recipe Management    | visible    | 1206 × 28          | 358            | 514           |
+| 3   | 5-Week Meal Calendar | visible    | 1000 × 13          | 31             | 28            |
+| 4   | Weekly Shopping List | visible    | 1000 × 11          | 47             | 54            |
+| 5   | data                 | **hidden** | 1311 × 126         | 1310           | 0             |
+| 6   | Start                | visible    | 1000 × 35          | 52             | 44            |
+| 7   | Search Recipe        | hidden     | 1000 × 15          | 46             | 6             |
+| 8   | Log                  | visible    | 3001 × 9           | 2999           | 3             |
+| 9   | Monthly Budget       | visible    | 52 × 35            | 52             | 47            |
+| 10  | Subscription Tracker | visible    | 1000 × 15          | 19             | 8             |
+| 11  | Calendar             | hidden     | 1000 × 13          | 31             | 28            |
+| 12  | Back-end             | hidden     | 1000 × 15          | 46             | 0             |
+
+### Named ranges (budget dropdowns only)
 
 | Name       | Range             | Maps to `budget_categories.kind` |
 | ---------- | ----------------- | -------------------------------- |
@@ -48,275 +63,315 @@ Defined names:
 | `Savings`  | `Back-end!E3:E37` | `savings`                        |
 | `Debt`     | `Back-end!F3:F37` | `debt`                           |
 
-Lists are filled from **Start** (columns B / D / F / H / J under each kind
-header) and spilled into **Back-end**. In this export cache, only **Citi**
-(income) and **Hotel Room** (bill) appear; Expenses / Savings / Debt lists are
-empty.
+Lists mirror **Start** columns under each kind header. Cached export: **Citi**
+(income), **Hotel Room** (bill); Expenses / Savings / Debt lists empty.
 
-Subscription Tracker uses a **different** category vocabulary (`Tech`,
-`Entertainment`) that is **not** the Income/Bills/Expenses named-range set.
+### Hidden rows / columns
 
----
+No systematically hidden rows on import-target sheets. Column **A** on
+`Recipe Management` repeats recipe names for layout/spill formulas — not a
+second data source.
 
-## Sheet: Log (transactions)
+### Images / attachments
 
-| Item             | Detail                                                                    |
-| ---------------- | ------------------------------------------------------------------------- |
-| Used model range | Header row 3; data template `B4:G3001` (~2997 slots)                      |
-| Merged cells     | `B2:G2`, `E3:F3`, `H3:I3`                                                 |
-| Date format      | `d" "mmm" "yyyy` (Excel date serial; e.g. `2 Jul 2026`)                   |
-| Currency         | Numeric amount in **F** with `#,##0.00`; column **E** is display-only `$` |
-
-### Columns
-
-| Col | Header (row 3) | Persist? | Notes                                                       |
-| --- | -------------- | -------- | ----------------------------------------------------------- |
-| A   | (empty)        | No       | Unused                                                      |
-| B   | DATE           | Yes      | → `transactions.occurred_on`                                |
-| C   | CATEGORY       | Indirect | Kind string → used with D to resolve `category_id`          |
-| D   | SUBCATEGORY    | Yes      | Line name → `budget_categories.name` (+ kind from C)        |
-| E   | AMOUNT (left)  | **No**   | Formula `='Monthly Budget'!$B$11` — literal `$` for display |
-| F   | (amount right) | Yes      | Numeric amount → `amount_cents` (×100, integer)             |
-| G   | NOTES          | Yes      | → `transactions.notes`                                      |
-| H–I | DO NOT DELETE  | No       | Array formula for subcategory dropdown validation           |
-
-### Formulas vs raw values
-
-- **Raw:** date (B), kind (C), subcategory (D), amount (F), notes (G)
-- **Formula / UI-only:** E (`$` prefix), H (validation spill)
-
-### Blank / malformed rows
-
-- Most rows are empty templates (E still filled with `$` formula).
-- This export: **1** row with a date; **0** rows with kind/subcategory/amount.
-- Import rule: skip rows where B, C, D, or F is empty.
-
-### Derived (do not store from sheet)
-
-Nothing on Log is a stored total. Monthly Budget **Actual** columns are
-`SUMIFS` over Log — recompute in the app from `transactions`.
-
-### Mapping → `transactions`
-
-| Workbook                        | Postgres                                     |
-| ------------------------------- | -------------------------------------------- |
-| —                               | `id` = new UUID                              |
-| —                               | `household_id` = target household            |
-| C + D                           | `category_id` via `(kind, name)` lookup      |
-| F                               | `amount_cents` = round(F × 100)              |
-| C = Income → `in`; else → `out` | `direction`                                  |
-| B                               | `occurred_on` (date-only, no TZ shift)       |
-| (none / optional future)        | `payee` default `''` (workbook has no payee) |
-| G                               | `notes`                                      |
-| importing user                  | `created_by` optional                        |
+`Recipe Management` contains 12 embedded JPEG recipe photos anchored to the 12
+imported recipe blocks. Those high-confidence mappings were recovered to the
+private `recipe-images` bucket after the row import. Four embedded PNG chart
+images from budget/summary sheets were identified as decorative and excluded.
 
 ---
 
-## Sheet: Monthly Budget (limits + dashboard)
+## Sheet: Setup (ingredient catalog)
 
-| Item            | Detail                                                                           |
-| --------------- | -------------------------------------------------------------------------------- |
-| Period controls | Month name `D9` (spaced letters, e.g. `J U L Y`); year `D10`                     |
-| Month bounds    | `C12` / `E12` derived start/end of month                                         |
-| Cash-flow block | Rows ~16–22, columns B–G: Rollover, Income, Bills, Expenses, Savings, Debt, LEFT |
-| Planned amounts | **Budget** columns (raw numbers, `#,##0.00`)                                     |
-| Actual amounts  | **Actual** columns = `SUMIFS` on Log (formula-derived)                           |
-| Trackers        | Bills I–N, Expenses P–T, Savings V–AA, Debt AC–AH                                |
-| Merged cells    | Many (titles, headers, summary strips) — layout only                             |
-| `$` anchor      | `B11` literal `$`; concatenated into display cells                               |
+| Item                     | Detail                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| Used range               | `A1:O1000`; catalog `F10:N1002`                                                      |
+| Headers row 9            | `F=ITEM`, `G=CATEGORY`, `H=CAL`, `I=P`, `J=C`, `K=F`, `L=UNIT`, `M=PRICE`, `N=STORE` |
+| Reference tables row 7–8 | `B=CATEGORIES`, `C=UNITS`, `D=STORE` (validation lists)                              |
+| Merged cells             | Title blocks only (`B2:N3`, `F7:N8`, …)                                              |
 
-### Formulas vs raw values
+### Counts (this export)
 
-| Value                        | Persist? | Notes                                      |
-| ---------------------------- | -------- | ------------------------------------------ |
-| Month / year selectors       | Context  | Scope for limits (`month_start`)           |
-| Kind-level Budget (E17–E21)  | Optional | Aggregate of line budgets; usually derived |
-| Line-level Budget (e.g. L16) | **Yes**  | Planned limit per category for the month   |
-| Actual columns               | **No**   | `SUMIFS` → derive from `transactions`      |
-| LEFT / amount left to spend  | **No**   | Derive: planned − actual (by policy)       |
-| Rollover                     | Confirm  | See cleaning decisions                     |
+- **42** ingredient rows in `Setup!F10:F1002`
+- **0** rows with `PRICE` (M) populated
+- Store names in `N` sparse (many blank)
 
-### Mapping → monthly limits (schema addition required)
+### Mapping → `ingredients`
 
-Workbook stores **per-line planned amounts** for the selected month. Postgres
-today has **no** month-scoped limit table.
+| Workbook     | Postgres        | Notes                                  |
+| ------------ | --------------- | -------------------------------------- |
+| `F` ITEM     | `name`          | Trim; preserve casing                  |
+| `L` UNIT     | `default_unit`  | Normalize (`lbs`→`lb`, `unit`→`piece`) |
+| `G` CATEGORY | `store_section` | e.g. `PANTRY`, `PRODUCE`               |
+| —            | `household_id`  | CLI target household                   |
 
-Proposed target (see `ARCHITECTURE.md`):
-
-| Workbook                                     | Postgres `budget_month_limits` |
-| -------------------------------------------- | ------------------------------ |
-| Month/year (D9/D10) → first day of month     | `month_start` (`date`)         |
-| Line item name + kind (tracker / Start list) | `category_id`                  |
-| Line Budget cell                             | `limit_cents`                  |
-| —                                            | `household_id`                 |
-
-Kind-level Budget totals (Income/Bills/…) should be **derived** as the sum of
-that kind’s line limits for the month, not stored separately, unless a kind has
-a total with no lines (then confirm).
+**Do not import:** macro columns (`H`–`K` calories/macros), `M` price (empty;
+shopping formulas reference Setup prices but none are set).
 
 ---
 
-## Sheet: Start (dashboard + category names)
+## Sheet: Recipe Management (recipes + lines)
 
-| Item         | Detail                                                                 |
-| ------------ | ---------------------------------------------------------------------- |
-| Role         | Landing dashboard; also **source** of category line names for Back-end |
-| Totals       | Formula concatenations from Monthly Budget actuals — **do not store**  |
-| Line names   | Raw text under Income / Bills / Expenses / Savings / Debt headers      |
-| Merged cells | Decorative title merges                                                |
+| Item             | Detail                                                           |
+| ---------------- | ---------------------------------------------------------------- |
+| Layout           | **3 recipes per band**, columns **B**, **K**, **T**              |
+| Band starts      | Rows **5, 61, 117, 173, 229, 285, 341, 397, 453** (56-row pitch) |
+| Per-recipe block | Name row +10 metadata +16 ingredient grid through ~+45           |
+| Merged cells     | 514 ranges (titles, ingredient tables) — layout only             |
 
-### Mapping → `budget_categories`
+### Block field offsets (from name row)
 
-| Workbook                        | Postgres                          |
-| ------------------------------- | --------------------------------- |
-| Column group (Income/Bills/…)   | `kind`                            |
-| Line name cell (e.g. under B10) | `name`                            |
-| Visual order top→bottom         | `sort_order`                      |
-| —                               | `archived_at` null unless retired |
+| Offset  | Field                 | Value column (B-block example)              |
+| ------- | --------------------- | ------------------------------------------- |
+| +0      | Recipe name           | `B`                                         |
+| +10     | Prep Time (min) label | value at name col **+5** (`G`)              |
+| +11     | Servings label        | value at name col +5                        |
+| +12     | Cook Time label       | value at name col +5                        |
+| +14     | Source URL            | name column (may span merged cells)         |
+| +16…+45 | Ingredient grid       | name col; qty **+3**; unit **+4**           |
+| +46     | `Total` row           | nutrition sums — **do not import**          |
+| +47     | `Notes` label         | instructions text may follow in merged area |
+
+### Counts (this export)
+
+| Metric                                      | Count                                      |
+| ------------------------------------------- | ------------------------------------------ |
+| Recipe blocks with Prep Time pattern        | **27**                                     |
+| Named recipes (excl. placeholders)          | **17**                                     |
+| Placeholder names (`Recipe 18`…`Recipe 27`) | **10**                                     |
+| Blocks with ≥1 ingredient line              | **17**                                     |
+| Blocks with source URL                      | **2** (Rice, Garlic Butter Grilled Shrimp) |
+
+Placeholder and template strings to **skip**: `Recipe N`, `ENTER HERE LINK TO
+RECIPE`, `ENETER HERE A PICTURE OF DISH`, lone ingredient names mis-detected as
+titles (e.g. `Garlic Powder` at row 305 without Prep Time block).
+
+### Mapping → `recipes`
+
+| Workbook                  | Postgres                                                 |
+| ------------------------- | -------------------------------------------------------- |
+| Name cell                 | `name`                                                   |
+| Servings value            | `servings` (default **2** if blank)                      |
+| Prep / cook values        | `prep_time_minutes`, `cook_time_minutes` (null if blank) |
+| URL                       | `source_url`                                             |
+| Notes / instructions area | `instructions` (often empty in export)                   |
+| —                         | `notes` default `''`                                     |
+| Anchored recipe photo     | `image_path` (private Storage object key)                |
+
+### Mapping → `recipe_ingredients` + `ingredients`
+
+| Workbook             | Postgres                                              |
+| -------------------- | ----------------------------------------------------- |
+| Ingredient name      | reuse `ingredients` by normalized name                |
+| Qty                  | `quantity` (null if blank → "to taste")               |
+| Unit                 | `unit` (normalize; warn if unmapped)                  |
+| Row order in grid    | `sort_order`                                          |
+| Category col in grid | optional `ingredients.store_section` if Setup missing |
+
+**Prefer Recipe Management** as the authoritative line list. The hidden **`data`**
+sheet duplicates `(recipe, ingredient, qty, unit)` across month index rows (`G`);
+importer dedupes to unique lines per recipe.
 
 ---
 
-## Sheet: Back-end (category list mirror)
+## Sheet: data (hidden backend)
 
-| Item         | Detail                                          |
-| ------------ | ----------------------------------------------- |
-| Role         | Hidden mirror of Start lists for named ranges   |
-| Persist from | Prefer **Start** (or union of Start + Back-end) |
-| Import       | Deduplicate; ignore blank cells in `B3:F37`     |
+| Item       | Detail                                                                   |
+| ---------- | ------------------------------------------------------------------------ |
+| Used range | `A1:DV1311`                                                              |
+| Role       | Meal-calendar backend, ingredient spill, photo refs to Recipe Management |
+| Import use | **Cross-check / dedupe only** — not primary write source                 |
+
+### Columns (partial)
+
+| Col     | Header / role     | Import?                     |
+| ------- | ----------------- | --------------------------- |
+| `H`     | Recipe name       | Dedupe key                  |
+| `I`     | Item / ingredient | Dedupe key                  |
+| `K`     | Qty               | Dedupe key                  |
+| `L`     | Unit              | Dedupe key                  |
+| `G`     | Month slot index  | **No** (calendar machinery) |
+| `Q`     | Photo ref formula | **No**                      |
+| `M`–`P` | Nutrition macros  | **No**                      |
+
+**61** `(recipe, ingredient)` pairs with qty in first month slot; each named
+recipe appears on **~30** rows (month scaffolding with mostly blank ingredient
+cells).
 
 ---
 
 ## Sheet: Subscription Tracker
 
-| Item          | Detail                                                          |
-| ------------- | --------------------------------------------------------------- |
-| Data rows     | Vendors starting ~row 11; this export has 4 filled vendors      |
-| Price display | Column K = `$` ref; column L = numeric price                    |
-| Derived       | Monthly / annual equivalent columns — **do not store**; compute |
-| Cadence       | Billing column values like `Monthly`                            |
+| Item          | Detail                                                         |
+| ------------- | -------------------------------------------------------------- |
+| Data rows     | **4** active vendors (row 11–14)                               |
+| Vendor column | **`F`** (not B)                                                |
+| Price         | Numeric in **`L`**; **`K`** = `$` display ref only             |
+| Derived       | **`N`**, **`O`**, overview **`C`/`D`** — monthly/annual totals |
 
-### Observed columns (conceptual)
+### Columns (row 10 headers)
 
-| Workbook field       | Persist? | Postgres `subscriptions`        |
-| -------------------- | -------- | ------------------------------- |
-| Subscription name    | Yes      | `vendor`                        |
-| Category (Tech, …)   | Confirm  | See cleaning decisions          |
-| Billing cadence      | Yes      | `cadence` (`monthly`, etc.)     |
-| Auto renew           | Optional | `notes` or future boolean       |
-| Debit day            | Optional | `notes` or future `renewal_on`  |
-| Price (L)            | Yes      | `amount_cents`                  |
-| Monthly/annual equiv | No       | Derive from cadence + amount    |
-| Status               | Default  | `active` unless marked canceled |
+| Col | Header         | Persist? | Postgres                                |
+| --- | -------------- | -------- | --------------------------------------- |
+| F   | Subscription   | Yes      | `vendor`                                |
+| G   | Category       | Yes      | `category_label`                        |
+| H   | Billing        | Yes      | `cadence` (`Monthly`→`monthly`)         |
+| I   | Auto renew     | Optional | `notes` suffix                          |
+| J   | Debit day      | Optional | `billing_day` / `renewal_on` if present |
+| K   | Price `$`      | **No**   | formula/display                         |
+| L   | Price value    | Yes      | `amount_cents`                          |
+| M–O | Monthly/annual | **No**   | derive in app                           |
 
-Subscription categories in the sheet (`Tech`, `Entertainment`) are **not** the
-same as budget kinds. Recommended V1 options (pick one before import):
+### Observed values
 
-1. Create matching `budget_categories` with `kind = 'expense'` and link
-   `category_id`, or
-2. Leave `category_id` null and store the label in `notes`, or
-3. Add `subscriptions.category_label text` (schema change).
+| Vendor    | Category      | Cadence | Amount |
+| --------- | ------------- | ------- | ------ |
+| Tailscale | Tech          | Monthly | $5.00  |
+| ChatGPT   | Tech          | Monthly | $20.00 |
+| Cursor    | Tech          | Monthly | $20.00 |
+| Youtube   | Entertainment | Monthly | $16.00 |
+
+**Change since prior doc:** 4 vendors confirmed (was 4; row 14 vendor is
+`Youtube` with spaced header merge on row 14 col B). No `renewal_on` or debit
+day in export — importer sets `billing_day=1` and leaves `renewal_on` null with
+a warning (app requires renewal for active subs — operator must set after import
+or extend importer with a default next-month date).
+
+Subscription categories (`Tech`, `Entertainment`) are **not** budget kinds.
 
 ---
 
-## Values that must be derived (never imported as facts)
+## Sheet: Weekly Shopping List
 
-- Monthly Budget **Actual** totals and per-line actuals (`SUMIFS`)
-- Start dashboard totals
-- LEFT / remaining to spend
-- Subscription monthly↔annual conversions
-- Currency `$` prefix cells (`Monthly Budget!B11` and references)
-- Log column E and Subscription column K display helpers
-- Subcategory validation array formulas (Log H)
+| Item          | Detail                                              |
+| ------------- | --------------------------------------------------- |
+| Used range    | `A1:K1000`                                          |
+| Start date    | `D5` (2026-06-14 in export)                         |
+| List rows     | **~43** formula-driven rows (`FILTER`/`data` spill) |
+| Checked state | Column **`J`** boolean                              |
+
+**Do not import** as active grocery list: rows are generated from meal plan +
+Setup, prices are formulas, `is_checked` is ephemeral checklist state. Optional
+future: import `Setup!M` prices if populated — not in this export.
+
+---
+
+## Budget sheets (documented; out of scope for recipe/subscription importer)
+
+Prior analysis unchanged in substance. Summary:
+
+### Log (transactions)
+
+- Template `B4:G3001`; **0** complete rows (date+kind+subcategory+amount)
+- Col **E** = `$` display formula; col **F** = numeric amount
+- Col **H** = subcategory validation array — **UI only**
+
+### Monthly Budget
+
+- Planned **Budget** cells → `budget_month_limits` (when budget import runs)
+- **Actual** / **LEFT** / kind totals = `SUMIFS` — **derive**, never store
+
+### Start / Back-end
+
+- Category line names → `budget_categories`
+- Dashboard totals → **derive**
+
+---
+
+## Values that must never be imported as facts
+
+- Monthly Budget Actual / LEFT / kind Budget totals
+- Start dashboard concatenations
+- Subscription monthly ↔ annual equivalents (`N`, `O`, overview columns)
+- Log col E, Subscription col K/M/O `$` helpers
+- Weekly Shopping `F3` total price, generated FILTER rows as persistent items
+- Recipe `Total` macro sums, `data` nutrition columns
+- Formula-error caches (`#N/A`, `#REF!`)
+- Placeholder recipe names and template instruction strings
+
+---
 
 ## Formats
 
-| Concern  | Workbook                                 | App storage                    |
-| -------- | ---------------------------------------- | ------------------------------ |
-| Money    | Decimal dollars, `#,##0.00`, `$` via B11 | Integer **cents**              |
-| Dates    | Excel serial; display `d mmm yyyy`       | SQL `date`                     |
-| Month UI | Spaced month name + year number          | `month_start` = first of month |
-
-## Duplicate / inconsistent categories
-
-- In this export: no duplicate line names across kinds.
-- Risk: `UNIQUE (household_id, name)` on `budget_categories` forbids the same
-  display name under two kinds (e.g. “Transfer” as savings and debt). Prefer
-  `UNIQUE (household_id, kind, name)` before import if that can occur.
-- Subscription labels (`Tech`) vs budget kinds (`Expenses`) are inconsistent
-  vocabularies — do not auto-merge without confirmation.
-- Spelling/spacing: import should trim and reject empty names; confirm
-  case-folding policy (`Youtube` vs `YouTube`).
-
-## Blank / malformed handling (import rules)
-
-1. Skip Log rows missing date, kind, subcategory, or amount.
-2. Skip zero-length category list cells.
-3. Reject negative amounts unless direction is modeled separately (workbook
-   appears to use positive magnitudes + kind).
-4. Do not import formula-error caches (`#N/A`, `#REF!`) as values.
-5. Treat Log E / Subscription K as non-data.
+| Concern  | Workbook                           | App storage                       |
+| -------- | ---------------------------------- | --------------------------------- |
+| Money    | `#,##0.00`, `$` via anchor cell    | Integer **cents**                 |
+| Dates    | Excel serial; `d mmm yyyy` display | SQL `date`                        |
+| Units    | `cup`, `lbs`, `unit`, `tbsp`       | normalized lowercase; map aliases |
+| Servings | numeric                            | `numeric > 0`                     |
 
 ---
 
-## Explicit entity mappings
+## Data quality findings
 
-### Budget categories
+| Issue                      | Detail                           | Importer handling                          |
+| -------------------------- | -------------------------------- | ------------------------------------------ |
+| Sparse budget              | 0 transactions, 2 category lines | Skip budget domains                        |
+| Placeholder recipes        | 10× `Recipe 18`…`27`             | Skip                                       |
+| Missing renewal dates      | All subscriptions                | Warn; `renewal_on` null                    |
+| Unit aliases               | `lbs`, `unit`                    | Map to `lb`, `piece`                       |
+| Duplicate ingredient lines | `data` month scaffolding         | Dedupe by recipe+ingredient+qty+unit       |
+| No recipe instructions     | Most blocks empty below `Notes`  | Import with `instructions=''`              |
+| No grocery prices          | Setup `M` empty                  | Skip price import                          |
+| Typo template              | `ENETER HERE A PICTURE OF DISH`  | Skip                                       |
+| Inconsistent naming        | `Youtube` vs `YouTube`           | Preserve display; key on normalized vendor |
 
-```
-Start line names (+ Back-end / named ranges)
-  → budget_categories { name, kind, sort_order }
-```
+---
 
-### Monthly limits
-
-```
-Monthly Budget line Budget cells for selected month
-  → budget_month_limits { category_id, month_start, limit_cents }
-```
-
-Kind-level Budget cells → prefer sum of line limits (derived).
-
-### Transactions
+## Explicit entity mappings (in-scope import)
 
 ```
-Log!B,C,D,F,G (non-empty data rows)
-  → transactions { category_id, amount_cents, direction, occurred_on, notes }
-```
+Setup!F,L,G
+  → ingredients { name, default_unit, store_section }
 
-### Subscriptions
+Recipe Management bands (B/K/T × 56-row pitch)
+  → recipes { name, servings, prep_time_minutes, cook_time_minutes, source_url, instructions }
+  → recipe_ingredients { ingredient, quantity, unit, sort_order }
+  → ingredients (reuse by normalized name)
 
-```
-Subscription Tracker vendor rows
-  → subscriptions { vendor, amount_cents, cadence, status, category_label, notes }
+Subscription Tracker!F,G,H,L (+ optional I,J)
+  → subscriptions { vendor, category_label, cadence, amount_cents, billing_day, renewal_on, notes, status }
 ```
 
 ---
 
-## Schema comparison (applied)
+## Migration tooling
 
-| Need from workbook          | Postgres                       | Status                              |
-| --------------------------- | ------------------------------ | ----------------------------------- |
-| Category kinds + line names | `budget_categories`            | `UNIQUE (household_id, kind, name)` |
-| Transactions                | `transactions`                 | OK                                  |
-| Subscriptions               | `subscriptions.category_label` | Free text; no budget FK             |
-| Per-month planned limits    | `budget_month_limits`          | Applied (`20260716240000_…`)        |
-| Actuals / remaining         | N/A (formulas)                 | Derive in domain/repos              |
-| Payee                       | `transactions.payee`           | Unused by workbook; keep for app    |
-| Rollover                    | Not in schema                  | V1: no automatic rollover           |
+The production loader was single-use and removed after the verified cutover.
+Read-only extraction remains outside application runtime paths:
 
-## Cleaning decisions (resolved)
+```text
+scripts/extract-workbook.ts
+  → lib/import/workbook/
+       parse-workbook.ts  read XLSX
+       normalize.ts  trim, unit aliases, dedupe
+       validate.ts   Zod + business rules
+       extract.ts    normalized private JSON
+```
 
-1. **Monthly limits** — `budget_month_limits` approved and migrated.
-2. **Category uniqueness** — `(household_id, kind, name)`.
-3. **Subscription categories** — `category_label` text; no budget FK.
-4. **Rollover** — not in V1; explicit limits per month only.
-5. **Sparse export** — still re-export live Sheet before any future import.
-6. **Payee** — optional UI field; empty on import.
-7. **Direction rules** — Income = `in`; Bills/Expenses/Savings/Debt = `out`
-   with positive `amount_cents`.
-8. **Cents** — store integer cents; sheet values use two decimal places.
+---
 
-## Recommendation
+## Schema comparison (in-scope targets)
 
-Schema prep is done. Implement the Budget vertical slice against empty/seed
-data per the plan in `IMPLEMENTATION.md`. Keep the XLSX importer deferred.
+| Workbook need      | Postgres                   | Status                              |
+| ------------------ | -------------------------- | ----------------------------------- |
+| Ingredient catalog | `ingredients`              | OK (`name_normalized` unique)       |
+| Recipes            | `recipes`                  | OK                                  |
+| Recipe lines       | `recipe_ingredients`       | OK (household trigger)              |
+| Subscriptions      | `subscriptions`            | OK (`category_label`, cadence enum) |
+| Grocery master     | —                          | No durable source in workbook       |
+| Budget             | `budget_*`, `transactions` | Schema ready; data sparse — defer   |
+
+---
+
+## Completed outcome
+
+- Production contains 42 imported ingredients, 12 recipes, and 61 ordered
+  recipe-ingredient rows.
+- All 12 recipes have one unique, referenced private image object; authenticated
+  signed reads pass and anonymous reads fail.
+- Subscriptions, budget, meals, shopping state, and calendar events were not
+  imported from this workbook.
+- The production loader was removed. Do not repeat or reset the import.
+- A future budget migration would require a fresh workbook export and a separate
+  reviewed task. Do not add spreadsheet sync or runtime XLSX reads.

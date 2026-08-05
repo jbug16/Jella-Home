@@ -23,7 +23,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     <div className="flex min-h-[100dvh] items-center justify-center px-4 py-8">
       <SessionKeepAlive />
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">Jella&apos;s Home</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Jella&apos;s Home
+        </h1>
         <div className="mt-8">
           <SignInForm nextPath={nextPath} />
         </div>

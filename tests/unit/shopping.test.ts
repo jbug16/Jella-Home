@@ -201,10 +201,18 @@ describe("groupGroceryItems", () => {
       sortOrder: 0,
       updatedAt: "2026-01-01T00:00:00.000Z",
     };
-    const other = { ...named, id: "44444444-4444-4444-8444-444444444444", name: "Tape", storeSection: "  " };
+    const other = {
+      ...named,
+      id: "44444444-4444-4444-8444-444444444444",
+      name: "Tape",
+      storeSection: "  ",
+    };
 
     const sections = groupGroceryItems([other, named]);
-    expect(sections.map((section) => section.label)).toEqual(["Pasta", "Other"]);
+    expect(sections.map((section) => section.label)).toEqual([
+      "Pasta",
+      "Other",
+    ]);
   });
 });
 

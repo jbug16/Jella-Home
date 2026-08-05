@@ -59,12 +59,12 @@ that only runs on `main`, then remove the build-hook webhook.
 
 ## Required environment variables (names only)
 
-| Variable                               | Visibility  | Local                     | Staging             | Production             |
-| -------------------------------------- | ----------- | ------------------------- | ------------------- | ---------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`             | Public      | Local API URL             | Staging project URL | Production project URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public      | Local publishable/anon    | Staging publishable | Production publishable |
-| `SUPABASE_SECRET_KEY`                  | Server-only | Local secret/service_role | Staging secret      | Production secret      |
-| `NEXT_PUBLIC_HOUSEHOLD_TIME_ZONE`      | Public      | Optional; default `America/New_York` | Same | Same |
+| Variable                               | Visibility  | Local                                | Staging             | Production             |
+| -------------------------------------- | ----------- | ------------------------------------ | ------------------- | ---------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Public      | Local API URL                        | Staging project URL | Production project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public      | Local publishable/anon               | Staging publishable | Production publishable |
+| `SUPABASE_SECRET_KEY`                  | Server-only | Local secret/service_role            | Staging secret      | Production secret      |
+| `NEXT_PUBLIC_HOUSEHOLD_TIME_ZONE`      | Public      | Optional; default `America/New_York` | Same                | Same                   |
 
 Netlify scoping:
 
@@ -86,12 +86,8 @@ Those are not required for the Netlify build.
 4. `npm run supabase:start` then `npm run supabase:reset`
 5. `npm run dev` or `npm run dev:local`
 
-Local seed users (fake only; from `supabase/seed.sql`):
-
-| Email                   | Password             |
-| ----------------------- | -------------------- |
-| `member-a@example.test` | `local-dev-password` |
-| `member-b@example.test` | `local-dev-password` |
+Local seed identities are test-only and defined in `supabase/seed.sql`. Never
+reuse local test credentials in a hosted environment.
 
 Never run `supabase/seed.sql` against hosted staging or production.
 
@@ -185,7 +181,6 @@ npm run verify:staging
 ## Production Supabase
 
 - Project name: `jella-home`
-- Ref: `ggyvfkgeudcqbozlsify`
 - Runbook: [HOSTED_SUPABASE.md](HOSTED_SUPABASE.md)
 - Migrations are applied with `npx supabase link` + `npx supabase db push`
 - Never reset production. Never seed fake users into production.

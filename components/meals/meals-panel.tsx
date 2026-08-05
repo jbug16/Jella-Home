@@ -199,6 +199,7 @@ export function MealsPanel({
             : { planDate: preferredAddDay, mealSlot: "dinner" }
         }
         meal={dialog.type === "form" ? (dialog.meal ?? null) : null}
+        onDelete={handlers.onDelete}
       />
 
       <DeleteMealDialog

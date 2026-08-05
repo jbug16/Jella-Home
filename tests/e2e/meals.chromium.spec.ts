@@ -13,6 +13,19 @@ async function pickFixtureRecipe(page: import("@playwright/test").Page) {
     .click();
 }
 
+async function openDeleteMeal(
+  page: import("@playwright/test").Page,
+  mealId: string,
+) {
+  const deleteButton = page.getByTestId(`meal-delete-${mealId}`);
+  if (await deleteButton.isVisible()) {
+    await deleteButton.click();
+    return;
+  }
+  await page.getByTestId(`meal-chip-open-${mealId}`).click();
+  await page.getByTestId(`meal-delete-${mealId}`).click();
+}
+
 test.describe("meal planner flows", () => {
   test.beforeEach(async ({ page }) => {
     await signInAsMember(page);
@@ -74,11 +87,11 @@ test.describe("meal planner flows", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     const mealId = await page
-      .locator(`[data-meal-notes="${notes}"]`)
+      .locator(`[data-meal-notes="${notes}"][data-testid^="meal-chip-"]`)
       .first()
       .evaluate((el) => {
         const testId = el.getAttribute("data-testid") ?? "";
-        return testId.replace("meal-chip-", "");
+        return testId.replace(/^meal-chip-(?:open-)?/, "");
       });
     expect(mealId.length).toBeGreaterThan(0);
 
@@ -94,14 +107,14 @@ test.describe("meal planner flows", () => {
     ).toBeVisible();
 
     // Delete cancel then confirm
-    await page.getByTestId(`meal-delete-${mealId}`).click();
+    await openDeleteMeal(page, mealId);
     await expect(
       page.getByRole("heading", { name: "Remove this meal?" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Cancel" }).click();
-    await expect(page.getByTestId(`meal-chip-${mealId}`)).toBeVisible();
+    await expect(page.getByTestId(`meal-chip-open-${mealId}`)).toBeVisible();
 
-    await page.getByTestId(`meal-delete-${mealId}`).click();
+    await openDeleteMeal(page, mealId);
     await page.getByTestId("confirm-delete-meal").click();
     await expect(page.getByTestId(`meal-chip-${mealId}`)).toHaveCount(0);
   });

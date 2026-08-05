@@ -25,6 +25,8 @@
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/playwright/.auth/
+playwright/.auth/
 .playwright-mcp/
 
 # misc
@@ -47,11 +49,16 @@ yarn-error.log*
 *service-account*.json
 *credentials*.json
 *client_secret*.json
+*.dump
+*.backup
+*.bak
+*.sql.gz
 
 # private household data: local spreadsheets, exports, and backups.
 # The directory is tracked (via .gitkeep) but its contents are ignored.
 /private-data/*
 !/private-data/.gitkeep
+/private-data/import-reports/
 
 # vercel / netlify
 .vercel

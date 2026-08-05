@@ -47,6 +47,7 @@ type MealFormDialogProps = {
   weekDays: string[];
   defaults: MealFormDefaults;
   meal?: PlannedMeal | null;
+  onDelete?: (meal: PlannedMeal) => void;
 };
 
 type MealFormProps = {
@@ -55,6 +56,7 @@ type MealFormProps = {
   defaults: MealFormDefaults;
   meal?: PlannedMeal | null;
   onClose: () => void;
+  onDelete?: (meal: PlannedMeal) => void;
 };
 
 function MealForm({
@@ -63,6 +65,7 @@ function MealForm({
   defaults,
   meal,
   onClose,
+  onDelete,
 }: MealFormProps) {
   const router = useRouter();
   const isEdit = Boolean(meal);
@@ -362,20 +365,34 @@ function MealForm({
         </p>
       ) : null}
 
-      <Button
-        type="submit"
-        disabled={!canSubmit}
-        className="min-h-11"
-        data-testid="meal-form-submit"
-      >
-        {pending
-          ? "Saving…"
-          : isEdit
-            ? "Save meal"
-            : planDates.length > 1
-              ? `Add to ${planDates.length} days`
-              : "Add meal"}
-      </Button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        {meal && onDelete ? (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={pending}
+            className="min-h-11 w-full text-destructive hover:text-destructive sm:hidden"
+            data-testid={`meal-delete-${meal.id}`}
+            onClick={() => onDelete(meal)}
+          >
+            Delete meal
+          </Button>
+        ) : null}
+        <Button
+          type="submit"
+          disabled={!canSubmit}
+          className="min-h-11 w-full sm:w-auto"
+          data-testid="meal-form-submit"
+        >
+          {pending
+            ? "Saving…"
+            : isEdit
+              ? "Save meal"
+              : planDates.length > 1
+                ? `Add to ${planDates.length} days`
+                : "Add meal"}
+        </Button>
+      </div>
     </form>
   );
 }
@@ -387,6 +404,7 @@ export function MealFormDialog({
   weekDays,
   defaults,
   meal,
+  onDelete,
 }: MealFormDialogProps) {
   return (
     <ResponsiveFormShell
@@ -407,6 +425,7 @@ export function MealFormDialog({
           defaults={defaults}
           meal={meal}
           onClose={() => onOpenChange(false)}
+          onDelete={onDelete}
         />
       ) : null}
     </ResponsiveFormShell>
