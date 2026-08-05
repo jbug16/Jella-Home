@@ -185,6 +185,7 @@ describe("mapPlannedMeal / ordering helpers", () => {
       notes: "",
       sort_order: 0,
       created_at: "2026-07-13T12:00:00.000Z",
+      updated_at: "2026-07-13T12:00:00.000Z",
       recipe: null,
     });
     expect(meal.title).toBe("Leftovers");

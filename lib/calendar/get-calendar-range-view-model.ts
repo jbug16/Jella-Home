@@ -61,11 +61,19 @@ export async function getCalendarRangeViewModel(args: {
     listSubscriptions(),
   ]);
 
+  // Always compose household + subscription occurrences for the week list;
+  // per-calendar filtering (categories / subscriptions) is client-side.
+  const composePreferences = {
+    ...preferences,
+    household_events: true,
+    subscription_renewals: true,
+  };
+
   const occurrences = sortCalendarOccurrences(
     composeCalendarOccurrences({
       events,
       subscriptions,
-      preferences,
+      preferences: composePreferences,
       rangeStart: fetchStart,
       rangeEnd: fetchEnd,
     }),

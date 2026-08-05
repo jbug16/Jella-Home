@@ -5,6 +5,7 @@ import { DashboardCardShell } from "@/components/dashboard/dashboard-card-shell"
 import { Progress } from "@/components/ui/progress";
 import { formatCents } from "@/lib/domain/budget";
 import type { DashboardViewModel } from "@/lib/domain/dashboard";
+import { CALENDAR_ENABLED } from "@/lib/features/calendar";
 import { cn } from "@/lib/utils";
 
 type DashboardPanelProps = {
@@ -51,11 +52,7 @@ function BudgetCard({ viewModel }: DashboardPanelProps) {
       className="min-h-0 shrink-0"
       compact
     >
-      {!budget.hasBudgetSetup ? (
-        <p className="text-sm text-muted-foreground">
-          Set monthly limits in Budget to track what&apos;s left.
-        </p>
-      ) : (
+      {budget.hasBudgetSetup ? (
         <div className="flex flex-col gap-2">
           <div>
             <p
@@ -87,7 +84,7 @@ function BudgetCard({ viewModel }: DashboardPanelProps) {
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       {budget.recentTransactions.length > 0 ? (
         <ul className="mt-3 flex flex-col gap-1.5 border-t border-border pt-2">
@@ -136,11 +133,7 @@ function TodaysMealsCard({ viewModel }: DashboardPanelProps) {
       compact
       scrollBody
     >
-      {todayMeals.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Nothing planned to eat today.
-        </p>
-      ) : (
+      {todayMeals.length > 0 ? (
         <ul className="flex flex-col gap-2" data-testid="dashboard-today-meals">
           {todayMeals.map((meal) => (
             <li key={meal.id}>
@@ -162,7 +155,7 @@ function TodaysMealsCard({ viewModel }: DashboardPanelProps) {
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
     </DashboardCardShell>
   );
 }
@@ -206,6 +199,24 @@ function MealCover({
 
 /** Presentational Dashboard — fills the desktop viewport without page scroll. */
 export function DashboardPanel({ viewModel }: DashboardPanelProps) {
+  const sideCards = (
+    <div className="flex min-h-0 flex-col gap-4 sidebar:overflow-hidden">
+      <TodaysMealsCard viewModel={viewModel} />
+      <BudgetCard viewModel={viewModel} />
+    </div>
+  );
+
+  if (!CALENDAR_ENABLED || !viewModel.today) {
+    return (
+      <div
+        className="grid min-h-0 flex-1 grid-cols-1 gap-4 sidebar:max-w-2xl"
+        data-testid="dashboard-panel"
+      >
+        {sideCards}
+      </div>
+    );
+  }
+
   return (
     <div
       className="grid min-h-0 flex-1 grid-cols-1 gap-4 sidebar:grid-cols-[minmax(0,1.55fr)_minmax(20rem,1fr)] sidebar:gap-5"
@@ -220,10 +231,7 @@ export function DashboardPanel({ viewModel }: DashboardPanelProps) {
         fillHeight
         className="min-h-[20rem] sidebar:min-h-0"
       />
-      <div className="flex min-h-0 flex-col gap-4 sidebar:overflow-hidden">
-        <TodaysMealsCard viewModel={viewModel} />
-        <BudgetCard viewModel={viewModel} />
-      </div>
+      {sideCards}
     </div>
   );
 }

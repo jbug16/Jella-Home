@@ -1,10 +1,13 @@
 import "server-only";
 
+import { ConcurrencyConflictError } from "@/lib/domain/concurrency";
 import {
+  archiveSubscriptionInputSchema,
   createSubscriptionPersistedSchema,
   mapSubscription,
   subscriptionSchema,
   updateSubscriptionPersistedSchema,
+  type ArchiveSubscriptionInput,
   type CreateSubscriptionInput,
   type Subscription,
   type SubscriptionRow,
@@ -108,6 +111,7 @@ export async function updateSubscription(
     .eq("household_id", membership.household.id)
     .eq("id", parsed.id)
     .eq("status", "active")
+    .eq("updated_at", parsed.expectedUpdatedAt)
     .select(SUBSCRIPTION_SELECT)
     .maybeSingle();
 
@@ -115,23 +119,26 @@ export async function updateSubscription(
     throw new Error("Unable to update subscription.");
   }
   if (!data) {
-    throw new Error("Unable to find that subscription.");
+    throw new ConcurrencyConflictError();
   }
 
   return mapRow(data as SubscriptionRow);
 }
 
-export async function archiveSubscription(id: string): Promise<Subscription> {
+export async function archiveSubscription(
+  input: ArchiveSubscriptionInput,
+): Promise<Subscription> {
   const membership = await requireCurrentMembership();
-  subscriptionSchema.shape.id.parse(id);
+  const parsed = archiveSubscriptionInputSchema.parse(input);
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("subscriptions")
     .update({ status: "archived" })
     .eq("household_id", membership.household.id)
-    .eq("id", id)
+    .eq("id", parsed.id)
     .eq("status", "active")
+    .eq("updated_at", parsed.expectedUpdatedAt)
     .select(SUBSCRIPTION_SELECT)
     .maybeSingle();
 
@@ -139,7 +146,7 @@ export async function archiveSubscription(id: string): Promise<Subscription> {
     throw new Error("Unable to archive subscription.");
   }
   if (!data) {
-    throw new Error("Unable to find that subscription.");
+    throw new ConcurrencyConflictError();
   }
 
   return mapRow(data as SubscriptionRow);

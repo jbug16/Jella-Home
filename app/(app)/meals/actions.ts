@@ -3,16 +3,18 @@
 import { z } from "zod";
 
 import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
+import { isoDateSchema } from "@/lib/domain/dates";
 import {
   createPlannedMealInputSchema,
   createPlannedMealsInputSchema,
+  deletePlannedMealInputSchema,
   mealSlotSchema,
   parseOptionalServingsInput,
   updatePlannedMealInputSchema,
 } from "@/lib/domain/meal-plan";
-import { isoDateSchema } from "@/lib/domain/dates";
 import {
   createPlannedMeal,
+  createPlannedMeals,
   deletePlannedMeal,
   updatePlannedMeal,
 } from "@/lib/repositories/meal-plans";
@@ -89,18 +91,7 @@ export async function createPlannedMealAction(
         notes: formString(formData, "notes"),
       });
 
-      for (const planDate of batch.planDates) {
-        await createPlannedMeal(
-          createPlannedMealInputSchema.parse({
-            planDate,
-            mealSlot: batch.mealSlot,
-            recipeId: batch.recipeId,
-            title: batch.title,
-            servings: batch.servings,
-            notes: batch.notes,
-          }),
-        );
-      }
+      await createPlannedMeals(batch);
 
       revalidateModuleAndDashboard("/meals");
       return {
@@ -154,6 +145,7 @@ export async function updatePlannedMealAction(
 
     const input = updatePlannedMealInputSchema.parse({
       id: z.uuid().parse(formString(formData, "id")),
+      expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
       planDate: isoDateSchema.parse(formString(formData, "planDate")),
       mealSlot: mealSlotSchema.parse(formString(formData, "mealSlot")),
       recipeId,
@@ -175,8 +167,11 @@ export async function deletePlannedMealAction(
   formData: FormData,
 ): Promise<MealActionState> {
   try {
-    const id = z.uuid().parse(formString(formData, "id"));
-    await deletePlannedMeal(id);
+    const input = deletePlannedMealInputSchema.parse({
+      id: formString(formData, "id"),
+      expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
+    });
+    await deletePlannedMeal(input);
     revalidateModuleAndDashboard("/meals");
     return { error: null, success: "Meal removed." };
   } catch (error) {

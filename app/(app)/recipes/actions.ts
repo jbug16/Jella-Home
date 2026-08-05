@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
+import { isConcurrencyConflictError } from "@/lib/domain/concurrency";
 import {
+  archiveRecipeInputSchema,
   createRecipeInputSchema,
   parseOptionalMinutes,
   parseQuantityInput,
@@ -203,6 +205,7 @@ export async function updateRecipeAction(
 
   const parsed = updateRecipeInputSchema.safeParse({
     id: formString(formData, "id"),
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
     ...formParsed.data,
   });
   if (!parsed.success) {
@@ -241,9 +244,12 @@ export async function updateRecipeAction(
   let recipeId: string;
   try {
     recipeId = await updateRecipe(parsed.data);
-  } catch {
+  } catch (error) {
     if (uploadedPath) {
       await deleteRecipeImage(uploadedPath);
+    }
+    if (isConcurrencyConflictError(error)) {
+      return { error: error.message, success: null, recipeId: null };
     }
     return { error: "Unable to save recipe.", success: null, recipeId: null };
   }
@@ -279,20 +285,28 @@ export async function updateRecipeAction(
   return { error: null, success: "Recipe updated.", recipeId };
 }
 
-const deleteSchema = z.object({ id: z.uuid() });
-
 export async function deleteRecipeAction(
   _previous: RecipeActionState,
   formData: FormData,
 ): Promise<RecipeActionState> {
-  const parsed = deleteSchema.safeParse({ id: formString(formData, "id") });
+  const parsed = archiveRecipeInputSchema.safeParse({
+    id: formString(formData, "id"),
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
+  });
   if (!parsed.success) {
-    return { error: "Recipe not found.", success: null, recipeId: null };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Recipe not found.",
+      success: null,
+      recipeId: null,
+    };
   }
 
   try {
-    await archiveRecipe(parsed.data.id);
-  } catch {
+    await archiveRecipe(parsed.data);
+  } catch (error) {
+    if (isConcurrencyConflictError(error)) {
+      return { error: error.message, success: null, recipeId: null };
+    }
     return { error: "Unable to delete recipe.", success: null, recipeId: null };
   }
 

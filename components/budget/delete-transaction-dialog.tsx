@@ -67,6 +67,11 @@ export function DeleteTransactionDialog({
           </AlertDialogCancel>
           <form action={formAction}>
             <input type="hidden" name="id" value={transaction?.id ?? ""} />
+            <input
+              type="hidden"
+              name="expectedUpdatedAt"
+              value={transaction?.updatedAt ?? ""}
+            />
             <Button
               type="submit"
               variant="destructive"

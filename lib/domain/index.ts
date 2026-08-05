@@ -11,7 +11,19 @@ export {
   type HouseholdMembership,
 } from "@/lib/domain/household";
 
-export { addDays, isoDateSchema, todayIsoDate } from "@/lib/domain/dates";
+export {
+  addDays,
+  isoDateSchema,
+  isoMonthSchema,
+  resolveMonthStartParam,
+  todayIsoDate,
+} from "@/lib/domain/dates";
+
+export {
+  CONCURRENCY_CONFLICT_MESSAGE,
+  ConcurrencyConflictError,
+  expectedUpdatedAtSchema,
+} from "@/lib/domain/concurrency";
 
 export {
   budgetCategoryKindSchema,
@@ -182,6 +194,7 @@ export {
   createSubscriptionPersistedSchema,
   formatBillingAmount,
   formatMonthlyEquivalent,
+  formatNextBillingCaption,
   mapSubscription,
   monthlyEquivalentCents,
   nextBillingDate,

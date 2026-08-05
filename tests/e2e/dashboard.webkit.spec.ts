@@ -14,7 +14,7 @@ test.describe("dashboard webkit smoke", () => {
     );
     expect(overflow).toBeLessThanOrEqual(0);
 
-    await page.getByTestId("dashboard-cta-today").click();
-    await expect(page).toHaveURL(/\/calendar(?:\?|$)/);
+    await page.getByTestId("dashboard-cta-meals").click();
+    await expect(page).toHaveURL(/\/meals(?:\?|$)/);
   });
 });

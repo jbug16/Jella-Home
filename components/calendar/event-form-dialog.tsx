@@ -96,7 +96,7 @@ function EventForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const [allDay, setAllDay] = useState(event?.allDay ?? true);
   const [category, setCategory] = useState<CalendarEventCategory>(
-    event?.category ?? "other",
+    event?.category ?? "appointment",
   );
   const [recurrence, setRecurrence] = useState<CalendarRecurrence>(
     event?.recurrence ?? "none",
@@ -113,7 +113,16 @@ function EventForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      {event ? <input type="hidden" name="id" value={event.id} /> : null}
+      {event ? (
+        <>
+          <input type="hidden" name="id" value={event.id} />
+          <input
+            type="hidden"
+            name="expectedUpdatedAt"
+            value={event.updatedAt}
+          />
+        </>
+      ) : null}
       <input type="hidden" name="category" value={category} />
       <input type="hidden" name="recurrence" value={recurrence} />
       <input type="hidden" name="allDay" value={allDay ? "true" : "false"} />
@@ -136,12 +145,16 @@ function EventForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="calendar-category">Category</Label>
+        <Label htmlFor="calendar-category">Calendar</Label>
         <Select
           value={category}
           onValueChange={(value) => setCategory(value as CalendarEventCategory)}
         >
-          <SelectTrigger id="calendar-category" className="min-h-11">
+          <SelectTrigger
+            id="calendar-category"
+            className="min-h-11"
+            data-testid="calendar-category"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

@@ -164,6 +164,7 @@ describe("buildBudgetMonthSnapshot", () => {
       occurredOn: "2026-07-02",
       payee: "",
       notes: "",
+      updatedAt: "2026-07-02T00:00:00.000Z",
     },
     {
       id: "31111111-1111-4111-8111-111111111102",
@@ -174,6 +175,7 @@ describe("buildBudgetMonthSnapshot", () => {
       occurredOn: "2026-07-03",
       payee: "Store",
       notes: "",
+      updatedAt: "2026-07-03T00:00:00.000Z",
     },
     {
       id: "31111111-1111-4111-8111-111111111103",
@@ -184,6 +186,7 @@ describe("buildBudgetMonthSnapshot", () => {
       occurredOn: "2026-07-10",
       payee: "Overspend",
       notes: "",
+      updatedAt: "2026-07-10T00:00:00.000Z",
     },
   ];
 

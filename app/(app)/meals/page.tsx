@@ -35,7 +35,7 @@ export default async function MealsPage({ searchParams }: MealsPageProps) {
 
   return (
     <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden">
-      <PageHeader title="Meals" description="What's on the table this week." />
+      <PageHeader title="Meals" />
       <MealsPanel
         weekStart={weekStart}
         todayIso={todayIso}

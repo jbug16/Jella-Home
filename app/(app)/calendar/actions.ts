@@ -1,13 +1,13 @@
 "use server";
 
-import { z } from "zod";
-
 import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
 import {
   calendarSourceKeySchema,
   createCalendarEventInputSchema,
+  deleteCalendarEventInputSchema,
   updateCalendarEventInputSchema,
 } from "@/lib/domain/calendar-event";
+import { isConcurrencyConflictError } from "@/lib/domain/concurrency";
 import {
   createCalendarEvent,
   deleteCalendarEvent,
@@ -32,6 +32,13 @@ function formCheckbox(formData: FormData, key: string): boolean {
 
 function revalidateCalendar(): void {
   revalidateModuleAndDashboard("/calendar");
+}
+
+function conflictOr(error: unknown, fallback: string): CalendarActionState {
+  if (isConcurrencyConflictError(error)) {
+    return { error: error.message, success: null };
+  }
+  return { error: fallback, success: null };
 }
 
 function parseEventForm(formData: FormData) {
@@ -86,6 +93,7 @@ export async function updateCalendarEventAction(
   const id = formString(formData, "id");
   const parsed = updateCalendarEventInputSchema.safeParse({
     id,
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
     ...parseEventForm(formData),
   });
   if (!parsed.success) {
@@ -97,8 +105,8 @@ export async function updateCalendarEventAction(
 
   try {
     await updateCalendarEvent(parsed.data);
-  } catch {
-    return { error: "Unable to update event.", success: null };
+  } catch (error) {
+    return conflictOr(error, "Unable to update event.");
   }
 
   revalidateCalendar();
@@ -109,17 +117,21 @@ export async function deleteCalendarEventAction(
   _previous: CalendarActionState,
   formData: FormData,
 ): Promise<CalendarActionState> {
-  const parsed = z.object({ id: z.uuid() }).safeParse({
+  const parsed = deleteCalendarEventInputSchema.safeParse({
     id: formString(formData, "id"),
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
   });
   if (!parsed.success) {
-    return { error: "Unable to delete that event.", success: null };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Unable to delete that event.",
+      success: null,
+    };
   }
 
   try {
-    await deleteCalendarEvent(parsed.data.id);
-  } catch {
-    return { error: "Unable to delete that event.", success: null };
+    await deleteCalendarEvent(parsed.data);
+  } catch (error) {
+    return conflictOr(error, "Unable to delete that event.");
   }
 
   revalidateCalendar();

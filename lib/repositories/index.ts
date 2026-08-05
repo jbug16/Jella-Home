@@ -41,6 +41,7 @@ export {
 
 export {
   createPlannedMeal,
+  createPlannedMeals,
   deletePlannedMeal,
   getPlannedMeal,
   listPlannedMealsForWeek,

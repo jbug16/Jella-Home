@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { ShoppingPanel } from "@/components/shopping/shopping-panel";
 import { resolveShoppingWeekStart } from "@/lib/domain/shopping";
 import {
-  getOrCreateGroceryListForWeek,
+  getGroceryListForWeek,
   listGroceryItems,
 } from "@/lib/repositories/shopping";
 
@@ -27,15 +27,12 @@ export default async function ShoppingPage({
     redirect(`/shopping?week=${weekStart}`);
   }
 
-  const list = await getOrCreateGroceryListForWeek(weekStart);
-  const items = await listGroceryItems(list.id);
+  const list = await getGroceryListForWeek(weekStart);
+  const items = list ? await listGroceryItems(list.id) : [];
 
   return (
     <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden">
-      <PageHeader
-        title="Shopping"
-        description="Your list from this week's meals — check items off as you go."
-      />
+      <PageHeader title="Shopping" />
       <ShoppingPanel weekStart={weekStart} list={list} items={items} />
     </div>
   );

@@ -8,15 +8,63 @@ import { SubscriptionFormDialog } from "@/components/subscriptions/subscription-
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { formatCents } from "@/lib/domain/budget";
+import { formatIsoDateUs, formatRelativeDayPhrase } from "@/lib/domain/dates";
 import type {
   SubscriptionListItem,
   SubscriptionsViewModel,
 } from "@/lib/domain/subscription";
-import { CreditCard, Pencil, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Clapperboard,
+  Cpu,
+  CreditCard,
+  PawPrint,
+  Pencil,
+  Shield,
+  Tag,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 
 type SubscriptionsPanelProps = {
   viewModel: SubscriptionsViewModel;
 };
+
+/** Known seed / workbook labels → icon + color (case-insensitive match). */
+const CATEGORY_VISUALS: Record<
+  string,
+  { icon: LucideIcon; className: string }
+> = {
+  entertainment: {
+    icon: Clapperboard,
+    className: "bg-violet-100 text-violet-700",
+  },
+  tech: {
+    icon: Cpu,
+    className: "bg-sky-100 text-sky-700",
+  },
+  insurance: {
+    icon: Shield,
+    className: "bg-emerald-100 text-emerald-700",
+  },
+  pets: {
+    icon: PawPrint,
+    className: "bg-amber-100 text-amber-800",
+  },
+};
+
+const FALLBACK_CATEGORY_VISUAL = {
+  icon: Tag,
+  className: "bg-muted text-muted-foreground",
+};
+
+function categoryVisual(categoryLabel: string) {
+  const key = categoryLabel.trim().toLowerCase();
+  if (!key) {
+    return FALLBACK_CATEGORY_VISUAL;
+  }
+  return CATEGORY_VISUALS[key] ?? FALLBACK_CATEGORY_VISUAL;
+}
 
 function SummaryStat({
   label,
@@ -42,36 +90,54 @@ function SummaryStat({
 
 function SubscriptionRow({
   item,
+  todayIso,
   testId,
   onEdit,
   onDelete,
 }: {
   item: SubscriptionListItem;
+  todayIso: string;
   testId: string;
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const visual = categoryVisual(item.categoryLabel);
+  const CategoryIcon = visual.icon;
+  const categoryAriaLabel = item.categoryLabel.trim() || "Uncategorized";
+
   return (
     <li
       className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between"
       data-testid={testId}
     >
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="font-medium">{item.vendor}</p>
-        <p className="text-sm font-medium tabular-nums text-foreground">
-          {item.billingLabel}
-        </p>
-        {item.renewalOn ? (
-          <p className="text-sm text-muted-foreground">
-            Next billing <time dateTime={item.renewalOn}>{item.renewalOn}</time>
+      <div className="flex min-w-0 flex-1 gap-3">
+        <span
+          className={cn(
+            "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg",
+            visual.className,
+          )}
+          aria-label={categoryAriaLabel}
+        >
+          <CategoryIcon className="size-5" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="font-medium">{item.vendor}</p>
+          <p className="text-sm font-medium tabular-nums text-foreground">
+            {item.billingLabel}
           </p>
-        ) : null}
-        {item.categoryLabel ? (
-          <p className="text-sm text-muted-foreground">{item.categoryLabel}</p>
-        ) : null}
-        {item.notes.trim() ? (
-          <p className="text-sm text-muted-foreground">{item.notes}</p>
-        ) : null}
+          {item.renewalOn ? (
+            <p className="text-sm text-muted-foreground">
+              Next billing{" "}
+              <time dateTime={item.renewalOn}>
+                {formatIsoDateUs(item.renewalOn)}
+              </time>{" "}
+              ({formatRelativeDayPhrase(item.renewalOn, todayIso)})
+            </p>
+          ) : null}
+          {item.notes.trim() ? (
+            <p className="text-sm text-muted-foreground">{item.notes}</p>
+          ) : null}
+        </div>
       </div>
       <div className="flex shrink-0 gap-1">
         <IconButton label="Edit subscription" variant="ghost" onClick={onEdit}>
@@ -106,9 +172,6 @@ export function SubscriptionsPanel({ viewModel }: SubscriptionsPanelProps) {
           <h1 className="text-2xl font-semibold tracking-tight">
             Subscriptions
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Recurring costs by next charge date.
-          </p>
         </div>
         <Button
           type="button"
@@ -170,6 +233,7 @@ export function SubscriptionsPanel({ viewModel }: SubscriptionsPanelProps) {
                   <SubscriptionRow
                     key={item.id}
                     item={item}
+                    todayIso={todayIso}
                     testId={`subscription-row-${item.id}`}
                     onEdit={() => setEditing(item)}
                     onDelete={() => setDeleting(item)}

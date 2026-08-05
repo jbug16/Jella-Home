@@ -64,6 +64,7 @@ that only runs on `main`, then remove the build-hook webhook.
 | `NEXT_PUBLIC_SUPABASE_URL`             | Public      | Local API URL             | Staging project URL | Production project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public      | Local publishable/anon    | Staging publishable | Production publishable |
 | `SUPABASE_SECRET_KEY`                  | Server-only | Local secret/service_role | Staging secret      | Production secret      |
+| `NEXT_PUBLIC_HOUSEHOLD_TIME_ZONE`      | Public      | Optional; default `America/New_York` | Same | Same |
 
 Netlify scoping:
 

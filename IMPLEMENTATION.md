@@ -18,9 +18,10 @@ This is the live project roadmap and decision log. Keep it current after every m
 [`POLISH.md`](POLISH.md) for the checklist, Budget proposals, and performance
 notes.
 
-Previous: Milestone 10 (Shared calendar) **Complete** (2026-07-20) — Week/Month
-Master–Detail calendar composing native events and subscription renewals,
-feeding Dashboard Today via the shared day composer.
+Previous: Milestone 10 (Shared calendar) **Complete** (2026-07-20; remodeled
+2026-08-02 to meals-style week day-list with color-coded calendar toggles) —
+composes native events and subscription renewals; feeds Dashboard Today via the
+shared day composer.
 
 Previous: Milestone 9 (Subscriptions) **shipped** 2026-07-20 (local `verify` +
 `test:db` ×2; migration `20260720204657_subscription_slice`). See
@@ -1369,20 +1370,22 @@ Gate: `npm run test:db` && `npm run verify`.
 
 ### 10. Shared calendar
 
-**Status:** Complete (2026-07-20; local `verify` + `test:db` ×2; migration
-`20260721022108_calendar_slice`)
+**Status:** Complete (2026-07-20; remodeled to meals-style week day-list 2026-08-02;
+migrations `20260721022108_calendar_slice`,
+`20260802000000_calendar_school_fun_categories`)
 
-**Goal:** A calm Week/Month household calendar for appointments, dates,
-birthdays, holidays, chores, trips, and reminders — plus read-only subscription
-renewals. Feeds Dashboard Today through the shared day composer.
+**Goal:** A calm week-first household calendar (same layout feel as Meals) for
+appointments, school, fun, dates, birthdays, holidays, chores, trips, and
+reminders — plus read-only subscription renewals. Feeds Dashboard Today through
+the shared day composer.
 
 #### Product constraints
 
 - Private two-person household; events belong to the household (no `created_by`).
-- Views: **Week** and **Month** only (Sunday week start via existing helpers).
-- Concept A Master–Detail: navigator + persistent selected-day agenda.
-- No day/agenda/year views, hourly grid, drag-drop, ICS/sync, invitations,
-  recurrence exceptions, notifications, or meals on the calendar grid.
+- View: **Week day-list** only (Sunday week start; meals `WeekNavigator` pattern).
+- Color-coded calendars (categories) with client-side show/hide toggles.
+- No month grid, hourly grid, drag-drop, ICS/sync, invitations, recurrence
+  exceptions, notifications, or meals on the calendar.
 
 #### Schema (planned migration `*_calendar_slice.sql`)
 
@@ -1408,14 +1411,14 @@ keys `household_events`, `subscription_renewals`, `payment_reminders` (reserved)
 | Subscription renewals | Derived: expand active `renewal_on` across range via cadence + billing-day clamp; deep-link `/subscriptions`; never copy into `calendar_events` |
 | Payment reminders     | Empty adapter + reserved key; **no V1 UI toggle**; no Budget invention                                                                          |
 
-V1 visible toggles: Household events + Subscription renewals only.
+V1 filter toggles: per-calendar category chips + Subscriptions (local UI state).
+Server still composes household events + subscription renewals for the week.
 
-#### UX (Concept A)
+#### UX (meals-style week)
 
-- Desktop: Week columns or Month grid + selected-day detail panel.
-- Mobile Week: vertically stacked seven-day bands.
-- Mobile Month: compact grid; selected-day **list below grid** (grid stays
-  visible); Sheet only for details/create/edit/delete — never for the day list.
+- Desktop: seven day columns with event chips (title + time; all-day on top).
+- Mobile: jump-to-day strip + vertical day spine (same structure as Meals).
+- Event form selects which calendar (category) the event belongs to.
 - Verify 320 / 360 / 390; no horizontal overflow.
 
 #### Dashboard Today
@@ -1435,14 +1438,14 @@ Same composer as Calendar selected-day. Respects subscription source visibility.
 
 #### Acceptance criteria (summary)
 
-- [x] Week + Month only; Sunday weeks; Concept A Master–Detail
+- [x] Week day-list (meals layout); Sunday weeks; category color coding + toggles
 - [x] Native CRUD via ResponsiveFormShell; hard delete with series confirm
 - [x] Timed CHECKs: same-day, overnight, multi-day (db + domain tests)
 - [x] Recurrence expansion + whole-series edit only
 - [x] Subscription renewals expand across range; archived excluded; never copied
-- [x] Two V1 source toggles per user; payment reserved/hidden
+- [x] School + fun calendars added; payment source reserved/hidden
 - [x] Dashboard Today uses shared day composer for current local date
-- [x] Mobile month: list below grid; 320/360/390; no overflow
+- [x] 320/360/390; no overflow
 - [x] Vitest + pgTAP + Playwright (chromium + webkit) green; `verify` + `test:db` ×2
 
 #### Out of scope
@@ -1747,14 +1750,15 @@ avoids a second path into Budget transactions until demand is clear.
 **Consequences:** Domain module + repository + UI + Vitest/Playwright/pgTAP;
 docs and seed updates; payment/URL/custom/paused explicitly deferred.
 
-### ADR-020: Household Calendar — series events, derived renewals, Concept A
+### ADR-020: Household Calendar — series events, derived renewals, week day-list
 
-**Status:** Accepted (2026-07-20)  
+**Status:** Accepted (2026-07-20); UI amended (2026-08-02) to meals-style week
+day-list with color-coded calendar toggles (Month Master–Detail retired).  
 **Decision:** For the Shared Calendar vertical slice:
 
-1. **Role.** `/calendar` is a Week \| Month Master–Detail surface for household
-   life events. Selected-day agenda is chrome, not a third view. Meals never
-   appear on the calendar grid. Dashboard Today uses the same
+1. **Role.** `/calendar` is a week-first day-list for household life events
+   (desktop day columns / phone day spine, matching Meals). Meals never appear
+   on the calendar. Dashboard Today uses the same
    `get-calendar-day-view-model` for the current local date.
 
 2. **Ownership.** Native events belong to the household. There is **no**
@@ -1787,22 +1791,24 @@ docs and seed updates; payment/URL/custom/paused explicitly deferred.
      Keep `payment_reminders` source key + empty adapter for later. Do **not**
      invent Budget dues or treat historical transactions as reminders. Do **not**
      show a Payment Reminders toggle in V1 (no disabled control, no “unavailable”
-     empty copy). V1 UI toggles: Household events + Subscription renewals.
+     empty copy). V1 UI toggles: per-category calendars + Subscriptions
+     (client-side filter; week composer always includes household + renewals).
 
-7. **Preferences.** Per-user `calendar_source_preferences` for the three source
-   keys (including reserved payment). Missing rows default visible.
+7. **Preferences.** Per-user `calendar_source_preferences` remains for the three
+   source keys (including reserved payment). Category visibility is local UI
+   state for V1.
 
-8. **Mobile Month.** Compact Sunday-start grid; selected-day list **below** the
-   grid (grid stays visible); Sheet only for details/create/edit/delete confirm —
-   never for viewing the day list alone. Mobile Week: vertical seven-day bands.
+8. **Layout.** Desktop: seven day columns with event chips (title + time under;
+   all-day first). Mobile: jump strip + vertical day spine. No month grid.
 
 9. **Testing clocks.** Deterministic dates via injected `now` / fixtures in
-   domain and composers, and Calendar URL `week`/`month`/`day`. Do **not**
-   expose a production Dashboard `?asOf=` query parameter for tests.
+   domain and composers, and Calendar URL `?week=`. Do **not** expose a
+   production Dashboard `?asOf=` query parameter for tests.
 
-10. **UX.** Concept A Master–Detail; category icon + label (not color alone);
-    derived entries visibly read-only. Revalidate `/calendar` (and dashboard)
-    from calendar mutations; subscription mutations also revalidate `/calendar`.
+10. **UX.** Color-coded calendars (not color alone — labels on toggles/chips);
+    derived subscription entries visibly read-only. Revalidate `/calendar` (and
+    dashboard) from calendar mutations; subscription mutations also revalidate
+    `/calendar`.
 
 **Reason:** Two people need a calm shared calendar, not a multi-tenant product.
 Budget cannot honestly supply future payment reminders yet; subscription
@@ -1922,6 +1928,21 @@ Add only questions that materially block or influence implementation.
 ## Work log
 
 Add newest entries first.
+
+### 2026-07-23 (REVIEW.md remediation)
+
+- Work completed: Patched Next.js 16.2.11 + overrides for postcss/sharp (audit
+  clean); household `NEXT_PUBLIC_HOUSEHOLD_TIME_ZONE` for date-only today;
+  safe sign-in `next` paths (reject `//`); optimistic concurrency on editable
+  records + recipe RPC; atomic multi-day meal insert; strict month/date URL
+  validation; 44px dialog/sheet/shopping controls; Shopping GET no longer
+  creates lists; security headers; README + `.playwright-mcp` ignore. See
+  `REVIEW.md`.
+- Validation: format/lint/typecheck; unit 181; `test:db` ×2 (114); build;
+  Playwright 140 passed; `npm audit --omit=dev` clean.
+- Production changed: no (feature branch `fix/review-remediation`). Apply
+  migration `20260724000000_recipe_optimistic_concurrency` (and set
+  `NEXT_PUBLIC_HOUSEHOLD_TIME_ZONE` if not defaulting) before deploy.
 
 ### 2026-07-23 (Milestone 11 — UI/UX polish)
 

@@ -5,7 +5,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(114);
+SELECT plan(116);
 
 CREATE OR REPLACE FUNCTION public.test_as_user(uid uuid)
 RETURNS void
@@ -1284,6 +1284,37 @@ SELECT lives_ok(
       'appointment'
     )$$,
   'member can insert same-day timed event'
+);
+
+-- School / fun calendars
+SELECT lives_ok(
+  $$INSERT INTO public.calendar_events (
+      id, household_id, title, all_day, start_on, end_on, category
+    ) VALUES (
+      'c9c9c9c9-c9c9-4c9c-8c9c-c9c9c9c9c9c9',
+      '11111111-1111-4111-8111-111111111111',
+      'Orientation',
+      true,
+      '2026-08-03',
+      '2026-08-03',
+      'school'
+    )$$,
+  'member can insert school calendar event'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO public.calendar_events (
+      id, household_id, title, all_day, start_on, end_on, category
+    ) VALUES (
+      'c8c8c8c8-c8c8-4c8c-8c8c-c8c8c8c8c8c8',
+      '11111111-1111-4111-8111-111111111111',
+      'Game night',
+      true,
+      '2026-08-04',
+      '2026-08-04',
+      'fun'
+    )$$,
+  'member can insert fun calendar event'
 );
 
 -- Overnight timed

@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   createCalendarEventInputSchema,
   expandCalendarEventInRange,
+  formatOccurrenceTimeLabel,
+  groupOccurrencesByDate,
   nextRecurrenceStart,
+  sortCalendarOccurrences,
   type CalendarEvent,
+  type CalendarOccurrence,
 } from "@/lib/domain/calendar-event";
 import { expandSubscriptionRenewalsInRange } from "@/lib/domain/calendar-subscription-renewals";
 import { listPaymentReminderOccurrences } from "@/lib/calendar/sources/payment-reminders";
@@ -367,5 +371,122 @@ describe("payment reminder adapter", () => {
         rangeEnd: "2026-07-31",
       }),
     ).toEqual([]);
+  });
+});
+
+describe("calendar day-list helpers", () => {
+  function occ(
+    overrides: Partial<CalendarOccurrence> &
+      Pick<CalendarOccurrence, "id" | "title" | "startOn" | "endOn">,
+  ): CalendarOccurrence {
+    return {
+      sourceKey: "household_events",
+      seriesId: "11111111-1111-4111-8111-111111111111",
+      notes: "",
+      location: "",
+      category: "appointment",
+      allDay: false,
+      startAt: "09:00:00",
+      endAt: "10:00:00",
+      recurrence: "none",
+      href: null,
+      readonly: false,
+      ...overrides,
+    };
+  }
+
+  it("accepts school and fun calendars", () => {
+    expect(
+      createCalendarEventInputSchema.parse({
+        title: "Class",
+        category: "school",
+        allDay: true,
+        startOn: "2026-07-14",
+        endOn: "2026-07-14",
+      }).category,
+    ).toBe("school");
+    expect(
+      createCalendarEventInputSchema.parse({
+        title: "Picnic",
+        category: "fun",
+        allDay: true,
+        startOn: "2026-07-14",
+        endOn: "2026-07-14",
+      }).category,
+    ).toBe("fun");
+  });
+
+  it("orders all-day events before timed events", () => {
+    const sorted = sortCalendarOccurrences([
+      occ({
+        id: "timed",
+        title: "Dentist",
+        startOn: "2026-07-14",
+        endOn: "2026-07-14",
+        allDay: false,
+        startAt: "09:00:00",
+        endAt: "10:00:00",
+      }),
+      occ({
+        id: "allday",
+        title: "Holiday",
+        startOn: "2026-07-14",
+        endOn: "2026-07-14",
+        allDay: true,
+        startAt: null,
+        endAt: null,
+        category: "holiday",
+      }),
+      occ({
+        id: "later",
+        title: "Dinner",
+        startOn: "2026-07-14",
+        endOn: "2026-07-14",
+        allDay: false,
+        startAt: "18:00:00",
+        endAt: "19:00:00",
+        category: "fun",
+      }),
+    ]);
+    expect(sorted.map((o) => o.id)).toEqual(["allday", "timed", "later"]);
+  });
+
+  it("formats time labels for all-day and timed events", () => {
+    expect(
+      formatOccurrenceTimeLabel({
+        allDay: true,
+        startAt: null,
+        endAt: null,
+      }),
+    ).toBe("All day");
+    expect(
+      formatOccurrenceTimeLabel({
+        allDay: false,
+        startAt: "14:00:00",
+        endAt: "15:30:00",
+      }),
+    ).toBe("2:00 PM – 3:30 PM");
+  });
+
+  it("groups occurrences onto each intersecting day", () => {
+    const byDate = groupOccurrencesByDate(
+      [
+        occ({
+          id: "trip",
+          title: "Weekend",
+          startOn: "2026-07-14",
+          endOn: "2026-07-15",
+          allDay: true,
+          startAt: null,
+          endAt: null,
+          category: "trip",
+        }),
+      ],
+      ["2026-07-13", "2026-07-14", "2026-07-15", "2026-07-16"],
+    );
+    expect(byDate.get("2026-07-13")).toEqual([]);
+    expect(byDate.get("2026-07-14")?.map((o) => o.id)).toEqual(["trip"]);
+    expect(byDate.get("2026-07-15")?.map((o) => o.id)).toEqual(["trip"]);
+    expect(byDate.get("2026-07-16")).toEqual([]);
   });
 });

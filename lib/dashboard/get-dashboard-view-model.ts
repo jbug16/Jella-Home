@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCalendarDayViewModel } from "@/lib/calendar/get-calendar-day-view-model";
+import { CALENDAR_ENABLED } from "@/lib/features/calendar";
 import {
   buildBudgetMonthSnapshot,
   currentMonthStart,
@@ -37,7 +38,9 @@ export async function getDashboardViewModel(
       listCategories(),
       listMonthLimits(monthStart),
       listTransactionsForMonth(monthStart),
-      getCalendarDayViewModel({ dateIso: asOf.todayIso, now }),
+      CALENDAR_ENABLED
+        ? getCalendarDayViewModel({ dateIso: asOf.todayIso, now })
+        : Promise.resolve(undefined),
     ]);
 
   const todayRecipeIds = weekMeals
@@ -59,7 +62,7 @@ export async function getDashboardViewModel(
       weekStart: asOf.weekStart,
       monthStart,
     },
-    today,
+    ...(today ? { today } : {}),
     todayMeals: buildTodayMealsViewModel({
       todayIso: asOf.todayIso,
       weekMeals,

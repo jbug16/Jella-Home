@@ -5,9 +5,9 @@ import { PageHeader } from "@/components/common/page-header";
 import {
   buildBudgetMonthSnapshot,
   currentMonthStart,
-  monthStartFor,
   todayIsoDate,
 } from "@/lib/domain/budget";
+import { resolveMonthStartParam } from "@/lib/domain/dates";
 import {
   listCategories,
   listMonthLimits,
@@ -23,14 +23,7 @@ type BudgetPageProps = {
 };
 
 function resolveMonthStart(raw: string | undefined): string {
-  if (!raw) {
-    return currentMonthStart();
-  }
-  try {
-    return monthStartFor(raw.length === 7 ? `${raw}-01` : raw);
-  } catch {
-    return currentMonthStart();
-  }
+  return resolveMonthStartParam(raw) ?? currentMonthStart();
 }
 
 export default async function BudgetPage({ searchParams }: BudgetPageProps) {
@@ -53,10 +46,7 @@ export default async function BudgetPage({ searchParams }: BudgetPageProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Budget"
-        description="Plan the month, log spending, and see what is left."
-      />
+      <PageHeader title="Budget" />
       <BudgetPanel
         monthStart={monthStart}
         todayIso={todayIso}

@@ -25,6 +25,7 @@
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+.playwright-mcp/
 
 # misc
 .DS_Store

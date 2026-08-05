@@ -1,9 +1,12 @@
 import "server-only";
 
+import { ConcurrencyConflictError } from "@/lib/domain/concurrency";
+import { weekEndOn, weekStartOn } from "@/lib/domain/meal-plan";
 import {
   aggregateGroceryLines,
   buildAggregationInputsFromMeals,
   createManualItemInputSchema,
+  deleteGroceryItemInputSchema,
   mapGroceryList,
   mapGroceryListItem,
   setItemCheckedInputSchema,
@@ -12,6 +15,7 @@ import {
   toRegeneratePayloadItem,
   updateGroceryItemInputSchema,
   type CreateManualItemInput,
+  type DeleteGroceryItemInput,
   type GroceryList,
   type GroceryListItem,
   type GroceryListItemRow,
@@ -20,14 +24,13 @@ import {
   type SetItemCheckedInput,
   type UpdateGroceryItemInput,
 } from "@/lib/domain/shopping";
-import { weekEndOn, weekStartOn } from "@/lib/domain/meal-plan";
 import { requireCurrentMembership } from "@/lib/repositories/households";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 const LIST_COLUMNS = "id, household_id, name, week_start_on, status";
 const ITEM_COLUMNS =
-  "id, household_id, list_id, name, quantity, unit, store_section, is_checked, source, ingredient_id, recipe_id, notes, generation_key, sort_order";
+  "id, household_id, list_id, name, quantity, unit, store_section, is_checked, source, ingredient_id, recipe_id, notes, generation_key, sort_order, updated_at";
 
 class ShoppingError extends Error {
   constructor(message: string) {
@@ -291,21 +294,30 @@ export async function createManualItem(
   const parsed = createManualItemInputSchema.parse(input);
   const supabase = await createClient();
 
-  const { data: list, error: listError } = await supabase
-    .from("grocery_lists")
-    .select("id")
-    .eq("id", parsed.listId)
-    .eq("household_id", membership.household.id)
-    .maybeSingle();
+  let listId = parsed.listId;
+  if (!listId) {
+    if (!parsed.weekStart) {
+      throw new ShoppingError("That shopping list could not be found.");
+    }
+    const list = await getOrCreateGroceryListForWeek(parsed.weekStart);
+    listId = list.id;
+  } else {
+    const { data: list, error: listError } = await supabase
+      .from("grocery_lists")
+      .select("id")
+      .eq("id", listId)
+      .eq("household_id", membership.household.id)
+      .maybeSingle();
 
-  if (listError || !list) {
-    throw new ShoppingError("That shopping list could not be found.");
+    if (listError || !list) {
+      throw new ShoppingError("That shopping list could not be found.");
+    }
   }
 
   const { data: maxRow } = await supabase
     .from("grocery_list_items")
     .select("sort_order")
-    .eq("list_id", parsed.listId)
+    .eq("list_id", listId)
     .order("sort_order", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -316,7 +328,7 @@ export async function createManualItem(
     .from("grocery_list_items")
     .insert({
       household_id: membership.household.id,
-      list_id: parsed.listId,
+      list_id: listId,
       name: parsed.name,
       quantity: parsed.quantity,
       unit: parsed.unit,
@@ -375,11 +387,16 @@ export async function updateGroceryItem(
     .eq("id", parsed.id)
     .eq("household_id", membership.household.id)
     .eq("source", "manual")
+    .eq("updated_at", parsed.expectedUpdatedAt)
     .select(ITEM_COLUMNS)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     throw new ShoppingError("Unable to update that item.");
+  }
+
+  if (!data) {
+    throw new ConcurrencyConflictError();
   }
 
   return mapGroceryListItem(asItemRow(data));
@@ -397,28 +414,43 @@ export async function setItemChecked(
     .update({ is_checked: parsed.isChecked })
     .eq("id", parsed.id)
     .eq("household_id", membership.household.id)
+    .eq("updated_at", parsed.expectedUpdatedAt)
     .select(ITEM_COLUMNS)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     throw new ShoppingError("Unable to update that item.");
+  }
+
+  if (!data) {
+    throw new ConcurrencyConflictError();
   }
 
   return mapGroceryListItem(asItemRow(data));
 }
 
-export async function deleteGroceryItem(id: string): Promise<void> {
+export async function deleteGroceryItem(
+  input: DeleteGroceryItemInput,
+): Promise<void> {
   const membership = await requireCurrentMembership();
+  const parsed = deleteGroceryItemInputSchema.parse(input);
   const supabase = await createClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("grocery_list_items")
     .delete()
-    .eq("id", id)
-    .eq("household_id", membership.household.id);
+    .eq("id", parsed.id)
+    .eq("household_id", membership.household.id)
+    .eq("updated_at", parsed.expectedUpdatedAt)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw new ShoppingError("Unable to remove that item.");
+  }
+
+  if (!data) {
+    throw new ConcurrencyConflictError();
   }
 }
 

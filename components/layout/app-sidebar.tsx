@@ -18,7 +18,7 @@ export function AppSidebar() {
     <aside className="hidden sidebar:flex sidebar:w-64 sidebar:shrink-0 sidebar:flex-col sidebar:border-r sidebar:border-sidebar-border sidebar:bg-sidebar">
       <div className="flex h-16 items-center gap-2 px-6">
         <span className="text-lg font-semibold text-sidebar-foreground">
-          Jella Home
+          Jella&apos;s Home
         </span>
       </div>
       <ScrollArea className="flex-1 px-3 pb-4">

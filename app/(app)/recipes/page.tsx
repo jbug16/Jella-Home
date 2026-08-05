@@ -26,10 +26,7 @@ export default async function RecipesPage({ searchParams }: RecipesPageProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Recipes"
-        description="Keep your household recipes in one place."
-      />
+      <PageHeader title="Recipes" />
       <RecipeListPanel
         recipes={recipes}
         suggestions={suggestions}

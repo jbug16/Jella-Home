@@ -1,16 +1,16 @@
 "use server";
 
-import { z } from "zod";
-
 import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
 import {
   createCategoryInputSchema,
   createTransactionInputSchema,
+  deleteTransactionInputSchema,
   parseDollarInputToCents,
   parseDollarInputToNonNegativeCents,
   updateTransactionInputSchema,
   upsertMonthLimitInputSchema,
 } from "@/lib/domain/budget";
+import { isConcurrencyConflictError } from "@/lib/domain/concurrency";
 import {
   createCategory,
   createTransaction,
@@ -27,6 +27,13 @@ export type BudgetActionState = {
 function formString(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
+}
+
+function conflictOr(error: unknown, fallback: string): BudgetActionState {
+  if (isConcurrencyConflictError(error)) {
+    return { error: error.message, success: null };
+  }
+  return { error: fallback, success: null };
 }
 
 export async function createCategoryAction(
@@ -158,6 +165,7 @@ export async function updateTransactionAction(
 
   const parsed = updateTransactionInputSchema.safeParse({
     id: formString(formData, "id"),
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
     ...formParsed.data,
   });
 
@@ -170,34 +178,34 @@ export async function updateTransactionAction(
 
   try {
     await updateTransaction(parsed.data);
-  } catch {
-    return { error: "Unable to update transaction.", success: null };
+  } catch (error) {
+    return conflictOr(error, "Unable to update transaction.");
   }
 
   revalidateModuleAndDashboard("/budget");
   return { error: null, success: "Transaction updated." };
 }
 
-const deleteSchema = z.object({
-  id: z.uuid(),
-});
-
 export async function deleteTransactionAction(
   _previous: BudgetActionState,
   formData: FormData,
 ): Promise<BudgetActionState> {
-  const parsed = deleteSchema.safeParse({
+  const parsed = deleteTransactionInputSchema.safeParse({
     id: formString(formData, "id"),
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
   });
 
   if (!parsed.success) {
-    return { error: "Transaction not found.", success: null };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Transaction not found.",
+      success: null,
+    };
   }
 
   try {
-    await deleteTransaction(parsed.data.id);
-  } catch {
-    return { error: "Unable to delete transaction.", success: null };
+    await deleteTransaction(parsed.data);
+  } catch (error) {
+    return conflictOr(error, "Unable to delete transaction.");
   }
 
   revalidateModuleAndDashboard("/budget");

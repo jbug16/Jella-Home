@@ -1,7 +1,10 @@
 import "server-only";
 
+import { ConcurrencyConflictError } from "@/lib/domain/concurrency";
 import {
   createPlannedMealInputSchema,
+  createPlannedMealsInputSchema,
+  deletePlannedMealInputSchema,
   mapPlannedMeal,
   mealSlotSchema,
   sortPlannedMeals,
@@ -9,6 +12,8 @@ import {
   weekEndOn,
   weekStartOn,
   type CreatePlannedMealInput,
+  type CreatePlannedMealsInput,
+  type DeletePlannedMealInput,
   type PlannedMeal,
   type PlannedMealRow,
   type UpdatePlannedMealInput,
@@ -17,7 +22,7 @@ import { requireCurrentMembership } from "@/lib/repositories/households";
 import { createClient } from "@/lib/supabase/server";
 
 const MEAL_COLUMNS =
-  "id, household_id, plan_date, meal_slot, recipe_id, custom_title, servings, notes, sort_order, created_at, recipe:recipes(id, name, archived_at)";
+  "id, household_id, plan_date, meal_slot, recipe_id, custom_title, servings, notes, sort_order, created_at, updated_at, recipe:recipes(id, name, archived_at)";
 
 class MealPlanError extends Error {
   constructor(message: string) {
@@ -204,6 +209,64 @@ export async function createPlannedMeal(
   return mapPlannedMeal(asMealRow(data));
 }
 
+/** Create the same meal on multiple days in one insert. */
+export async function createPlannedMeals(
+  input: CreatePlannedMealsInput,
+): Promise<PlannedMeal[]> {
+  const membership = await requireCurrentMembership();
+  const parsed = createPlannedMealsInputSchema.parse(input);
+  mealSlotSchema.parse(parsed.mealSlot);
+
+  const { recipeId, title, recipeServings } = await resolveTitleAndRecipe(
+    membership.household.id,
+    { recipeId: parsed.recipeId, title: parsed.title },
+  );
+
+  const servings =
+    parsed.servings !== undefined ? parsed.servings : recipeServings;
+
+  const rows: {
+    household_id: string;
+    plan_date: string;
+    meal_slot: string;
+    recipe_id: string | null;
+    custom_title: string;
+    servings: number | null | undefined;
+    notes: string;
+    sort_order: number;
+  }[] = [];
+
+  for (const planDate of parsed.planDates) {
+    const sortOrder = await nextSortOrder(
+      membership.household.id,
+      planDate,
+      parsed.mealSlot,
+    );
+    rows.push({
+      household_id: membership.household.id,
+      plan_date: planDate,
+      meal_slot: parsed.mealSlot,
+      recipe_id: recipeId,
+      custom_title: title,
+      servings,
+      notes: parsed.notes,
+      sort_order: sortOrder,
+    });
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("planned_meals")
+    .insert(rows)
+    .select(MEAL_COLUMNS);
+
+  if (error || !data) {
+    throw new MealPlanError("Unable to add that meal.");
+  }
+
+  return sortPlannedMeals(data.map((row) => mapPlannedMeal(asMealRow(row))));
+}
+
 export async function updatePlannedMeal(
   input: UpdatePlannedMealInput,
 ): Promise<PlannedMeal> {
@@ -251,31 +314,42 @@ export async function updatePlannedMeal(
     })
     .eq("id", parsed.id)
     .eq("household_id", membership.household.id)
+    .eq("updated_at", parsed.expectedUpdatedAt)
     .select(MEAL_COLUMNS)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     throw new MealPlanError("Unable to update that meal.");
+  }
+
+  if (!data) {
+    throw new ConcurrencyConflictError();
   }
 
   return mapPlannedMeal(asMealRow(data));
 }
 
-export async function deletePlannedMeal(id: string): Promise<void> {
+export async function deletePlannedMeal(
+  input: DeletePlannedMealInput,
+): Promise<void> {
   const membership = await requireCurrentMembership();
-  const existing = await getPlannedMeal(id);
-  if (!existing) {
-    throw new MealPlanError("That meal could not be found.");
-  }
-
+  const parsed = deletePlannedMealInputSchema.parse(input);
   const supabase = await createClient();
-  const { error } = await supabase
+
+  const { data, error } = await supabase
     .from("planned_meals")
     .delete()
-    .eq("id", id)
-    .eq("household_id", membership.household.id);
+    .eq("id", parsed.id)
+    .eq("household_id", membership.household.id)
+    .eq("updated_at", parsed.expectedUpdatedAt)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw new MealPlanError("Unable to remove that meal.");
+  }
+
+  if (!data) {
+    throw new ConcurrencyConflictError();
   }
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { expectedUpdatedAtSchema } from "@/lib/domain/concurrency";
 import {
   addDays,
   formatIsoDateLocal,
@@ -9,6 +10,7 @@ import {
   todayIsoDate,
 } from "@/lib/domain/dates";
 import { servingsSchema } from "@/lib/domain/recipe";
+import { toVersionTimestamp } from "@/lib/domain/timestamps";
 
 /** UI + write slots. DB may also contain `other` (hidden in the app). */
 export const mealSlotSchema = z.enum(["breakfast", "lunch", "dinner", "snack"]);
@@ -66,6 +68,7 @@ export const plannedMealSchema = z.object({
   notes: z.string(),
   sortOrder: z.number().int(),
   createdAt: z.string(),
+  updatedAt: z.string(),
   recipeName: z.string().nullable(),
   recipeArchived: z.boolean(),
 });
@@ -97,7 +100,7 @@ export type CreatePlannedMealInput = z.infer<
   typeof createPlannedMealInputSchema
 >;
 
-/** Create the same meal on one or more days (no schema change — loops creates). */
+/** Create the same meal on one or more days (repository inserts atomically). */
 export const createPlannedMealsInputSchema = z
   .object({
     planDates: z.array(isoDateSchema).min(1, "Choose at least one day."),
@@ -134,6 +137,7 @@ export type CreatePlannedMealsInput = z.infer<
 export const updatePlannedMealInputSchema = z
   .object({
     id: z.uuid(),
+    expectedUpdatedAt: expectedUpdatedAtSchema,
     planDate: isoDateSchema,
     mealSlot: mealSlotSchema,
     recipeId: z.uuid().nullable().optional(),
@@ -155,6 +159,15 @@ export const updatePlannedMealInputSchema = z
 
 export type UpdatePlannedMealInput = z.infer<
   typeof updatePlannedMealInputSchema
+>;
+
+export const deletePlannedMealInputSchema = z.object({
+  id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+});
+
+export type DeletePlannedMealInput = z.infer<
+  typeof deletePlannedMealInputSchema
 >;
 
 /**
@@ -303,6 +316,7 @@ export type PlannedMealRow = {
   notes: string;
   sort_order: number;
   created_at: string;
+  updated_at: string;
   recipe?: {
     id: string;
     name: string;
@@ -323,6 +337,7 @@ export function mapPlannedMeal(row: PlannedMealRow): PlannedMeal {
     notes: row.notes,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
+    updatedAt: toVersionTimestamp(row.updated_at),
     recipeName: recipe?.name ?? null,
     recipeArchived: Boolean(recipe?.archived_at),
   });

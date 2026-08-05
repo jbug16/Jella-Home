@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { expectedUpdatedAtSchema } from "@/lib/domain/concurrency";
 import {
   addDays,
   formatIsoDateLocal,
@@ -7,10 +8,13 @@ import {
   parseIsoDateLocal,
 } from "@/lib/domain/dates";
 import { addMonthsWithBillingDay } from "@/lib/domain/subscription";
+import { toVersionTimestamp } from "@/lib/domain/timestamps";
 
-/** Fixed event categories for V1. */
+/** Fixed calendars (categories) for V1 — color-coded in the UI. */
 export const calendarEventCategorySchema = z.enum([
   "appointment",
+  "school",
+  "fun",
   "date",
   "birthday",
   "holiday",
@@ -26,15 +30,70 @@ export const CALENDAR_EVENT_CATEGORY_LABELS: Record<
   CalendarEventCategory,
   string
 > = {
-  appointment: "Appointment",
-  date: "Date",
-  birthday: "Birthday",
-  holiday: "Holiday",
+  appointment: "Appointments",
+  school: "School",
+  fun: "Fun",
+  date: "Date night",
+  birthday: "Birthdays",
+  holiday: "Holidays",
   household: "Household",
-  reminder: "Reminder",
-  trip: "Trip",
+  reminder: "Reminders",
+  trip: "Trips",
   other: "Other",
 };
+
+/**
+ * Tailwind classes for calendar color coding.
+ * `dot` — filter accent; `chip` — event card left-border accent (card fill matches meals).
+ */
+export const CALENDAR_EVENT_CATEGORY_COLORS: Record<
+  CalendarEventCategory,
+  { dot: string; chip: string }
+> = {
+  appointment: {
+    dot: "bg-sky-500",
+    chip: "border-l-sky-500",
+  },
+  school: {
+    dot: "bg-amber-500",
+    chip: "border-l-amber-500",
+  },
+  fun: {
+    dot: "bg-teal-500",
+    chip: "border-l-teal-500",
+  },
+  date: {
+    dot: "bg-rose-500",
+    chip: "border-l-rose-500",
+  },
+  birthday: {
+    dot: "bg-orange-500",
+    chip: "border-l-orange-500",
+  },
+  holiday: {
+    dot: "bg-emerald-500",
+    chip: "border-l-emerald-500",
+  },
+  household: {
+    dot: "bg-slate-500",
+    chip: "border-l-slate-500",
+  },
+  reminder: {
+    dot: "bg-yellow-500",
+    chip: "border-l-yellow-500",
+  },
+  trip: {
+    dot: "bg-cyan-600",
+    chip: "border-l-cyan-600",
+  },
+  other: {
+    dot: "bg-stone-400",
+    chip: "border-l-stone-400",
+  },
+};
+
+/** Toggle order in the calendar filter strip. */
+export const CALENDAR_FILTER_CATEGORIES = calendarEventCategorySchema.options;
 
 export const calendarRecurrenceSchema = z.enum([
   "none",
@@ -139,7 +198,7 @@ export function mapCalendarEvent(row: CalendarEventRow): CalendarEvent {
     recurrence: row.recurrence,
     recurrenceEndOn: row.recurrence_end_on,
     createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    updatedAt: toVersionTimestamp(row.updated_at),
   });
 }
 
@@ -254,6 +313,7 @@ export type CreateCalendarEventInput = z.infer<
 export const updateCalendarEventInputSchema = z
   .object({
     id: z.uuid(),
+    expectedUpdatedAt: expectedUpdatedAtSchema,
     title: titleSchema,
     notes: notesSchema.default(""),
     location: locationSchema.default(""),
@@ -271,6 +331,7 @@ export const updateCalendarEventInputSchema = z
     const allDay = input.allDay;
     return {
       id: input.id,
+      expectedUpdatedAt: input.expectedUpdatedAt,
       title: input.title,
       notes: input.notes,
       location: input.location,
@@ -288,6 +349,15 @@ export const updateCalendarEventInputSchema = z
 
 export type UpdateCalendarEventInput = z.infer<
   typeof updateCalendarEventInputSchema
+>;
+
+export const deleteCalendarEventInputSchema = z.object({
+  id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+});
+
+export type DeleteCalendarEventInput = z.infer<
+  typeof deleteCalendarEventInputSchema
 >;
 
 export const calendarSourceKeySchema = z.enum([
@@ -575,6 +645,39 @@ export function filterOccurrencesForDay(
       occurrenceIntersectsRange(occ.startOn, occ.endOn, dayIso, dayIso),
     ),
   );
+}
+
+/** Group week occurrences by day (all-day first, then start time). */
+export function groupOccurrencesByDate(
+  occurrences: CalendarOccurrence[],
+  weekDays: string[],
+): Map<string, CalendarOccurrence[]> {
+  const map = new Map<string, CalendarOccurrence[]>(
+    weekDays.map((day) => [day, []]),
+  );
+  for (const day of weekDays) {
+    map.set(day, filterOccurrencesForDay(occurrences, day));
+  }
+  return map;
+}
+
+/** Format time line under an event title (all-day or start–end). */
+export function formatOccurrenceTimeLabel(occ: {
+  allDay: boolean;
+  startAt: string | null;
+  endAt: string | null;
+}): string {
+  if (occ.allDay) {
+    return "All day";
+  }
+  if (!occ.startAt) {
+    return "";
+  }
+  const start = formatLocalTimeDisplay(occ.startAt);
+  if (!occ.endAt) {
+    return start;
+  }
+  return `${start} – ${formatLocalTimeDisplay(occ.endAt)}`;
 }
 
 export function monthGridRange(monthStart: string): {

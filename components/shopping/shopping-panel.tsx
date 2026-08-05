@@ -51,7 +51,7 @@ const idle: ShoppingActionState = { error: null, success: null };
 
 type ShoppingPanelProps = {
   weekStart: string;
-  list: GroceryList;
+  list: GroceryList | null;
   items: GroceryListItem[];
 };
 
@@ -101,6 +101,7 @@ export function ShoppingPanel({ weekStart, list, items }: ShoppingPanelProps) {
   function toggleChecked(item: GroceryListItem) {
     const formData = new FormData();
     formData.set("id", item.id);
+    formData.set("expectedUpdatedAt", item.updatedAt);
     formData.set("isChecked", item.isChecked ? "false" : "true");
     startTransition(async () => {
       const result = await setItemCheckedAction(idle, formData);
@@ -115,6 +116,7 @@ export function ShoppingPanel({ weekStart, list, items }: ShoppingPanelProps) {
     if (!deleteItem) return;
     const formData = new FormData();
     formData.set("id", deleteItem.id);
+    formData.set("expectedUpdatedAt", deleteItem.updatedAt);
     startTransition(async () => {
       const result = await deleteGroceryItemAction(idle, formData);
       setDeleteItem(null);
@@ -126,6 +128,7 @@ export function ShoppingPanel({ weekStart, list, items }: ShoppingPanelProps) {
   }
 
   function clearChecked() {
+    if (!list) return;
     const formData = new FormData();
     formData.set("listId", list.id);
     startTransition(async () => {
@@ -230,7 +233,9 @@ export function ShoppingPanel({ weekStart, list, items }: ShoppingPanelProps) {
           className="rounded-lg border border-dashed border-border px-4 py-10 text-center"
           data-testid="shopping-empty"
         >
-          <p className="font-medium">Nothing on the list yet</p>
+          <p className="font-medium">
+            {list ? "Nothing on the list yet" : "Start this week’s list"}
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Generate from this week&apos;s meals, or add items yourself.
           </p>
@@ -320,7 +325,8 @@ export function ShoppingPanel({ weekStart, list, items }: ShoppingPanelProps) {
           setFormOpen(open);
           if (!open) setEditItem(null);
         }}
-        listId={list.id}
+        listId={list?.id}
+        weekStart={weekStart}
         item={editItem}
         onSaved={() => {
           setActionFeedback({

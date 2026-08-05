@@ -96,8 +96,8 @@ export type DashboardViewModel = {
     weekStart: string;
     monthStart: string;
   };
-  /** Household calendar day (events only — never meals). */
-  today: CalendarDayViewModel;
+  /** Household calendar day (events only — never meals). Omitted when calendar is disabled. */
+  today?: CalendarDayViewModel;
   /** Meals planned to eat today (Meal Planning card). */
   todayMeals: DashboardMealSummary[];
   budget: DashboardBudgetSummary;

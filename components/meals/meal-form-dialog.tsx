@@ -108,7 +108,16 @@ function MealForm({
       className="flex flex-col gap-4"
       key={meal?.id ?? "new"}
     >
-      {meal ? <input type="hidden" name="id" value={meal.id} /> : null}
+      {meal ? (
+        <>
+          <input type="hidden" name="id" value={meal.id} />
+          <input
+            type="hidden"
+            name="expectedUpdatedAt"
+            value={meal.updatedAt}
+          />
+        </>
+      ) : null}
       <input type="hidden" name="mode" value={mode} />
       <input type="hidden" name="mealSlot" value={mealSlot} />
       <input type="hidden" name="recipeId" value={recipeId ?? ""} />

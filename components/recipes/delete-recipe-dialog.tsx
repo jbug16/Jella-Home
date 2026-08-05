@@ -26,7 +26,7 @@ const initialState: RecipeActionState = {
 type DeleteRecipeDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  recipe: { id: string; name: string } | null;
+  recipe: { id: string; name: string; updatedAt: string } | null;
 };
 
 // On success `deleteRecipeAction` performs a server-side redirect to /recipes,
@@ -63,6 +63,11 @@ export function DeleteRecipeDialog({
           </AlertDialogCancel>
           <form action={formAction}>
             <input type="hidden" name="id" value={recipe?.id ?? ""} />
+            <input
+              type="hidden"
+              name="expectedUpdatedAt"
+              value={recipe?.updatedAt ?? ""}
+            />
             <Button
               type="submit"
               variant="destructive"

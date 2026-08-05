@@ -31,6 +31,7 @@ function meal(
     notes: "",
     sortOrder: overrides.sortOrder ?? 0,
     createdAt: "2026-07-13T12:00:00.000Z",
+    updatedAt: overrides.updatedAt ?? "2026-07-13T12:00:00.000Z",
     recipeName: null,
     recipeArchived: false,
   };
@@ -54,6 +55,7 @@ function item(
     notes: "",
     generationKey: null,
     sortOrder: 0,
+    updatedAt: overrides.updatedAt ?? "2026-07-13T12:00:00.000Z",
   };
 }
 
@@ -269,6 +271,7 @@ describe("buildBudgetCardViewModel", () => {
           occurredOn: "2026-07-02",
           payee: "Store",
           notes: "",
+          updatedAt: "2026-07-02T00:00:00.000Z",
         },
       ],
     });
@@ -286,6 +289,7 @@ describe("buildBudgetCardViewModel", () => {
           occurredOn: "2026-07-02",
           payee: "Store",
           notes: "",
+          updatedAt: "2026-07-02T00:00:00.000Z",
         },
       ],
     });
@@ -305,6 +309,7 @@ describe("buildBudgetCardViewModel", () => {
       occurredOn: `2026-07-0${index + 1}`,
       payee: `Payee ${index}`,
       notes: "",
+      updatedAt: `2026-07-0${index + 1}T00:00:00.000Z`,
     }));
     const snapshot = buildBudgetMonthSnapshot({
       monthStart: "2026-07-01",

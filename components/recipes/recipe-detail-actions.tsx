@@ -50,7 +50,11 @@ export function RecipeDetailActions({
       <DeleteRecipeDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        recipe={{ id: recipe.id, name: recipe.name }}
+        recipe={{
+          id: recipe.id,
+          name: recipe.name,
+          updatedAt: recipe.updatedAt,
+        }}
       />
     </div>
   );

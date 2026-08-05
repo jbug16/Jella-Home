@@ -28,6 +28,25 @@ function addDaysIso(iso: string, delta: number): string {
   return `${year}-${month}-${day}`;
 }
 
+function formatUsDate(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  return `${month}-${day}-${year}`;
+}
+
+function nextBillingText(iso: string, today: string, deltaDays: number): string {
+  const relative =
+    deltaDays === 0
+      ? "today"
+      : deltaDays === 1
+        ? "tomorrow"
+        : deltaDays > 1
+          ? `in ${deltaDays} days`
+          : Math.abs(deltaDays) === 1
+            ? "1 day ago"
+            : `${Math.abs(deltaDays)} days ago`;
+  return `Next billing ${formatUsDate(iso)} (${relative})`;
+}
+
 test.describe("subscriptions flows", () => {
   test.beforeEach(async ({ page }) => {
     await signInAsMember(page);
@@ -78,8 +97,9 @@ test.describe("subscriptions flows", () => {
     });
     await expect(row).toBeVisible();
     await expect(row.getByText("$15.99 / monthly")).toBeVisible();
-    await expect(row.getByText(`Next billing ${soon}`)).toBeVisible();
-    await expect(row.getByText("Entertainment")).toBeVisible();
+    await expect(row.getByText(nextBillingText(soon, today, 3))).toBeVisible();
+    await expect(row.getByLabel("Entertainment")).toBeVisible();
+    await expect(row.getByText("Entertainment")).toHaveCount(0);
     await expect(row.getByText("Monthly equivalent")).toHaveCount(0);
     await expect(
       row.getByRole("button", { name: "Delete subscription" }),
@@ -96,7 +116,9 @@ test.describe("subscriptions flows", () => {
       hasText: vendor,
     });
     await expect(updated.getByText("$720.00 / yearly")).toBeVisible();
-    await expect(updated.getByText(`Next billing ${later}`)).toBeVisible();
+    await expect(
+      updated.getByText(nextBillingText(later, today, 20)),
+    ).toBeVisible();
     await expect(updated.getByText("Monthly equivalent")).toHaveCount(0);
 
     await updated.getByRole("button", { name: "Delete subscription" }).click();

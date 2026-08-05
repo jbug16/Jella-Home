@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { isoDateSchema, todayIsoDate } from "@/lib/domain/dates";
+import {
+  isoDateSchema,
+  resolveMonthStartParam,
+  todayIsoDate,
+} from "@/lib/domain/dates";
+import { expectedUpdatedAtSchema } from "@/lib/domain/concurrency";
 
 export { isoDateSchema, todayIsoDate } from "@/lib/domain/dates";
 
@@ -60,6 +65,7 @@ export const transactionSchema = z.object({
   occurredOn: isoDateSchema,
   payee: z.string(),
   notes: z.string(),
+  updatedAt: z.string(),
 });
 
 export type Transaction = z.infer<typeof transactionSchema>;
@@ -94,8 +100,18 @@ export type CreateTransactionInput = z.infer<
 export const updateTransactionInputSchema = createTransactionInputSchema.extend(
   {
     id: z.uuid(),
+    expectedUpdatedAt: expectedUpdatedAtSchema,
   },
 );
+
+export const deleteTransactionInputSchema = z.object({
+  id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+});
+
+export type DeleteTransactionInput = z.infer<
+  typeof deleteTransactionInputSchema
+>;
 
 export type UpdateTransactionInput = z.infer<
   typeof updateTransactionInputSchema
@@ -181,10 +197,13 @@ export function formatCents(
   return dollars;
 }
 
-/** First day of the month containing `isoDate` (YYYY-MM-DD). */
+/** First day of the month containing `isoDate` (YYYY-MM or YYYY-MM-DD). */
 export function monthStartFor(isoDate: string): string {
-  const parsed = isoDateSchema.parse(isoDate);
-  return `${parsed.slice(0, 7)}-01`;
+  const resolved = resolveMonthStartParam(isoDate);
+  if (!resolved) {
+    throw new Error("Use a valid calendar month.");
+  }
+  return resolved;
 }
 
 export function currentMonthStart(now = new Date()): string {

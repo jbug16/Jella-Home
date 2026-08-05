@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { expectedUpdatedAtSchema } from "@/lib/domain/concurrency";
+import { toVersionTimestamp } from "@/lib/domain/timestamps";
+
 /** Non-negative whole minutes, or null when unspecified. */
 export const optionalMinutesSchema = z
   .number()
@@ -90,6 +93,7 @@ export const recipeSchema = z.object({
   notes: z.string(),
   imagePath: z.string().nullable(),
   archivedAt: z.string().nullable(),
+  updatedAt: z.string(),
 });
 
 export type Recipe = z.infer<typeof recipeSchema>;
@@ -162,9 +166,17 @@ export type CreateRecipeInput = z.infer<typeof createRecipeInputSchema>;
 
 export const updateRecipeInputSchema = createRecipeInputSchema.extend({
   id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
 });
 
 export type UpdateRecipeInput = z.infer<typeof updateRecipeInputSchema>;
+
+export const archiveRecipeInputSchema = z.object({
+  id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+});
+
+export type ArchiveRecipeInput = z.infer<typeof archiveRecipeInputSchema>;
 
 export const recipeSortSchema = z.enum(["name", "recent"]).default("name");
 
@@ -355,6 +367,7 @@ export type RecipeRow = {
   notes: string;
   image_path: string | null;
   archived_at: string | null;
+  updated_at: string;
 };
 
 export type RecipeIngredientRow = {
@@ -380,6 +393,7 @@ export function mapRecipe(row: RecipeRow): Recipe {
     notes: row.notes,
     imagePath: row.image_path,
     archivedAt: row.archived_at,
+    updatedAt: toVersionTimestamp(row.updated_at),
   });
 }
 

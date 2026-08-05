@@ -1,6 +1,8 @@
 import "server-only";
 
+import { ConcurrencyConflictError } from "@/lib/domain/concurrency";
 import {
+  archiveRecipeInputSchema,
   createRecipeInputSchema,
   imageExtensionForType,
   mapRecipe,
@@ -8,6 +10,7 @@ import {
   recipeSortSchema,
   sortRecipeIngredients,
   updateRecipeInputSchema,
+  type ArchiveRecipeInput,
   type CreateRecipeInput,
   type RecipeDetail,
   type RecipeIngredientRow,
@@ -19,7 +22,19 @@ import { requireCurrentMembership } from "@/lib/repositories/households";
 import { createClient } from "@/lib/supabase/server";
 
 const RECIPE_COLUMNS =
-  "id, household_id, name, servings, prep_time_minutes, cook_time_minutes, instructions, notes, image_path, archived_at";
+  "id, household_id, name, servings, prep_time_minutes, cook_time_minutes, instructions, notes, image_path, archived_at, updated_at";
+
+function isRecipeConcurrencyConflict(error: {
+  message?: string;
+  code?: string;
+}): boolean {
+  const message = (error.message ?? "").toLowerCase();
+  return (
+    error.code === "P0001" ||
+    message.includes("conflict") ||
+    message.includes("concurrent")
+  );
+}
 
 const RECIPE_INGREDIENT_COLUMNS =
   "id, recipe_id, ingredient_id, quantity, unit, notes, sort_order, ingredient:ingredients(name)";
@@ -278,9 +293,17 @@ export async function updateRecipe(input: UpdateRecipeInput): Promise<string> {
     p_notes: parsed.notes,
     p_ingredients: ingredientPayload(parsed),
     p_recipe_id: parsed.id,
+    p_expected_updated_at: parsed.expectedUpdatedAt,
   });
 
-  if (error || !data) {
+  if (error) {
+    if (isRecipeConcurrencyConflict(error)) {
+      throw new ConcurrencyConflictError();
+    }
+    throw new Error("Unable to save recipe.");
+  }
+
+  if (!data) {
     throw new Error("Unable to save recipe.");
   }
 
@@ -316,16 +339,18 @@ export async function listIngredientSuggestions(): Promise<
 }
 
 /** Soft-delete a recipe by archiving it. */
-export async function archiveRecipe(id: string): Promise<void> {
+export async function archiveRecipe(input: ArchiveRecipeInput): Promise<void> {
   const membership = await requireCurrentMembership();
+  const parsed = archiveRecipeInputSchema.parse(input);
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("recipes")
     .update({ archived_at: new Date().toISOString() })
     .eq("household_id", membership.household.id)
-    .eq("id", id)
+    .eq("id", parsed.id)
     .is("archived_at", null)
+    .eq("updated_at", parsed.expectedUpdatedAt)
     .select("id")
     .maybeSingle();
 
@@ -334,7 +359,7 @@ export async function archiveRecipe(id: string): Promise<void> {
   }
 
   if (!data) {
-    throw new Error("Recipe not found.");
+    throw new ConcurrencyConflictError();
   }
 }
 

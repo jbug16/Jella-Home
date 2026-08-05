@@ -6,6 +6,7 @@ import {
   budgetMonthLimitSchema,
   createCategoryInputSchema,
   createTransactionInputSchema,
+  deleteTransactionInputSchema,
   directionForKind,
   monthEndFor,
   monthStartFor,
@@ -17,13 +18,19 @@ import {
   type BudgetMonthLimit,
   type CreateCategoryInput,
   type CreateTransactionInput,
+  type DeleteTransactionInput,
   type Transaction,
   type TransactionDirection,
   type UpdateTransactionInput,
   type UpsertMonthLimitInput,
 } from "@/lib/domain/budget";
+import { ConcurrencyConflictError } from "@/lib/domain/concurrency";
+import { toVersionTimestamp } from "@/lib/domain/timestamps";
 import { requireCurrentMembership } from "@/lib/repositories/households";
 import { createClient } from "@/lib/supabase/server";
+
+const TRANSACTION_COLUMNS =
+  "id, household_id, category_id, amount_cents, direction, occurred_on, payee, notes, updated_at";
 
 function mapCategory(row: {
   id: string;
@@ -68,6 +75,7 @@ function mapTransaction(row: {
   occurred_on: string;
   payee: string;
   notes: string;
+  updated_at: string;
 }): Transaction {
   return transactionSchema.parse({
     id: row.id,
@@ -78,6 +86,7 @@ function mapTransaction(row: {
     occurredOn: row.occurred_on,
     payee: row.payee,
     notes: row.notes,
+    updatedAt: toVersionTimestamp(row.updated_at),
   });
 }
 
@@ -197,9 +206,7 @@ export async function listTransactionsForMonth(
 
   const { data, error } = await supabase
     .from("transactions")
-    .select(
-      "id, household_id, category_id, amount_cents, direction, occurred_on, payee, notes",
-    )
+    .select(TRANSACTION_COLUMNS)
     .eq("household_id", membership.household.id)
     .gte("occurred_on", start)
     .lte("occurred_on", end)
@@ -254,9 +261,7 @@ export async function createTransaction(
       notes: parsed.notes,
       created_by: membership.userId,
     })
-    .select(
-      "id, household_id, category_id, amount_cents, direction, occurred_on, payee, notes",
-    )
+    .select(TRANSACTION_COLUMNS)
     .single();
 
   if (error || !data) {
@@ -286,9 +291,8 @@ export async function updateTransaction(
     })
     .eq("household_id", membership.household.id)
     .eq("id", parsed.id)
-    .select(
-      "id, household_id, category_id, amount_cents, direction, occurred_on, payee, notes",
-    )
+    .eq("updated_at", parsed.expectedUpdatedAt)
+    .select(TRANSACTION_COLUMNS)
     .maybeSingle();
 
   if (error) {
@@ -296,21 +300,29 @@ export async function updateTransaction(
   }
 
   if (!data) {
-    throw new Error("Transaction not found.");
+    throw new ConcurrencyConflictError();
   }
 
   return mapTransaction(data);
 }
 
-export async function deleteTransaction(id: string): Promise<void> {
+export async function deleteTransaction(
+  input: DeleteTransactionInput | string,
+  expectedUpdatedAt?: string,
+): Promise<void> {
   const membership = await requireCurrentMembership();
+  const parsed =
+    typeof input === "string"
+      ? deleteTransactionInputSchema.parse({ id: input, expectedUpdatedAt })
+      : deleteTransactionInputSchema.parse(input);
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("transactions")
     .delete()
     .eq("household_id", membership.household.id)
-    .eq("id", id)
+    .eq("id", parsed.id)
+    .eq("updated_at", parsed.expectedUpdatedAt)
     .select("id")
     .maybeSingle();
 
@@ -319,6 +331,6 @@ export async function deleteTransaction(id: string): Promise<void> {
   }
 
   if (!data) {
-    throw new Error("Transaction not found.");
+    throw new ConcurrencyConflictError();
   }
 }

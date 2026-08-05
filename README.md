@@ -3,8 +3,10 @@
 A private household web app for budgets, meals, shopping, recipes,
 subscriptions, and a shared calendar.
 
-**Current checkpoint:** Milestone 1 (app shell) and Milestone 2 (Supabase Auth +
-Postgres + RLS) are complete. Product feature UI is not built yet.
+**Current checkpoint:** V1 household features are implemented — Dashboard,
+Budget, Meals, Shopping, Recipes, Subscriptions, and Calendar — with Supabase
+Auth, Postgres RLS, and a responsive app shell. See
+[`IMPLEMENTATION.md`](IMPLEMENTATION.md) for the work log and remaining polish.
 
 - Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - Hosted runbook: [`docs/HOSTED_SUPABASE.md`](docs/HOSTED_SUPABASE.md)

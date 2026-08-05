@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { safeNextPath } from "@/lib/auth/safe-next-path";
 import { createClient } from "@/lib/supabase/server";
 
 const signInSchema = z.object({
@@ -54,12 +55,7 @@ export async function signIn(
     return { error: "Invalid email or password." };
   }
 
-  const nextPath =
-    parsed.data.next && parsed.data.next.startsWith("/")
-      ? parsed.data.next
-      : "/dashboard";
-
-  redirect(nextPath);
+  redirect(safeNextPath(parsed.data.next));
 }
 
 export async function signOut(): Promise<void> {

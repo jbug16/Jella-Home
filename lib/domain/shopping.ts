@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+import { expectedUpdatedAtSchema } from "@/lib/domain/concurrency";
 import { isoDateSchema } from "@/lib/domain/dates";
+import { toVersionTimestamp } from "@/lib/domain/timestamps";
 import {
   formatWeekLabel,
   resolveWeekStartParam,
@@ -42,30 +44,43 @@ export const groceryListItemSchema = z.object({
   notes: z.string(),
   generationKey: z.string().nullable(),
   sortOrder: z.number().int(),
+  updatedAt: z.string(),
 });
 
 export type GroceryListItem = z.infer<typeof groceryListItemSchema>;
 
-export const createManualItemInputSchema = z.object({
-  listId: z.uuid(),
-  name: z
-    .string()
-    .trim()
-    .min(1, "Enter an item name.")
-    .max(160, "That name is too long."),
-  quantity: optionalQuantitySchema,
-  unit: z
-    .string()
-    .default("")
-    .transform((value) => normalizeUnit(value)),
-  storeSection: z.string().trim().max(80).default(""),
-  notes: z.string().trim().max(500).default(""),
-});
+export const createManualItemInputSchema = z
+  .object({
+    listId: z.uuid().optional(),
+    weekStart: isoDateSchema.optional(),
+    name: z
+      .string()
+      .trim()
+      .min(1, "Enter an item name.")
+      .max(160, "That name is too long."),
+    quantity: optionalQuantitySchema,
+    unit: z
+      .string()
+      .default("")
+      .transform((value) => normalizeUnit(value)),
+    storeSection: z.string().trim().max(80).default(""),
+    notes: z.string().trim().max(500).default(""),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.listId && !value.weekStart) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Shopping list is missing.",
+        path: ["listId"],
+      });
+    }
+  });
 
 export type CreateManualItemInput = z.infer<typeof createManualItemInputSchema>;
 
 export const updateGroceryItemInputSchema = z.object({
   id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
   name: z
     .string()
     .trim()
@@ -87,8 +102,18 @@ export type UpdateGroceryItemInput = z.infer<
 
 export const setItemCheckedInputSchema = z.object({
   id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
   isChecked: z.boolean(),
 });
+
+export const deleteGroceryItemInputSchema = z.object({
+  id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+});
+
+export type DeleteGroceryItemInput = z.infer<
+  typeof deleteGroceryItemInputSchema
+>;
 
 export type SetItemCheckedInput = z.infer<typeof setItemCheckedInputSchema>;
 
@@ -385,6 +410,7 @@ export type GroceryListItemRow = {
   notes: string;
   generation_key: string | null;
   sort_order: number;
+  updated_at: string;
 };
 
 export function mapGroceryList(row: GroceryListRow): GroceryList {
@@ -413,6 +439,7 @@ export function mapGroceryListItem(row: GroceryListItemRow): GroceryListItem {
     notes: row.notes,
     generationKey: row.generation_key,
     sortOrder: row.sort_order,
+    updatedAt: toVersionTimestamp(row.updated_at),
   });
 }
 

@@ -71,6 +71,11 @@ function DeleteForm({ subscription, onClose }: DeleteFormProps) {
         </AlertDialogCancel>
         <form action={formAction} className="w-full sm:w-auto">
           <input type="hidden" name="id" value={subscription.id} />
+          <input
+            type="hidden"
+            name="expectedUpdatedAt"
+            value={subscription.updatedAt}
+          />
           <Button
             type="submit"
             variant="destructive"

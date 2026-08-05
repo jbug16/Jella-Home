@@ -72,7 +72,14 @@ function TransactionForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {transaction ? (
-        <input type="hidden" name="id" value={transaction.id} />
+        <>
+          <input type="hidden" name="id" value={transaction.id} />
+          <input
+            type="hidden"
+            name="expectedUpdatedAt"
+            value={transaction.updatedAt}
+          />
+        </>
       ) : null}
       <input type="hidden" name="categoryId" value={categoryId} />
 

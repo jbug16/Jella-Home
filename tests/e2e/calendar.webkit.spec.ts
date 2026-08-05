@@ -5,26 +5,17 @@ import { goToCalendar, signInAsMember } from "./helpers/auth";
 test.describe.configure({ mode: "serial" });
 
 const WEEK = "2026-07-12";
-const DAY = "2026-07-14";
-const MONTH = "2026-07";
 
 test.describe("calendar webkit smoke", () => {
   test.beforeEach(async ({ page }) => {
     await signInAsMember(page);
   });
 
-  test("week and month views stay usable", async ({ page }) => {
-    await goToCalendar(
-      page,
-      `view=week&week=${WEEK}&month=${MONTH}&day=${DAY}`,
-    );
+  test("week day-list stays usable", async ({ page }) => {
+    await goToCalendar(page, `week=${WEEK}`);
     await expect(page.getByTestId("calendar-panel")).toBeVisible();
-    await expect(page.getByTestId("calendar-selected-day")).toBeVisible();
-    await expect(page.getByTestId("calendar-range-label")).toBeVisible();
-
-    await page.getByTestId("calendar-view-month").click();
-    await expect(page.getByTestId("calendar-month-grid")).toBeVisible();
-    await expect(page.getByTestId("calendar-selected-day")).toBeVisible();
+    await expect(page.getByTestId("calendar-week-label")).toBeVisible();
+    await expect(page.getByTestId("calendar-filters")).toBeVisible();
 
     const scrollWidth = await page.evaluate(
       () => document.documentElement.scrollWidth,

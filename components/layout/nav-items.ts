@@ -9,6 +9,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { CALENDAR_ENABLED } from "@/lib/features/calendar";
+
 export type NavItem = {
   label: string;
   href: string;
@@ -26,7 +28,7 @@ export type NavItem = {
  * sidebar (desktop + iPad landscape) and the mobile navigation (phones +
  * iPad portrait) so the two modes never drift apart.
  */
-export const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   {
     label: "Dashboard",
     href: "/dashboard",
@@ -45,6 +47,10 @@ export const navItems: NavItem[] = [
   },
   { label: "Calendar", href: "/calendar", icon: CalendarDays, primary: false },
 ];
+
+export const navItems: NavItem[] = CALENDAR_ENABLED
+  ? allNavItems
+  : allNavItems.filter((item) => item.href !== "/calendar");
 
 export const primaryNavItems = navItems.filter((item) => item.primary);
 export const secondaryNavItems = navItems.filter((item) => !item.primary);

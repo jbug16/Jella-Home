@@ -6,6 +6,7 @@ import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
 import { isoDateSchema } from "@/lib/domain/dates";
 import {
   createManualItemInputSchema,
+  deleteGroceryItemInputSchema,
   resolveShoppingWeekStart,
   setItemCheckedInputSchema,
   updateGroceryItemInputSchema,
@@ -56,15 +57,8 @@ export async function generateGroceryListAction(
     const weekStart = resolveShoppingWeekStart(
       isoDateSchema.safeParse(weekRaw).success ? weekRaw : null,
     );
-    const result = await generateGroceryListFromMeals(weekStart);
+    await generateGroceryListFromMeals(weekStart);
     revalidateShopping();
-
-    if (result.generatedCount === 0 && result.skippedCustomMeals === 0) {
-      return {
-        error: null,
-        success: "No recipe meals this week — add meals or items by hand.",
-      };
-    }
 
     return {
       error: null,
@@ -93,8 +87,12 @@ export async function createManualItemAction(
       quantity = parsed;
     }
 
+    const listIdRaw = formString(formData, "listId").trim();
+    const weekStartRaw = formString(formData, "weekStart").trim();
+
     const input = createManualItemInputSchema.parse({
-      listId: formString(formData, "listId"),
+      listId: listIdRaw || undefined,
+      weekStart: weekStartRaw || undefined,
       name: formString(formData, "name"),
       quantity,
       unit: formString(formData, "unit"),
@@ -134,6 +132,7 @@ export async function updateGroceryItemAction(
 
     const input = updateGroceryItemInputSchema.parse({
       id: formString(formData, "id"),
+      expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
       name: formString(formData, "name") || undefined,
       quantity,
       unit: formData.has("unit") ? formString(formData, "unit") : undefined,
@@ -158,6 +157,7 @@ export async function setItemCheckedAction(
   try {
     const input = setItemCheckedInputSchema.parse({
       id: formString(formData, "id"),
+      expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
       isChecked: formString(formData, "isChecked") === "true",
     });
     await setItemChecked(input);
@@ -173,8 +173,11 @@ export async function deleteGroceryItemAction(
   formData: FormData,
 ): Promise<ShoppingActionState> {
   try {
-    const id = z.uuid().parse(formString(formData, "id"));
-    await deleteGroceryItem(id);
+    const input = deleteGroceryItemInputSchema.parse({
+      id: formString(formData, "id"),
+      expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
+    });
+    await deleteGroceryItem(input);
     revalidateShopping();
     return { error: null, success: "Item removed." };
   } catch (error) {

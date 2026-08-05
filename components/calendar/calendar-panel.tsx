@@ -1,311 +1,214 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  Cake,
-  CalendarHeart,
-  CalendarRange,
-  ChevronLeft,
-  ChevronRight,
-  CircleDot,
-  Home,
-  MapPin,
-  PartyPopper,
-  Pencil,
-  Plane,
-  Plus,
-  Stethoscope,
-  Trash2,
-} from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { Plus } from "lucide-react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
-import { setCalendarSourceVisibleAction } from "@/app/(app)/calendar/actions";
+import {
+  CalendarFilters,
+  type CategoryVisibility,
+} from "@/components/calendar/calendar-filters";
 import { CalendarEventFormDialog } from "@/components/calendar/event-form-dialog";
 import { DeleteCalendarEventDialog } from "@/components/calendar/delete-event-dialog";
+import { EventChip } from "@/components/calendar/event-chip";
+import { QuietDayAdd } from "@/components/meals/quiet-day-add";
+import { WeekNavigator } from "@/components/meals/week-navigator";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
-import type { CalendarRangeViewModel } from "@/lib/calendar/get-calendar-range-view-model";
 import {
-  CALENDAR_EVENT_CATEGORY_LABELS,
-  CALENDAR_SOURCE_LABELS,
-  CALENDAR_V1_VISIBLE_SOURCE_KEYS,
-  formatLocalTimeDisplay,
+  CALENDAR_FILTER_CATEGORIES,
+  groupOccurrencesByDate,
+  type CalendarEvent,
   type CalendarEventCategory,
   type CalendarOccurrence,
-  type CalendarSourceKey,
 } from "@/lib/domain/calendar-event";
-import { formatMonthLabel, monthStartFor } from "@/lib/domain/budget";
-import {
-  shiftSelectedDayByMonths,
-  shiftSelectedDayByWeeks,
-} from "@/lib/domain/calendar-nav";
 import {
   daysInWeek,
   formatDayOfMonth,
   formatWeekdayShort,
-  formatWeekLabel,
-  weekStartOn,
 } from "@/lib/domain/meal-plan";
 import { cn } from "@/lib/utils";
 
 type CalendarPanelProps = {
-  viewModel: CalendarRangeViewModel;
+  weekStart: string;
   todayIso: string;
-  thisWeekStart: string;
-  thisMonthStart: string;
+  events: CalendarEvent[];
+  occurrences: CalendarOccurrence[];
 };
 
-function categoryIcon(category: CalendarEventCategory | null) {
-  switch (category) {
-    case "appointment":
-      return Stethoscope;
-    case "date":
-      return CalendarHeart;
-    case "birthday":
-      return Cake;
-    case "holiday":
-      return PartyPopper;
-    case "household":
-      return Home;
-    case "reminder":
-      return CircleDot;
-    case "trip":
-      return Plane;
-    default:
-      return CalendarRange;
+type DialogState =
+  | { type: "closed" }
+  | { type: "form"; seriesId?: string; defaultStartOn: string }
+  | { type: "delete"; seriesId: string };
+
+type EventHandlers = {
+  onAdd: (dayIso: string) => void;
+  onEdit: (seriesId: string) => void;
+  onDelete: (seriesId: string) => void;
+};
+
+function defaultCategoryVisibility(): CategoryVisibility {
+  return Object.fromEntries(
+    CALENDAR_FILTER_CATEGORIES.map((key) => [key, true]),
+  ) as CategoryVisibility;
+}
+
+/** Matches Tailwind `lg` — day spine below, week board at lg+. */
+const NARROW_QUERY = "(max-width: 1023px)";
+
+function subscribeNarrow(onStoreChange: () => void) {
+  const media = window.matchMedia(NARROW_QUERY);
+  media.addEventListener("change", onStoreChange);
+  return () => media.removeEventListener("change", onStoreChange);
+}
+
+function getNarrowSnapshot() {
+  return window.matchMedia(NARROW_QUERY).matches;
+}
+
+function getNarrowServerSnapshot() {
+  return false;
+}
+
+function dayLabel(day: string) {
+  return `${formatWeekdayShort(day)} ${formatDayOfMonth(day)}`;
+}
+
+function occurrenceVisible(
+  occ: CalendarOccurrence,
+  categories: CategoryVisibility,
+  showSubscriptions: boolean,
+): boolean {
+  if (occ.sourceKey === "subscription_renewals") {
+    return showSubscriptions;
   }
-}
-
-function calendarHref(args: {
-  view: "week" | "month";
-  week: string;
-  month: string;
-  day: string;
-}): string {
-  const params = new URLSearchParams({
-    view: args.view,
-    week: args.week,
-    month: args.month.slice(0, 7),
-    day: args.day,
-  });
-  return `/calendar?${params.toString()}`;
-}
-
-function occurrencesForDay(
-  occurrences: CalendarOccurrence[],
-  dayIso: string,
-): CalendarOccurrence[] {
-  return occurrences.filter(
-    (occ) => occ.startOn <= dayIso && occ.endOn >= dayIso,
-  );
+  if (occ.category == null) {
+    return true;
+  }
+  return categories[occ.category];
 }
 
 export function CalendarPanel({
-  viewModel,
+  weekStart,
   todayIso,
-  thisWeekStart,
-  thisMonthStart,
+  events,
+  occurrences,
 }: CalendarPanelProps) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null);
-  const [deleteSeriesId, setDeleteSeriesId] = useState<string | null>(null);
-  const [prefError, setPrefError] = useState<string | null>(null);
-
-  const {
-    view,
-    weekStart,
-    monthStart,
-    selectedDay,
-    preferences,
-    occurrences,
-    events,
-  } = viewModel;
-
-  const selectedOccurrences = viewModel.selectedDayOccurrences;
   const weekDays = useMemo(() => daysInWeek(weekStart), [weekStart]);
+  const [categories, setCategories] = useState(defaultCategoryVisibility);
+  const [showSubscriptions, setShowSubscriptions] = useState(true);
+
+  const filtered = useMemo(
+    () =>
+      occurrences.filter((occ) =>
+        occurrenceVisible(occ, categories, showSubscriptions),
+      ),
+    [occurrences, categories, showSubscriptions],
+  );
+
+  const byDate = useMemo(
+    () => groupOccurrencesByDate(filtered, weekDays),
+    [filtered, weekDays],
+  );
 
   const eventsById = useMemo(() => {
-    const map = new Map(events.map((event) => [event.id, event]));
-    return map;
+    return new Map(events.map((event) => [event.id, event]));
   }, [events]);
 
-  const monthCells = useMemo(() => {
-    const gridStart = weekStartOn(monthStart);
-    const cells: string[] = [];
-    for (let i = 0; i < 42; i += 1) {
-      const [y, m, d] = gridStart.split("-").map(Number);
-      const date = new Date(y!, m! - 1, d! + i);
-      const yy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, "0");
-      const dd = String(date.getDate()).padStart(2, "0");
-      cells.push(`${yy}-${mm}-${dd}`);
-    }
-    // Trim trailing week if entirely outside month
-    const monthPrefix = monthStart.slice(0, 7);
-    while (cells.length > 35) {
-      const lastWeek = cells.slice(-7);
-      if (lastWeek.every((iso) => !iso.startsWith(monthPrefix))) {
-        cells.splice(-7);
-      } else {
-        break;
-      }
-    }
-    return cells;
-  }, [monthStart]);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const isNarrow = useSyncExternalStore(
+    subscribeNarrow,
+    getNarrowSnapshot,
+    getNarrowServerSnapshot,
+  );
 
-  function toggleSource(sourceKey: CalendarSourceKey, visible: boolean) {
-    setPrefError(null);
-    startTransition(async () => {
-      const result = await setCalendarSourceVisibleAction(sourceKey, visible);
-      if (result.error) {
-        setPrefError(result.error);
-        return;
-      }
-      router.refresh();
-    });
+  const defaultDay = weekDays.includes(todayIso) ? todayIso : weekStart;
+  const openDays = weekDays.filter(
+    (day) => (byDate.get(day) ?? []).length === 0,
+  );
+  const preferredAddDay = openDays[0] ?? defaultDay;
+
+  const [dialog, setDialog] = useState<DialogState>({ type: "closed" });
+
+  function openAdd(dayIso: string) {
+    setDialog({ type: "form", defaultStartOn: dayIso });
   }
 
-  function openCreate() {
-    setEditingSeriesId(null);
-    setFormOpen(true);
+  function closeDialog() {
+    setDialog({ type: "closed" });
   }
 
-  function openEdit(seriesId: string) {
-    setEditingSeriesId(seriesId);
-    setFormOpen(true);
+  const handlers: EventHandlers = {
+    onAdd: openAdd,
+    onEdit: (seriesId) => {
+      window.setTimeout(() => {
+        setDialog({
+          type: "form",
+          seriesId,
+          defaultStartOn: defaultDay,
+        });
+      }, 0);
+    },
+    onDelete: (seriesId) => {
+      window.setTimeout(() => {
+        setDialog({ type: "delete", seriesId });
+      }, 0);
+    },
+  };
+
+  function toggleCategory(key: CalendarEventCategory) {
+    setCategories((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
-  const rangeLabel =
-    view === "week" ? formatWeekLabel(weekStart) : formatMonthLabel(monthStart);
+  function showAllCalendars() {
+    setCategories(defaultCategoryVisibility());
+    setShowSubscriptions(true);
+  }
 
-  const prevHref =
-    view === "week"
-      ? (() => {
-          const day = shiftSelectedDayByWeeks(selectedDay, -1);
-          return calendarHref({
-            view,
-            week: weekStartOn(day),
-            month: monthStartFor(day),
-            day,
-          });
-        })()
-      : (() => {
-          const day = shiftSelectedDayByMonths(selectedDay, -1);
-          return calendarHref({
-            view,
-            week: weekStartOn(day),
-            month: monthStartFor(day),
-            day,
-          });
-        })();
+  function hideAllCalendars() {
+    setCategories(
+      Object.fromEntries(
+        CALENDAR_FILTER_CATEGORIES.map((key) => [key, false]),
+      ) as CategoryVisibility,
+    );
+    setShowSubscriptions(false);
+  }
 
-  const nextHref =
-    view === "week"
-      ? (() => {
-          const day = shiftSelectedDayByWeeks(selectedDay, 1);
-          return calendarHref({
-            view,
-            week: weekStartOn(day),
-            month: monthStartFor(day),
-            day,
-          });
-        })()
-      : (() => {
-          const day = shiftSelectedDayByMonths(selectedDay, 1);
-          return calendarHref({
-            view,
-            week: weekStartOn(day),
-            month: monthStartFor(day),
-            day,
-          });
-        })();
+  const editingEvent =
+    dialog.type === "form" && dialog.seriesId
+      ? (eventsById.get(dialog.seriesId) ?? null)
+      : null;
 
-  const todayHref = calendarHref({
-    view,
-    week: thisWeekStart,
-    month: thisMonthStart,
-    day: todayIso,
-  });
+  const deleteEvent =
+    dialog.type === "delete" ? (eventsById.get(dialog.seriesId) ?? null) : null;
 
   return (
-    <div className="flex min-w-0 flex-col gap-4" data-testid="calendar-panel">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div
-          className="inline-flex rounded-lg border border-border p-1"
-          role="radiogroup"
-          aria-label="Calendar view"
-        >
+    <div
+      className="flex min-w-0 flex-col gap-5 overflow-x-hidden"
+      data-testid="calendar-panel"
+    >
+      <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-3">
+        <WeekNavigator
+          weekStart={weekStart}
+          basePath="/calendar"
+          testIdPrefix="calendar"
+        />
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <CalendarFilters
+            categories={categories}
+            showSubscriptions={showSubscriptions}
+            onToggleCategory={toggleCategory}
+            onToggleSubscriptions={() => setShowSubscriptions((prev) => !prev)}
+            onShowAll={showAllCalendars}
+            onHideAll={hideAllCalendars}
+          />
           <Button
-            asChild
-            variant={view === "week" ? "secondary" : "ghost"}
-            size="sm"
-            className="min-h-11 min-w-20"
-          >
-            <Link
-              href={calendarHref({
-                view: "week",
-                week: weekStartOn(selectedDay),
-                month: monthStart,
-                day: selectedDay,
-              })}
-              role="radio"
-              aria-checked={view === "week"}
-              data-testid="calendar-view-week"
-            >
-              Week
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant={view === "month" ? "secondary" : "ghost"}
-            size="sm"
-            className="min-h-11 min-w-20"
-          >
-            <Link
-              href={calendarHref({
-                view: "month",
-                week: weekStart,
-                month: monthStart,
-                day: selectedDay,
-              })}
-              role="radio"
-              aria-checked={view === "month"}
-              data-testid="calendar-view-month"
-            >
-              Month
-            </Link>
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1">
-          <IconButton label="Previous" variant="ghost" asChild>
-            <Link href={prevHref} data-testid="calendar-prev">
-              <ChevronLeft className="size-5" aria-hidden />
-            </Link>
-          </IconButton>
-          <p
-            className="min-w-[10rem] text-center text-sm font-medium tabular-nums"
-            data-testid="calendar-range-label"
-          >
-            {rangeLabel}
-          </p>
-          <IconButton label="Next" variant="ghost" asChild>
-            <Link href={nextHref} data-testid="calendar-next">
-              <ChevronRight className="size-5" aria-hidden />
-            </Link>
-          </IconButton>
-          <Button variant="outline" size="sm" className="min-h-11" asChild>
-            <Link href={todayHref} data-testid="calendar-today">
-              Today
-            </Link>
-          </Button>
-          <Button
-            className="min-h-11"
-            onClick={openCreate}
+            type="button"
+            className="h-11 w-fit shrink-0 px-4"
             data-testid="calendar-add-event"
+            onClick={() => openAdd(preferredAddDay)}
           >
             <Plus className="size-4" />
             Add event
@@ -313,220 +216,137 @@ export function CalendarPanel({
         </div>
       </div>
 
-      <div
-        className="flex flex-wrap gap-2"
-        role="group"
-        aria-label="Calendar sources"
-      >
-        {CALENDAR_V1_VISIBLE_SOURCE_KEYS.map((key) => {
-          const on = preferences[key];
-          return (
-            <Button
-              key={key}
-              type="button"
-              variant={on ? "secondary" : "outline"}
-              size="sm"
-              className="min-h-11"
-              aria-pressed={on}
-              disabled={pending}
-              data-testid={`calendar-source-${key}`}
-              onClick={() => toggleSource(key, !on)}
-            >
-              {CALENDAR_SOURCE_LABELS[key]}
-            </Button>
-          );
-        })}
-      </div>
-      {prefError ? (
-        <p className="text-sm text-destructive" role="alert">
-          {prefError}
-        </p>
-      ) : null}
-
-      {view === "week" ? (
-        <WeekLayout
+      {!isMounted ? (
+        <div
+          className="min-h-48 rounded-xl bg-muted/20"
+          aria-hidden
+          data-testid="calendar-layout-pending"
+        />
+      ) : isNarrow ? (
+        <PhoneDaySpine
           weekDays={weekDays}
-          selectedDay={selectedDay}
           todayIso={todayIso}
-          weekStart={weekStart}
-          monthStart={monthStart}
-          occurrences={occurrences}
+          byDate={byDate}
+          handlers={handlers}
         />
       ) : (
-        <MonthLayout
-          cells={monthCells}
-          monthStart={monthStart}
-          selectedDay={selectedDay}
+        <WeekBoard
+          weekDays={weekDays}
           todayIso={todayIso}
-          weekStart={weekStart}
-          occurrences={occurrences}
+          byDate={byDate}
+          handlers={handlers}
         />
       )}
 
-      <SelectedDayList
-        selectedDay={selectedDay}
-        occurrences={selectedOccurrences}
-        onEdit={openEdit}
-        onDelete={setDeleteSeriesId}
-        onAdd={openCreate}
-      />
-
       <CalendarEventFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        defaultStartOn={selectedDay}
-        seriesId={editingSeriesId}
-        event={
-          editingSeriesId ? (eventsById.get(editingSeriesId) ?? null) : null
+        key={
+          dialog.type === "form"
+            ? `event-form-${dialog.seriesId ?? "new"}-${dialog.defaultStartOn}`
+            : "event-form-closed"
         }
+        open={dialog.type === "form"}
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
+        }}
+        defaultStartOn={
+          dialog.type === "form" ? dialog.defaultStartOn : preferredAddDay
+        }
+        seriesId={dialog.type === "form" ? (dialog.seriesId ?? null) : null}
+        event={editingEvent}
       />
 
       <DeleteCalendarEventDialog
-        open={Boolean(deleteSeriesId)}
+        key={dialog.type === "delete" ? dialog.seriesId : "delete-event-closed"}
+        open={dialog.type === "delete"}
         onOpenChange={(open) => {
-          if (!open) setDeleteSeriesId(null);
+          if (!open) closeDialog();
         }}
-        eventId={deleteSeriesId}
-        isRecurring={
-          deleteSeriesId
-            ? (eventsById.get(deleteSeriesId)?.recurrence ?? "none") !== "none"
-            : false
-        }
+        eventId={dialog.type === "delete" ? dialog.seriesId : null}
+        updatedAt={deleteEvent?.updatedAt ?? null}
+        isRecurring={deleteEvent ? deleteEvent.recurrence !== "none" : false}
       />
     </div>
   );
 }
 
-function WeekLayout(props: {
+/** Desktop / tablet: seven day columns with event chips. */
+function WeekBoard({
+  weekDays,
+  todayIso,
+  byDate,
+  handlers,
+}: {
   weekDays: string[];
-  selectedDay: string;
   todayIso: string;
-  weekStart: string;
-  monthStart: string;
-  occurrences: CalendarOccurrence[];
+  byDate: Map<string, CalendarOccurrence[]>;
+  handlers: EventHandlers;
 }) {
   return (
-    <>
-      {/* Desktop / tablet: seven columns */}
+    <div
+      className="min-w-0 max-w-full overflow-x-auto"
+      data-testid="calendar-week-grid"
+    >
       <div
-        className="hidden gap-2 p-0.5 md:grid md:grid-cols-7"
-        data-testid="calendar-week-desktop"
+        className="grid min-w-[56rem] grid-cols-7 gap-1.5"
+        role="list"
+        aria-label="This week’s events"
       >
-        {props.weekDays.map((dayIso) => (
-          <DayColumn
-            key={dayIso}
-            dayIso={dayIso}
-            selected={dayIso === props.selectedDay}
-            isToday={dayIso === props.todayIso}
-            href={calendarHref({
-              view: "week",
-              week: props.weekStart,
-              month: props.monthStart,
-              day: dayIso,
-            })}
-            occurrences={occurrencesForDay(props.occurrences, dayIso)}
-          />
-        ))}
-      </div>
+        {weekDays.map((day) => {
+          const dayEvents = byDate.get(day) ?? [];
+          const isToday = day === todayIso;
 
-      {/* Mobile: stacked bands */}
-      <div
-        className="flex flex-col gap-2 p-0.5 md:hidden"
-        data-testid="calendar-week-mobile"
-      >
-        {props.weekDays.map((dayIso) => (
-          <DayBand
-            key={dayIso}
-            dayIso={dayIso}
-            selected={dayIso === props.selectedDay}
-            isToday={dayIso === props.todayIso}
-            href={calendarHref({
-              view: "week",
-              week: props.weekStart,
-              month: props.monthStart,
-              day: dayIso,
-            })}
-            occurrences={occurrencesForDay(props.occurrences, dayIso)}
-          />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function MonthLayout(props: {
-  cells: string[];
-  monthStart: string;
-  selectedDay: string;
-  todayIso: string;
-  weekStart: string;
-  occurrences: CalendarOccurrence[];
-}) {
-  const monthPrefix = props.monthStart.slice(0, 7);
-  const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  return (
-    <div data-testid="calendar-month-grid" className="p-0.5">
-      <div className="mb-1 grid grid-cols-7 gap-1">
-        {weekdayLabels.map((label) => (
-          <div
-            key={label}
-            className="py-1 text-center text-xs font-medium text-muted-foreground"
-          >
-            {label}
-          </div>
-        ))}
-      </div>
-      <div
-        className="grid grid-cols-7 gap-1"
-        role="grid"
-        aria-label={formatMonthLabel(props.monthStart)}
-      >
-        {props.cells.map((dayIso) => {
-          const inMonth = dayIso.startsWith(monthPrefix);
-          const dayOcc = occurrencesForDay(props.occurrences, dayIso);
-          const count = dayOcc.length;
-          const selected = dayIso === props.selectedDay;
-          const isToday = dayIso === props.todayIso;
           return (
-            <Link
-              key={dayIso}
-              href={calendarHref({
-                view: "month",
-                week: props.weekStart,
-                month: props.monthStart,
-                day: dayIso,
-              })}
-              role="gridcell"
-              aria-selected={selected}
-              aria-current={isToday ? "date" : undefined}
-              data-testid={`calendar-month-day-${dayIso}`}
+            <section
+              key={day}
+              role="listitem"
               className={cn(
-                "flex min-h-11 flex-col items-center justify-start gap-0.5 rounded-lg border-2 border-transparent p-1 text-center transition-colors",
-                inMonth ? "bg-card" : "bg-muted/40 text-muted-foreground",
-                selected && "border-primary bg-primary/5",
-                isToday && !selected && "border-foreground/40",
+                "flex min-w-0 flex-col gap-2 rounded-2xl px-1.5 py-2",
+                isToday ? "bg-muted/35" : null,
               )}
+              data-testid={`calendar-day-column-${day}`}
             >
-              <span className="text-sm font-medium tabular-nums">
-                {formatDayOfMonth(dayIso)}
-              </span>
-              {count > 0 ? (
-                <span className="flex items-center gap-0.5">
-                  <span
-                    className="size-1.5 rounded-full bg-primary"
-                    aria-hidden
+              <header className="px-0.5 text-center">
+                <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                  {formatWeekdayShort(day)}
+                </p>
+                <p
+                  className={cn(
+                    "mt-0.5 text-lg font-semibold tabular-nums tracking-tight",
+                    isToday
+                      ? "inline-block border-b-2 border-foreground pb-0.5"
+                      : "text-foreground/90",
+                  )}
+                >
+                  {formatDayOfMonth(day)}
+                </p>
+                {isToday ? (
+                  <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+                    Today
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[10px] text-transparent select-none">
+                    ·
+                  </p>
+                )}
+              </header>
+
+              <div className="flex flex-1 flex-col gap-2">
+                {dayEvents.map((occ) => (
+                  <EventChip
+                    key={occ.id}
+                    occurrence={occ}
+                    variant="board"
+                    onEdit={handlers.onEdit}
+                    onDelete={handlers.onDelete}
                   />
-                  {count > 1 ? (
-                    <span className="text-[10px] tabular-nums text-muted-foreground">
-                      {count}
-                    </span>
-                  ) : null}
-                </span>
-              ) : (
-                <span className="h-2" aria-hidden />
-              )}
-            </Link>
+                ))}
+                <QuietDayAdd
+                  label={`Add event on ${dayLabel(day)}`}
+                  testId={`calendar-day-add-${day}`}
+                  onAdd={() => handlers.onAdd(day)}
+                />
+              </div>
+            </section>
           );
         })}
       </div>
@@ -534,234 +354,113 @@ function MonthLayout(props: {
   );
 }
 
-function DayColumn(props: {
-  dayIso: string;
-  selected: boolean;
-  isToday: boolean;
-  href: string;
-  occurrences: CalendarOccurrence[];
-}) {
-  const preview = props.occurrences.slice(0, 3);
-  const overflow = props.occurrences.length - preview.length;
-
-  return (
-    <Link
-      href={props.href}
-      data-testid={`calendar-week-day-${props.dayIso}`}
-      aria-selected={props.selected}
-      aria-current={props.isToday ? "date" : undefined}
-      className={cn(
-        "flex min-h-40 flex-col gap-1 rounded-xl border-2 border-transparent p-2 transition-colors",
-        props.selected && "border-primary bg-primary/5",
-        props.isToday && !props.selected && "border-foreground/30",
-      )}
-    >
-      <div className="flex items-baseline justify-between gap-1">
-        <span className="text-xs text-muted-foreground">
-          {formatWeekdayShort(props.dayIso)}
-        </span>
-        <span className="text-sm font-semibold tabular-nums">
-          {formatDayOfMonth(props.dayIso)}
-        </span>
-      </div>
-      <ul className="flex flex-col gap-1">
-        {preview.map((occ) => (
-          <li
-            key={occ.id}
-            className={cn(
-              "truncate rounded-md px-1.5 py-0.5 text-xs",
-              occ.readonly
-                ? "border border-dashed border-muted-foreground/40 text-muted-foreground"
-                : "bg-muted",
-            )}
-          >
-            {occ.title}
-          </li>
-        ))}
-        {overflow > 0 ? (
-          <li className="text-xs text-muted-foreground">+{overflow} more</li>
-        ) : null}
-      </ul>
-    </Link>
-  );
-}
-
-function DayBand(props: {
-  dayIso: string;
-  selected: boolean;
-  isToday: boolean;
-  href: string;
-  occurrences: CalendarOccurrence[];
+/** Phone: vertical day spine (same structure as meals). */
+function PhoneDaySpine({
+  weekDays,
+  todayIso,
+  byDate,
+  handlers,
+}: {
+  weekDays: string[];
+  todayIso: string;
+  byDate: Map<string, CalendarOccurrence[]>;
+  handlers: EventHandlers;
 }) {
   return (
-    <Link
-      href={props.href}
-      data-testid={`calendar-week-band-${props.dayIso}`}
-      aria-selected={props.selected}
-      aria-current={props.isToday ? "date" : undefined}
-      className={cn(
-        "flex min-h-11 items-start gap-3 rounded-xl border-2 border-transparent px-3 py-2",
-        props.selected && "border-primary bg-primary/5",
-        props.isToday && !props.selected && "border-foreground/30",
-      )}
+    <div
+      className="flex min-w-0 max-w-full flex-col overflow-x-clip"
+      data-testid="calendar-day-spine"
     >
-      <div className="w-14 shrink-0">
-        <p className="text-xs text-muted-foreground">
-          {formatWeekdayShort(props.dayIso)}
-        </p>
-        <p className="text-base font-semibold tabular-nums">
-          {formatDayOfMonth(props.dayIso)}
-        </p>
-      </div>
-      <div className="min-w-0 flex-1">
-        {props.occurrences.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No events</p>
-        ) : (
-          <ul className="flex flex-col gap-0.5">
-            {props.occurrences.slice(0, 4).map((occ) => (
-              <li key={occ.id} className="truncate text-sm">
-                {occ.title}
-              </li>
-            ))}
-            {props.occurrences.length > 4 ? (
-              <li className="text-xs text-muted-foreground">
-                +{props.occurrences.length - 4} more
-              </li>
-            ) : null}
-          </ul>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function SelectedDayList(props: {
-  selectedDay: string;
-  occurrences: CalendarOccurrence[];
-  onEdit: (seriesId: string) => void;
-  onDelete: (seriesId: string) => void;
-  onAdd: () => void;
-}) {
-  const date = props.selectedDay;
-  const [y, m, d] = date.split("-").map(Number);
-  const label = new Date(y!, m! - 1, d!).toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-
-  return (
-    <section
-      className="rounded-2xl border border-border/80 bg-card p-4"
-      data-testid="calendar-selected-day"
-      aria-label={`Events for ${label}`}
-    >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold tracking-tight">{label}</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          className="min-h-11"
-          onClick={props.onAdd}
-          data-testid="calendar-selected-add"
-        >
-          Add
-        </Button>
+      <div
+        className="mb-3 flex w-full min-w-0 gap-1"
+        role="navigation"
+        aria-label="Jump to day"
+        data-testid="calendar-day-strip"
+      >
+        {weekDays.map((day) => {
+          const isToday = day === todayIso;
+          const count = (byDate.get(day) ?? []).length;
+          return (
+            <a
+              key={day}
+              href={`#calendar-day-${day}`}
+              className={cn(
+                "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center rounded-lg px-1 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground",
+                isToday ? "bg-muted text-foreground" : null,
+              )}
+              data-testid={`calendar-day-chip-${day}`}
+            >
+              <span className="text-[10px] font-medium tracking-[0.08em] uppercase">
+                {formatWeekdayShort(day)}
+              </span>
+              <span className="text-base font-semibold tabular-nums leading-none">
+                {formatDayOfMonth(day)}
+              </span>
+              <span className="sr-only">
+                {count === 0 ? "Nothing scheduled" : `${count} events`}
+              </span>
+            </a>
+          );
+        })}
       </div>
 
-      {props.occurrences.length === 0 ? (
-        <p
-          className="text-sm text-muted-foreground"
-          data-testid="calendar-selected-empty"
-        >
-          Nothing scheduled this day.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {props.occurrences.map((occ) => {
-            const Icon = categoryIcon(occ.category);
-            const timeLabel = occ.allDay
-              ? "All day"
-              : occ.startAt
-                ? formatLocalTimeDisplay(occ.startAt)
-                : "";
-            const categoryLabel = occ.category
-              ? CALENDAR_EVENT_CATEGORY_LABELS[occ.category]
-              : occ.sourceKey === "subscription_renewals"
-                ? "Subscription"
-                : "Event";
+      <div className="flex flex-col gap-1">
+        {weekDays.map((day) => {
+          const dayEvents = byDate.get(day) ?? [];
+          const isToday = day === todayIso;
+          const filled = dayEvents.length > 0;
 
-            const body = (
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <Icon
-                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                  aria-hidden
-                />
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{occ.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {categoryLabel}
-                    {timeLabel ? ` · ${timeLabel}` : ""}
-                    {occ.location ? (
-                      <>
-                        {" · "}
-                        <MapPin className="inline size-3" aria-hidden />{" "}
-                        {occ.location}
-                      </>
-                    ) : null}
-                  </p>
-                </div>
-              </div>
-            );
-
-            if (occ.readonly && occ.href) {
-              return (
-                <li key={occ.id}>
-                  <Link
-                    href={occ.href}
-                    className="flex min-h-11 items-center rounded-lg border border-dashed border-muted-foreground/40 px-3 py-2"
-                    data-testid={`calendar-occ-${occ.id}`}
-                  >
-                    {body}
-                    <span className="ml-2 shrink-0 text-xs text-muted-foreground">
-                      Subscription
-                    </span>
-                  </Link>
-                </li>
-              );
-            }
-
-            return (
-              <li
-                key={occ.id}
-                className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2"
-                data-testid={`calendar-occ-${occ.id}`}
-              >
-                {body}
-                {occ.seriesId ? (
-                  <div className="ml-auto flex gap-1">
-                    <IconButton
-                      label="Edit event"
-                      variant="ghost"
-                      onClick={() => props.onEdit(occ.seriesId!)}
-                    >
-                      <Pencil className="size-4" aria-hidden />
-                    </IconButton>
-                    <IconButton
-                      label="Delete event"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => props.onDelete(occ.seriesId!)}
-                    >
-                      <Trash2 className="size-4" aria-hidden />
-                    </IconButton>
-                  </div>
+          return (
+            <section
+              key={day}
+              id={`calendar-day-${day}`}
+              className={cn(
+                "scroll-mt-20 rounded-2xl px-1 py-3",
+                isToday ? "bg-muted/40" : null,
+              )}
+              data-testid={`calendar-slots-${day}`}
+            >
+              <div className="mb-2 flex items-baseline gap-2 px-1">
+                <h3 className="text-base font-semibold tracking-tight">
+                  {dayLabel(day)}
+                </h3>
+                {isToday ? (
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    Today
+                  </span>
                 ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
+                {filled ? (
+                  <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                    {dayEvents.length}
+                  </span>
+                ) : null}
+              </div>
+
+              {filled ? (
+                <ul className="flex flex-col gap-2">
+                  {dayEvents.map((occ) => (
+                    <li key={occ.id}>
+                      <EventChip
+                        occurrence={occ}
+                        variant="row"
+                        onEdit={handlers.onEdit}
+                        onDelete={handlers.onDelete}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              <QuietDayAdd
+                label={`Add event on ${dayLabel(day)}`}
+                testId={`calendar-day-add-${day}`}
+                className="mt-1"
+                onAdd={() => handlers.onAdd(day)}
+              />
+            </section>
+          );
+        })}
+      </div>
+    </div>
   );
 }

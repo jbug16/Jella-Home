@@ -733,6 +733,7 @@ export type Database = {
       save_recipe_with_ingredients: {
         Args: {
           p_cook_time_minutes: number;
+          p_expected_updated_at?: string | null;
           p_household_id: string;
           p_ingredients: Json;
           p_instructions: string;

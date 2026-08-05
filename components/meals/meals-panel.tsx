@@ -9,6 +9,7 @@ import {
   MealFormDialog,
   type MealFormDefaults,
 } from "@/components/meals/meal-form-dialog";
+import { QuietDayAdd } from "@/components/meals/quiet-day-add";
 import { WeekNavigator } from "@/components/meals/week-navigator";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +56,10 @@ function getNarrowSnapshot() {
 
 function getNarrowServerSnapshot() {
   return false;
+}
+
+function dayLabel(day: string) {
+  return `${formatWeekdayShort(day)} ${formatDayOfMonth(day)}`;
 }
 
 export function MealsPanel({
@@ -230,7 +235,7 @@ function ImageWeekBoard({
       data-testid="meals-week-grid"
     >
       <div
-        className="grid min-w-[56rem] grid-cols-7 gap-2"
+        className="grid min-w-[56rem] grid-cols-7 gap-1.5"
         role="list"
         aria-label="This week’s meals"
       >
@@ -284,6 +289,11 @@ function ImageWeekBoard({
                     onDelete={handlers.onDelete}
                   />
                 ))}
+                <QuietDayAdd
+                  label={`Plan a meal for ${dayLabel(day)}`}
+                  testId={`meals-day-add-${day}`}
+                  onAdd={() => handlers.onAdd(day, "dinner")}
+                />
               </div>
             </section>
           );
@@ -364,7 +374,7 @@ function PhoneDaySpine({
             >
               <div className="mb-2 flex items-baseline gap-2 px-1">
                 <h3 className="text-base font-semibold tracking-tight">
-                  {formatWeekdayShort(day)} {formatDayOfMonth(day)}
+                  {dayLabel(day)}
                 </h3>
                 {isToday ? (
                   <span className="text-[10px] font-medium text-muted-foreground">
@@ -393,6 +403,13 @@ function PhoneDaySpine({
                   ))}
                 </ul>
               ) : null}
+
+              <QuietDayAdd
+                label={`Plan a meal for ${dayLabel(day)}`}
+                testId={`meals-day-add-${day}`}
+                className="mt-1"
+                onAdd={() => handlers.onAdd(day, "dinner")}
+              />
             </section>
           );
         })}

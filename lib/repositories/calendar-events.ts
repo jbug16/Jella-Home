@@ -3,13 +3,16 @@ import "server-only";
 import {
   calendarEventCouldOverlapRange,
   createCalendarEventInputSchema,
+  deleteCalendarEventInputSchema,
   mapCalendarEvent,
   updateCalendarEventInputSchema,
   type CalendarEvent,
   type CalendarEventRow,
   type CreateCalendarEventInput,
+  type DeleteCalendarEventInput,
   type UpdateCalendarEventInput,
 } from "@/lib/domain/calendar-event";
+import { ConcurrencyConflictError } from "@/lib/domain/concurrency";
 import { requireCurrentMembership } from "@/lib/repositories/households";
 import { createClient } from "@/lib/supabase/server";
 
@@ -124,27 +127,42 @@ export async function updateCalendarEvent(
     })
     .eq("household_id", membership.household.id)
     .eq("id", parsed.id)
+    .eq("updated_at", parsed.expectedUpdatedAt)
     .select(EVENT_SELECT)
     .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     throw new Error("Unable to update that event.");
+  }
+
+  if (!data) {
+    throw new ConcurrencyConflictError();
   }
 
   return mapCalendarEvent(data as CalendarEventRow);
 }
 
-export async function deleteCalendarEvent(id: string): Promise<void> {
+export async function deleteCalendarEvent(
+  input: DeleteCalendarEventInput,
+): Promise<void> {
   const membership = await requireCurrentMembership();
+  const parsed = deleteCalendarEventInputSchema.parse(input);
   const supabase = await createClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("calendar_events")
     .delete()
     .eq("household_id", membership.household.id)
-    .eq("id", id);
+    .eq("id", parsed.id)
+    .eq("updated_at", parsed.expectedUpdatedAt)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw new Error("Unable to delete that event.");
+  }
+
+  if (!data) {
+    throw new ConcurrencyConflictError();
   }
 }

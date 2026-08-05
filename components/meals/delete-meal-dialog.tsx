@@ -69,6 +69,11 @@ function DeleteForm({ meal, onClose }: DeleteFormProps) {
         </AlertDialogCancel>
         <form action={formAction}>
           <input type="hidden" name="id" value={meal.id} />
+          <input
+            type="hidden"
+            name="expectedUpdatedAt"
+            value={meal.updatedAt}
+          />
           <Button
             type="submit"
             variant="destructive"

@@ -1,10 +1,10 @@
 "use server";
 
-import { z } from "zod";
-
 import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
 import { parseDollarInputToNonNegativeCents } from "@/lib/domain/budget";
+import { isConcurrencyConflictError } from "@/lib/domain/concurrency";
 import {
+  archiveSubscriptionInputSchema,
   createSubscriptionInputSchema,
   updateSubscriptionInputSchema,
 } from "@/lib/domain/subscription";
@@ -26,6 +26,13 @@ function formString(formData: FormData, key: string): string {
 
 function revalidateSubscriptions(): void {
   revalidateModuleAndDashboard("/subscriptions", "/calendar");
+}
+
+function conflictOr(error: unknown, fallback: string): SubscriptionActionState {
+  if (isConcurrencyConflictError(error)) {
+    return { error: error.message, success: null };
+  }
+  return { error: fallback, success: null };
 }
 
 function parseSubscriptionForm(formData: FormData) {
@@ -86,10 +93,14 @@ export async function updateSubscriptionAction(
   _previous: SubscriptionActionState,
   formData: FormData,
 ): Promise<SubscriptionActionState> {
-  let raw: ReturnType<typeof parseSubscriptionForm> & { id: string };
+  let raw: ReturnType<typeof parseSubscriptionForm> & {
+    id: string;
+    expectedUpdatedAt: string;
+  };
   try {
     raw = {
       id: formString(formData, "id"),
+      expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
       ...parseSubscriptionForm(formData),
     };
   } catch (error) {
@@ -110,8 +121,8 @@ export async function updateSubscriptionAction(
 
   try {
     await updateSubscription(parsed.data);
-  } catch {
-    return { error: "Unable to update subscription.", success: null };
+  } catch (error) {
+    return conflictOr(error, "Unable to update subscription.");
   }
 
   revalidateSubscriptions();
@@ -123,15 +134,22 @@ export async function deleteSubscriptionAction(
   _previous: SubscriptionActionState,
   formData: FormData,
 ): Promise<SubscriptionActionState> {
-  const parsed = z.uuid().safeParse(formString(formData, "id"));
+  const parsed = archiveSubscriptionInputSchema.safeParse({
+    id: formString(formData, "id"),
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
+  });
   if (!parsed.success) {
-    return { error: "Unable to delete subscription.", success: null };
+    return {
+      error:
+        parsed.error.issues[0]?.message ?? "Unable to delete subscription.",
+      success: null,
+    };
   }
 
   try {
     await archiveSubscription(parsed.data);
-  } catch {
-    return { error: "Unable to delete subscription.", success: null };
+  } catch (error) {
+    return conflictOr(error, "Unable to delete subscription.");
   }
 
   revalidateSubscriptions();

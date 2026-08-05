@@ -73,6 +73,9 @@ const localEnv = {
   PLAYWRIGHT_WORKERS: process.env.PLAYWRIGHT_WORKERS ?? "1",
 };
 
+// Apply any pending local migrations (e.g. new RPCs) before building/tests.
+run("npx", ["supabase", "migration", "up", "--local"], localEnv);
+
 // Ensure proxy/middleware is compiled against the same Supabase project used at runtime.
 // Next 16 defaults to Turbopack builds, which do not produce a `next start`-ready
 // `.next` output — use webpack for Playwright's production server.

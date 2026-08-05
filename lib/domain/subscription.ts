@@ -1,12 +1,16 @@
 import { z } from "zod";
 
+import { formatCents, nonNegativeCentsSchema } from "@/lib/domain/budget";
+import { expectedUpdatedAtSchema } from "@/lib/domain/concurrency";
 import {
   addDays,
   formatIsoDateLocal,
+  formatIsoDateUs,
+  formatRelativeDayPhrase,
   isoDateSchema,
   parseIsoDateLocal,
 } from "@/lib/domain/dates";
-import { formatCents, nonNegativeCentsSchema } from "@/lib/domain/budget";
+import { toVersionTimestamp } from "@/lib/domain/timestamps";
 
 export { formatCents };
 
@@ -114,7 +118,10 @@ export const createSubscriptionPersistedSchema =
   });
 
 export const updateSubscriptionInputSchema = subscriptionWriteFieldsSchema
-  .extend({ id: z.uuid() })
+  .extend({
+    id: z.uuid(),
+    expectedUpdatedAt: expectedUpdatedAtSchema,
+  })
   .transform((input) => ({
     ...input,
     billingDay: billingDayFromIso(input.renewalOn),
@@ -127,8 +134,18 @@ export type UpdateSubscriptionInput = z.infer<
 export const updateSubscriptionPersistedSchema =
   subscriptionWriteFieldsSchema.extend({
     id: z.uuid(),
+    expectedUpdatedAt: expectedUpdatedAtSchema,
     billingDay: billingDaySchema,
   });
+
+export const archiveSubscriptionInputSchema = z.object({
+  id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+});
+
+export type ArchiveSubscriptionInput = z.infer<
+  typeof archiveSubscriptionInputSchema
+>;
 
 export type SubscriptionDueStatus =
   "overdue" | "dueToday" | "dueSoon" | "upcoming";
@@ -168,7 +185,7 @@ export function mapSubscription(row: SubscriptionRow): Subscription {
     status: row.status,
     notes: row.notes,
     createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    updatedAt: toVersionTimestamp(row.updated_at),
   });
 }
 
@@ -339,6 +356,21 @@ export function formatBillingAmount(
   cadence: SubscriptionCadence,
 ): string {
   return `${formatCents(amountCents)} / ${SUBSCRIPTION_CADENCE_LABELS[cadence].toLowerCase()}`;
+}
+
+/**
+ * Next billing caption: US date plus relative day phrase.
+ * Example: "07-24-2026 (in 3 days)".
+ */
+export function formatNextBillingCaption(
+  renewalOn: string,
+  todayIso: string,
+): string {
+  isoDateSchema.parse(renewalOn);
+  isoDateSchema.parse(todayIso);
+  const usDate = formatIsoDateUs(renewalOn);
+  const relative = formatRelativeDayPhrase(renewalOn, todayIso);
+  return `${usDate} (${relative})`;
 }
 
 export function formatMonthlyEquivalent(amountCents: number): string {

@@ -8,6 +8,7 @@ import {
   billingDayFromIso,
   buildSubscriptionsViewModel,
   createSubscriptionInputSchema,
+  formatNextBillingCaption,
   monthlyEquivalentCents,
   nextBillingDate,
   subscriptionDueStatus,
@@ -266,6 +267,23 @@ describe("active totals and view model", () => {
     expect(vm.archived).toHaveLength(1);
     expect(vm.active[0]?.billingLabel).toContain("$30.00");
     expect(vm.active[0]?.billingLabel).toContain("monthly");
+  });
+});
+
+describe("formatNextBillingCaption", () => {
+  it("combines US date with relative phrase", () => {
+    expect(formatNextBillingCaption("2026-07-24", "2026-07-21")).toBe(
+      "07-24-2026 (in 3 days)",
+    );
+    expect(formatNextBillingCaption("2026-07-24", "2026-07-24")).toBe(
+      "07-24-2026 (today)",
+    );
+    expect(formatNextBillingCaption("2026-07-25", "2026-07-24")).toBe(
+      "07-25-2026 (tomorrow)",
+    );
+    expect(formatNextBillingCaption("2026-07-20", "2026-07-24")).toBe(
+      "07-20-2026 (4 days ago)",
+    );
   });
 });
 

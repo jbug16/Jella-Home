@@ -145,7 +145,16 @@ function RecipeForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      {recipe ? <input type="hidden" name="id" value={recipe.id} /> : null}
+      {recipe ? (
+        <>
+          <input type="hidden" name="id" value={recipe.id} />
+          <input
+            type="hidden"
+            name="expectedUpdatedAt"
+            value={recipe.updatedAt}
+          />
+        </>
+      ) : null}
       <input type="hidden" name="ingredients" value={ingredientsJson} />
 
       <div className="flex flex-col gap-2">
@@ -345,7 +354,6 @@ export function RecipeFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={recipe ? "Edit recipe" : "Add recipe"}
-      description="Enter ingredients with a quantity, unit, and name. Leave quantity blank for “to taste”."
       desktopWidthClassName="sm:max-w-lg"
     >
       <RecipeForm

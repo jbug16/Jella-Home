@@ -16,6 +16,7 @@ type DeleteCalendarEventDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   eventId: string | null;
+  updatedAt: string | null;
   isRecurring: boolean;
 };
 
@@ -23,6 +24,7 @@ export function DeleteCalendarEventDialog({
   open,
   onOpenChange,
   eventId,
+  updatedAt,
   isRecurring,
 }: DeleteCalendarEventDialogProps) {
   const router = useRouter();
@@ -51,6 +53,9 @@ export function DeleteCalendarEventDialog({
     >
       <form action={formAction} className="flex flex-col gap-4">
         {eventId ? <input type="hidden" name="id" value={eventId} /> : null}
+        {updatedAt ? (
+          <input type="hidden" name="expectedUpdatedAt" value={updatedAt} />
+        ) : null}
         {state.error ? (
           <p className="text-sm text-destructive" role="alert">
             {state.error}

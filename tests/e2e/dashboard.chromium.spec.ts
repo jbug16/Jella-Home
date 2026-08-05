@@ -41,17 +41,12 @@ async function browserWeekStart(page: Page): Promise<string> {
 }
 
 test.describe("dashboard home", () => {
-  test("shows calendar day view, today's meals, and budget", async ({
-    page,
-  }) => {
+  test("shows today's meals and budget", async ({ page }) => {
     await signInAsMember(page);
     await goToDashboard(page);
 
     await expect(page.getByTestId("dashboard-panel")).toBeVisible();
-    await expect(page.getByTestId("calendar-day-view")).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Today's events" }),
-    ).toBeVisible();
+    await expect(page.getByTestId("calendar-day-view")).toHaveCount(0);
     await expect(page.getByTestId("card-meals")).toBeVisible();
     await expect(page.getByTestId("card-budget")).toBeVisible();
     await expect(page.getByTestId("card-grocery")).toHaveCount(0);
@@ -61,16 +56,12 @@ test.describe("dashboard home", () => {
     );
   });
 
-  test("CTAs deep-link to calendar, meals, and budget", async ({ page }) => {
+  test("CTAs deep-link to meals and budget", async ({ page }) => {
     await signInAsMember(page);
     await goToDashboard(page);
 
     const weekStart = await browserWeekStart(page);
 
-    await page.getByTestId("dashboard-cta-today").click();
-    await expect(page).toHaveURL(/\/calendar(?:\?|$)/);
-
-    await goToDashboard(page);
     await page.getByTestId("dashboard-cta-budget").click();
     await expect(page).toHaveURL(/\/budget(?:\?|$)/);
 
@@ -109,10 +100,6 @@ test.describe("dashboard home", () => {
     await expect(
       page.getByTestId("dashboard-meal-thumbnail").first(),
     ).toBeVisible();
-    // Meals must not appear in the household calendar card.
-    await expect(page.getByTestId("calendar-day-view")).not.toContainText(
-      "Fixture Spaghetti",
-    );
 
     await page
       .getByRole("link", { name: /Fixture Spaghetti/ })
@@ -141,6 +128,6 @@ test.describe("dashboard home", () => {
     await goToDashboard(page);
 
     await expect(page.getByTestId("card-budget")).not.toContainText("487.50");
-    await expect(page.getByTestId("calendar-day-view")).toBeVisible();
+    await expect(page.getByTestId("calendar-day-view")).toHaveCount(0);
   });
 });

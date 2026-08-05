@@ -12,7 +12,7 @@ test("redirects unauthenticated Safari users to sign-in", async ({ page }) => {
   await expect(page).toHaveURL(/\/sign-in/);
 
   await expect(
-    page.getByRole("heading", { level: 1, name: "Jella Home" }),
+    page.getByRole("heading", { level: 1, name: "Jella's Home" }),
   ).toBeVisible();
   await expect(page.getByLabel("Household email")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();

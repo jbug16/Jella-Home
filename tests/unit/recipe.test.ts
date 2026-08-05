@@ -310,6 +310,7 @@ describe("mapRecipe", () => {
       notes: "Yum",
       image_path: "22222222-2222-4222-8222-222222222222/cover.jpg",
       archived_at: null,
+      updated_at: "2026-07-01T00:00:00.000Z",
     };
     const recipe = mapRecipe(row);
     expect(recipe.prepTimeMinutes).toBe(10);

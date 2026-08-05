@@ -72,7 +72,14 @@ function SubscriptionForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {subscription ? (
-        <input type="hidden" name="id" value={subscription.id} />
+        <>
+          <input type="hidden" name="id" value={subscription.id} />
+          <input
+            type="hidden"
+            name="expectedUpdatedAt"
+            value={subscription.updatedAt}
+          />
+        </>
       ) : null}
       <input type="hidden" name="cadence" value={cadence} />
 

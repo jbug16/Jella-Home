@@ -2,7 +2,6 @@ import { expect, test } from "@playwright/test";
 
 import {
   goToBudget,
-  goToCalendar,
   goToDashboard,
   goToShopping,
   signInAsMember,
@@ -34,18 +33,16 @@ test.describe("UI/UX polish", () => {
       page.getByRole("navigation", { name: "Primary" }),
     ).toBeVisible();
     await expect(
-      page.locator("header").filter({ hasText: "Jella Home" }),
+      page.locator("header").filter({ hasText: "Jella's Home" }),
     ).toBeHidden();
-    await expect(
-      page.getByRole("heading", { name: "Today's events" }),
-    ).toBeVisible();
+    await expect(page.getByTestId("card-meals")).toBeVisible();
   });
 
   test("mobile shell keeps brand header and bottom nav", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });
     await goToDashboard(page);
 
-    await expect(page.locator("header").getByText("Jella Home")).toBeVisible();
+    await expect(page.locator("header").getByText("Jella's Home")).toBeVisible();
     await expect(
       page.getByRole("navigation", { name: "Primary" }),
     ).toBeVisible();
@@ -96,10 +93,7 @@ test.describe("UI/UX polish", () => {
       await assertNoHorizontalOverflow(page);
       await goToBudget(page);
       await assertNoHorizontalOverflow(page);
-      await goToCalendar(
-        page,
-        "view=week&week=2026-07-12&month=2026-07&day=2026-07-14",
-      );
+      await goToShopping(page);
       await assertNoHorizontalOverflow(page);
     }
   });
@@ -114,5 +108,40 @@ test.describe("UI/UX polish", () => {
     await expect(submit).toBeVisible();
     await submit.scrollIntoViewIfNeeded();
     await expect(submit).toBeInViewport();
+  });
+
+  test("sheet close and shopping form meet 44px touch targets", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await goToShopping(page);
+    await page.getByTestId("shopping-add-item").click();
+
+    const close = page
+      .locator('[data-slot="sheet-close"], [data-slot="dialog-close"]')
+      .first();
+    await expect(close).toBeVisible();
+    const closeBox = await close.boundingBox();
+    expect(closeBox?.width ?? 0).toBeGreaterThanOrEqual(44);
+    expect(closeBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+    const nameBox = await page.getByTestId("shopping-item-name").boundingBox();
+    expect(nameBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+    const submitBox = await page
+      .getByTestId("shopping-item-submit")
+      .boundingBox();
+    expect(submitBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+  });
+
+  test("invalid budget month falls back without error page", async ({
+    page,
+  }) => {
+    await page.goto("/budget?month=2026-99");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Budget" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("summary-remaining")).toBeVisible();
+    await expect(page.getByText(/Application error/i)).toHaveCount(0);
   });
 });

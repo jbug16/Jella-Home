@@ -78,7 +78,8 @@ export async function updateSession(request: NextRequest) {
 
   if (!isAuthenticated && !isPublicPath(pathname)) {
     const redirectUrl = new URL("/sign-in", request.url);
-    redirectUrl.searchParams.set("next", pathname);
+    const returnPath = `${pathname}${request.nextUrl.search}`;
+    redirectUrl.searchParams.set("next", returnPath);
     return NextResponse.redirect(redirectUrl);
   }
 
