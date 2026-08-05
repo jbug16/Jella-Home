@@ -1,8 +1,9 @@
 import Link from "next/link";
 
 import { CalendarDayView } from "@/components/calendar/day-view";
+import { BudgetExpenseChart } from "@/components/dashboard/budget-expense-chart";
+import { CountdownsCard } from "@/components/dashboard/countdowns-card";
 import { DashboardCardShell } from "@/components/dashboard/dashboard-card-shell";
-import { Progress } from "@/components/ui/progress";
 import { formatCents } from "@/lib/domain/budget";
 import type { DashboardViewModel } from "@/lib/domain/dashboard";
 import { CALENDAR_ENABLED } from "@/lib/features/calendar";
@@ -30,87 +31,41 @@ function mealHref(
   return mealsHref(weekStart);
 }
 
-function BudgetCard({ viewModel }: DashboardPanelProps) {
+function BudgetCard({
+  viewModel,
+  className,
+}: DashboardPanelProps & { className?: string }) {
   const { budget } = viewModel;
   const href = budgetHref(budget.monthStart);
-
-  const remainingClass =
-    budget.remainingTone === "danger"
-      ? "text-destructive"
-      : budget.remainingTone === "ok"
-        ? "text-foreground"
-        : "text-muted-foreground";
 
   return (
     <DashboardCardShell
       id="card-budget"
       title="Budget"
-      description="This month"
-      actionHref={href}
-      actionLabel="View budget"
-      actionTestId="dashboard-cta-budget"
-      className="min-h-0 shrink-0"
+      href={href}
+      linkLabel="View budget"
+      linkTestId="dashboard-cta-budget"
+      className={cn("min-h-0 shrink-0", className)}
       compact
     >
+      <BudgetExpenseChart
+        slices={budget.expenseSlices}
+        totalOutCents={budget.actualOutCents}
+        remainingLabel={
+          budget.hasBudgetSetup ? budget.remainingLabel : undefined
+        }
+        remainingTone={budget.remainingTone}
+      />
       {budget.hasBudgetSetup ? (
-        <div className="flex flex-col gap-2">
-          <div>
-            <p
-              className={cn(
-                "text-xl font-semibold tracking-tight tabular-nums",
-                remainingClass,
-              )}
-              data-testid="dashboard-budget-remaining"
-            >
-              {budget.remainingLabel}
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Spent {formatCents(budget.actualOutCents)} of{" "}
-              {formatCents(budget.plannedTotalCents)} planned
-            </p>
-          </div>
-          <div
-            className="flex flex-col gap-1.5"
-            role="status"
-            data-testid="dashboard-budget-progress"
-          >
-            <Progress
-              value={budget.spendingProgressPercent}
-              aria-hidden="true"
-            />
-            <p className="sr-only">
-              Spending progress: {budget.spendingProgressPercent} percent of
-              planned budget used. {budget.remainingLabel}.
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      {budget.recentTransactions.length > 0 ? (
-        <ul className="mt-3 flex flex-col gap-1.5 border-t border-border pt-2">
-          {budget.recentTransactions.map((txn) => (
-            <li
-              key={txn.id}
-              className="flex items-baseline justify-between gap-3 text-sm"
-              data-testid="dashboard-recent-txn"
-            >
-              <span className="min-w-0 truncate">
-                <span className="font-medium">{txn.payee}</span>
-                <span className="text-muted-foreground">
-                  {" "}
-                  · {txn.categoryName}
-                </span>
-              </span>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
-                {txn.direction === "out" ? "−" : "+"}
-                {formatCents(txn.amountCents)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : budget.hasBudgetSetup ? (
-        <p className="mt-2 text-sm text-muted-foreground">
-          No transactions this month yet.
+        <p
+          className="sr-only"
+          role="status"
+          data-testid="dashboard-budget-progress"
+        >
+          Spending progress: {budget.spendingProgressPercent} percent of planned
+          budget used. Spent {formatCents(budget.actualOutCents)} of{" "}
+          {formatCents(budget.plannedTotalCents)} planned.{" "}
+          {budget.remainingLabel}.
         </p>
       ) : null}
     </DashboardCardShell>
@@ -125,21 +80,20 @@ function TodaysMealsCard({ viewModel }: DashboardPanelProps) {
     <DashboardCardShell
       id="card-meals"
       title="Today's meals"
-      description="From meal planning"
-      actionHref={planHref}
-      actionLabel="Open planner"
-      actionTestId="dashboard-cta-meals"
-      className="min-h-0 sidebar:flex-1"
+      href={planHref}
+      linkLabel="Open meal planner"
+      linkTestId="dashboard-cta-meals"
+      className="min-h-0 self-start"
       compact
       scrollBody
     >
       {todayMeals.length > 0 ? (
-        <ul className="flex flex-col gap-2" data-testid="dashboard-today-meals">
+        <ul className="flex flex-col gap-1" data-testid="dashboard-today-meals">
           {todayMeals.map((meal) => (
-            <li key={meal.id}>
+            <li key={meal.id} className="relative z-20">
               <Link
                 href={mealHref(meal, asOf.weekStart)}
-                className="flex min-h-14 items-center gap-3 rounded-xl p-1.5 pr-3 transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-11 items-center gap-2.5 rounded-lg p-1 pr-2 transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-14 sm:gap-3 sm:p-1.5 sm:pr-3"
                 data-testid={`dashboard-meal-${meal.id}`}
               >
                 <MealCover title={meal.title} imageUrl={meal.imageUrl} />
@@ -170,7 +124,7 @@ function MealCover({
   if (imageUrl) {
     return (
       <span
-        className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border/60"
+        className="relative size-11 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border/60 sm:size-14 sm:rounded-lg"
         aria-hidden
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- signed Storage URLs */}
@@ -187,7 +141,7 @@ function MealCover({
 
   return (
     <span
-      className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-semibold tracking-wide text-muted-foreground ring-1 ring-border/60"
+      className="flex size-11 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold tracking-wide text-muted-foreground ring-1 ring-border/60 sm:size-14 sm:rounded-lg"
       aria-hidden
       data-testid="dashboard-meal-thumbnail-placeholder"
       title={`${title} has no photo`}
@@ -197,41 +151,53 @@ function MealCover({
   );
 }
 
-/** Presentational Dashboard — fills the desktop viewport without page scroll. */
-export function DashboardPanel({ viewModel }: DashboardPanelProps) {
-  const sideCards = (
-    <div className="flex min-h-0 flex-col gap-4 sidebar:overflow-hidden">
+function DashboardGrid({ viewModel }: DashboardPanelProps) {
+  return (
+    <div
+      className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 sidebar:grid-cols-2 sidebar:grid-rows-[auto_1fr] sidebar:items-start sidebar:gap-4"
+      data-testid="dashboard-panel"
+    >
       <TodaysMealsCard viewModel={viewModel} />
       <BudgetCard viewModel={viewModel} />
+      <div className="sidebar:col-start-2 sidebar:row-start-2">
+        <CountdownsCard countdowns={viewModel.countdowns} />
+      </div>
     </div>
   );
+}
 
+/** Presentational Dashboard — fills the desktop viewport without page scroll. */
+export function DashboardPanel({ viewModel }: DashboardPanelProps) {
   if (!CALENDAR_ENABLED || !viewModel.today) {
-    return (
-      <div
-        className="grid min-h-0 flex-1 grid-cols-1 gap-4 sidebar:max-w-2xl"
-        data-testid="dashboard-panel"
-      >
-        {sideCards}
-      </div>
-    );
+    return <DashboardGrid viewModel={viewModel} />;
   }
 
   return (
-    <div
-      className="grid min-h-0 flex-1 grid-cols-1 gap-4 sidebar:grid-cols-[minmax(0,1.55fr)_minmax(20rem,1fr)] sidebar:gap-5"
-      data-testid="dashboard-panel"
-    >
-      <CalendarDayView
-        day={viewModel.today}
-        heading="Today's events"
-        actionHref="/calendar"
-        actionLabel="Open calendar"
-        actionTestId="dashboard-cta-today"
-        fillHeight
-        className="min-h-[20rem] sidebar:min-h-0"
-      />
-      {sideCards}
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5 sidebar:overflow-hidden">
+      <div
+        className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 sidebar:grid-cols-2 sidebar:grid-rows-[auto_1fr] sidebar:items-start sidebar:gap-4 sidebar:overflow-hidden"
+        data-testid="dashboard-panel"
+      >
+        <BudgetCard
+          viewModel={viewModel}
+          className="order-1 sidebar:order-none sidebar:col-start-2 sidebar:row-start-1"
+        />
+        <div className="order-2 flex min-h-0 flex-col gap-2.5 self-start sidebar:order-none sidebar:col-start-1 sidebar:row-start-1 sidebar:gap-4 sidebar:overflow-hidden">
+          <TodaysMealsCard viewModel={viewModel} />
+          <CalendarDayView
+            day={viewModel.today}
+            heading="Today"
+            actionHref="/calendar"
+            actionLabel="Open calendar"
+            actionTestId="dashboard-cta-today"
+            compact
+            className="order-4 sidebar:order-none"
+          />
+        </div>
+        <div className="order-3 sidebar:order-none sidebar:col-start-2 sidebar:row-start-2">
+          <CountdownsCard countdowns={viewModel.countdowns} />
+        </div>
+      </div>
     </div>
   );
 }

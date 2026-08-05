@@ -24,26 +24,6 @@ function weekForProject(projectName: string): {
   return { week: "2026-08-09", planDate: "2026-08-12" };
 }
 
-async function expandChecked(page: Page) {
-  const toggle = page.getByTestId("shopping-toggle-checked");
-  if (await toggle.isVisible().catch(() => false)) {
-    const expanded = await toggle.getAttribute("data-state");
-    if (expanded !== "open") {
-      await toggle.click();
-    }
-  }
-}
-
-async function generateOrRefresh(page: Page) {
-  const generate = page.getByTestId("shopping-generate");
-  if (await generate.isVisible().catch(() => false)) {
-    await generate.click();
-    return;
-  }
-  await page.getByTestId("shopping-refresh").click();
-  await page.getByTestId("shopping-refresh-confirm").click();
-}
-
 test.describe("shopping list flows", () => {
   test.beforeEach(async ({ page }) => {
     await signInAsMember(page);
@@ -54,14 +34,10 @@ test.describe("shopping list flows", () => {
     await page.goto(`/shopping?week=${week}`);
     await expect(page.getByTestId("shopping-panel")).toBeVisible();
     await expect(page.getByTestId("shopping-week-label")).toBeVisible();
-    await expect(
-      page
-        .getByTestId("shopping-generate")
-        .or(page.getByTestId("shopping-refresh")),
-    ).toBeVisible();
+    await expect(page.getByTestId("shopping-add-item")).toBeVisible();
   });
 
-  test("generates from meals, checks, adds manual, refreshes", async ({
+  test("loads from meals, checks, adds manual, reloads", async ({
     page,
   }, testInfo) => {
     const { week, planDate } = weekForProject(testInfo.project.name);
@@ -81,24 +57,9 @@ test.describe("shopping list flows", () => {
     await page.goto(`/shopping?week=${week}`);
     await expect(page.getByTestId("shopping-panel")).toBeVisible();
 
-    // Clear leftover checked rows so the list starts clean for this week.
-    if (
-      await page
-        .getByTestId("shopping-clear-checked")
-        .isVisible()
-        .catch(() => false)
-    ) {
-      await page.getByTestId("shopping-clear-checked").click();
-      await expect(page.getByTestId("shopping-clear-checked")).toBeHidden({
-        timeout: 10_000,
-      });
-    }
-
-    await generateOrRefresh(page);
     await expect(page.getByText("Olive Oil").first()).toBeVisible({
       timeout: 15_000,
     });
-    await expandChecked(page);
     await expect(page.getByText("Spaghetti").first()).toBeVisible();
 
     const spaghettiRow = page.locator('[data-source="generated"]').filter({
@@ -113,18 +74,20 @@ test.describe("shopping list flows", () => {
     if ((await checkBox.getAttribute("data-state")) !== "checked") {
       await checkBox.click();
     }
-    await expect(page.getByTestId("shopping-progress")).toContainText(/1 of/);
+    await expect(page.getByTestId("shopping-progress")).toHaveAttribute(
+      "aria-label",
+      /1 of/,
+    );
 
     await page.getByTestId("shopping-add-item").click();
     await page.getByTestId("shopping-item-name").fill(manualName);
     await page.getByTestId("shopping-item-submit").click();
     await expect(page.getByText(manualName)).toBeVisible({ timeout: 15_000 });
 
-    await page.getByTestId("shopping-refresh").click();
-    await page.getByTestId("shopping-refresh-confirm").click();
+    await page.reload();
     await expect(page.getByText(manualName)).toBeVisible({ timeout: 15_000 });
 
-    await expandChecked(page);
+    await expect(page.getByTestId("shopping-checked-section")).toBeVisible();
     await expect(
       page
         .locator('[data-source="generated"]')
@@ -133,9 +96,6 @@ test.describe("shopping list flows", () => {
     await expect(
       page.locator(`[data-testid="shopping-item-${spaghettiId}"]`),
     ).toBeVisible();
-
-    await page.getByTestId("shopping-clear-checked").click();
-    await expect(page.getByText(manualName)).toBeVisible();
   });
 
   test("no horizontal overflow at narrow viewport", async ({

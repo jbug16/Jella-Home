@@ -7,15 +7,8 @@ import {
   deleteSubscriptionAction,
   type SubscriptionActionState,
 } from "@/app/(app)/subscriptions/actions";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ResponsiveAlertShell } from "@/components/common/responsive-alert-shell";
+import { AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { SubscriptionListItem } from "@/lib/domain/subscription";
 
@@ -46,29 +39,23 @@ function DeleteForm({ subscription, onClose }: DeleteFormProps) {
     }
   }, [state.success, onClose, router]);
 
-  // Always the persisted vendor name — never open/confirm/boolean state.
-  const vendorName = subscription.vendor;
-
   return (
     <>
-      <AlertDialogHeader>
-        <AlertDialogTitle>Remove from your list?</AlertDialogTitle>
-        <AlertDialogDescription>
-          “{vendorName}” will be removed from your subscriptions.
-        </AlertDialogDescription>
-      </AlertDialogHeader>
       {state.error ? (
         <p className="text-sm text-destructive" role="alert">
           {state.error}
         </p>
       ) : null}
-      <AlertDialogFooter>
-        <AlertDialogCancel
+      <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+        <Button
+          type="button"
+          variant="outline"
           disabled={pending}
           className="min-h-11 w-full sm:w-auto sm:min-w-24"
+          onClick={onClose}
         >
           Cancel
-        </AlertDialogCancel>
+        </Button>
         <form action={formAction} className="w-full sm:w-auto">
           <input type="hidden" name="id" value={subscription.id} />
           <input
@@ -96,16 +83,25 @@ export function DeleteSubscriptionDialog({
   onOpenChange,
   subscription,
 }: DeleteSubscriptionDialogProps) {
+  const vendorName = subscription?.vendor;
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        {open && subscription ? (
-          <DeleteForm
-            subscription={subscription}
-            onClose={() => onOpenChange(false)}
-          />
-        ) : null}
-      </AlertDialogContent>
-    </AlertDialog>
+    <ResponsiveAlertShell
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Remove from your list?"
+      description={
+        vendorName
+          ? `“${vendorName}” will be removed from your subscriptions.`
+          : undefined
+      }
+    >
+      {open && subscription ? (
+        <DeleteForm
+          subscription={subscription}
+          onClose={() => onOpenChange(false)}
+        />
+      ) : null}
+    </ResponsiveAlertShell>
   );
 }

@@ -8,7 +8,11 @@ import {
   updateTransactionAction,
   type BudgetActionState,
 } from "@/app/(app)/budget/actions";
-import { ResponsiveFormShell } from "@/components/budget/responsive-form-shell";
+import {
+  FormScrollBody,
+  FormStickyFooter,
+  ResponsiveFormShell,
+} from "@/components/budget/responsive-form-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +35,7 @@ type TransactionFormDialogProps = {
   monthStart: string;
   todayIso: string;
   transaction?: Transaction | null;
+  onDelete?: () => void;
 };
 
 type TransactionFormProps = Omit<
@@ -40,28 +45,23 @@ type TransactionFormProps = Omit<
   onClose: () => void;
 };
 
-function TransactionForm({
+function TransactionFields({
   categories,
   monthStart,
   todayIso,
   transaction,
-  onClose,
-}: TransactionFormProps) {
-  const router = useRouter();
-  const isEdit = Boolean(transaction);
-  const action = isEdit ? updateTransactionAction : createTransactionAction;
-  const [state, formAction, pending] = useActionState(action, initialState);
-  const [categoryId, setCategoryId] = useState(
-    transaction?.categoryId ?? categories[0]?.id ?? "",
-  );
-
-  useEffect(() => {
-    if (state.success) {
-      router.refresh();
-      onClose();
-    }
-  }, [state.success, onClose, router]);
-
+  pending,
+  categoryId,
+  setCategoryId,
+}: {
+  categories: BudgetCategory[];
+  monthStart: string;
+  todayIso: string;
+  transaction?: Transaction | null;
+  pending: boolean;
+  categoryId: string;
+  setCategoryId: (value: string) => void;
+}) {
   const defaultAmount = transaction
     ? (transaction.amountCents / 100).toFixed(2)
     : "";
@@ -70,19 +70,7 @@ function TransactionForm({
     : defaultOccurredOnForMonth(monthStart, todayIso);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
-      {transaction ? (
-        <>
-          <input type="hidden" name="id" value={transaction.id} />
-          <input
-            type="hidden"
-            name="expectedUpdatedAt"
-            value={transaction.updatedAt}
-          />
-        </>
-      ) : null}
-      <input type="hidden" name="categoryId" value={categoryId} />
-
+    <>
       <div className="flex flex-col gap-2">
         <Label htmlFor="category">Category</Label>
         <Select
@@ -151,21 +139,91 @@ function TransactionForm({
           className="min-h-11"
         />
       </div>
+    </>
+  );
+}
 
-      {state.error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {state.error}
-        </p>
+function TransactionForm({
+  categories,
+  monthStart,
+  todayIso,
+  transaction,
+  onClose,
+  onDelete,
+}: TransactionFormProps) {
+  const router = useRouter();
+  const isEdit = Boolean(transaction);
+  const action = isEdit ? updateTransactionAction : createTransactionAction;
+  const [state, formAction, pending] = useActionState(action, initialState);
+  const [categoryId, setCategoryId] = useState(
+    transaction?.categoryId ?? categories[0]?.id ?? "",
+  );
+
+  useEffect(() => {
+    if (state.success) {
+      router.refresh();
+      onClose();
+    }
+  }, [state.success, onClose, router]);
+
+  return (
+    <form action={formAction} className="flex min-h-0 flex-1 flex-col">
+      {transaction ? (
+        <>
+          <input type="hidden" name="id" value={transaction.id} />
+          <input
+            type="hidden"
+            name="expectedUpdatedAt"
+            value={transaction.updatedAt}
+          />
+        </>
       ) : null}
+      <input type="hidden" name="categoryId" value={categoryId} />
 
-      <Button
-        type="submit"
-        disabled={pending || !categoryId}
-        className="min-h-11 w-full"
-        data-testid={isEdit ? "save-transaction" : "add-transaction-submit"}
-      >
-        {pending ? "Saving…" : isEdit ? "Save changes" : "Add transaction"}
-      </Button>
+      <FormScrollBody>
+        <div className="flex flex-col gap-4">
+          <TransactionFields
+            categories={categories}
+            monthStart={monthStart}
+            todayIso={todayIso}
+            transaction={transaction}
+            pending={pending}
+            categoryId={categoryId}
+            setCategoryId={setCategoryId}
+          />
+
+          {state.error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {state.error}
+            </p>
+          ) : null}
+        </div>
+      </FormScrollBody>
+
+      <FormStickyFooter>
+        <div className="flex flex-col gap-2">
+          <Button
+            type="submit"
+            disabled={pending || !categoryId}
+            className="min-h-11 w-full"
+            data-testid={isEdit ? "save-transaction" : "add-transaction-submit"}
+          >
+            {pending ? "Saving…" : isEdit ? "Save changes" : "Add transaction"}
+          </Button>
+          {isEdit && onDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-11 w-full text-destructive hover:text-destructive sm:hidden"
+              disabled={pending}
+              onClick={onDelete}
+              data-testid={`delete-transaction-${transaction?.id}`}
+            >
+              Delete transaction
+            </Button>
+          ) : null}
+        </div>
+      </FormStickyFooter>
     </form>
   );
 }
@@ -177,6 +235,7 @@ export function TransactionFormDialog({
   monthStart,
   todayIso,
   transaction,
+  onDelete,
 }: TransactionFormDialogProps) {
   const formKey = open ? `${transaction?.id ?? "new"}-${monthStart}` : "closed";
 
@@ -186,6 +245,7 @@ export function TransactionFormDialog({
       onOpenChange={onOpenChange}
       title={transaction ? "Edit transaction" : "Add transaction"}
       description="Income categories count as money in; everything else is money out."
+      stickyFooter
     >
       <TransactionForm
         key={formKey}
@@ -194,6 +254,7 @@ export function TransactionFormDialog({
         todayIso={todayIso}
         transaction={transaction}
         onClose={() => onOpenChange(false)}
+        onDelete={onDelete}
       />
     </ResponsiveFormShell>
   );

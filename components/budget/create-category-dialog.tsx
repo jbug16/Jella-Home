@@ -66,7 +66,7 @@ function CreateCategoryForm({ onClose }: CreateCategoryFormProps) {
           required
           disabled={pending}
           className="min-h-11"
-          placeholder="Groceries"
+          placeholder="Food"
         />
       </div>
 

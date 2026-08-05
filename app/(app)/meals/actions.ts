@@ -16,8 +16,10 @@ import {
   createPlannedMeal,
   createPlannedMeals,
   deletePlannedMeal,
+  getPlannedMeal,
   updatePlannedMeal,
 } from "@/lib/repositories/meal-plans";
+import { syncShoppingListsForPlanDates } from "@/lib/repositories/shopping";
 
 export type MealActionState = {
   error: string | null;
@@ -50,6 +52,14 @@ function actionError(error: unknown, fallback: string): MealActionState {
     return { error: error.message, success: null };
   }
   return { error: fallback, success: null };
+}
+
+async function refreshShoppingForPlanDates(planDates: string[]): Promise<void> {
+  if (planDates.length === 0) {
+    return;
+  }
+  await syncShoppingListsForPlanDates(planDates);
+  revalidateModuleAndDashboard("/shopping");
 }
 
 export async function createPlannedMealAction(
@@ -93,6 +103,7 @@ export async function createPlannedMealAction(
 
       await createPlannedMeals(batch);
 
+      await refreshShoppingForPlanDates(batch.planDates);
       revalidateModuleAndDashboard("/meals");
       return {
         error: null,
@@ -113,6 +124,7 @@ export async function createPlannedMealAction(
     });
 
     await createPlannedMeal(input);
+    await refreshShoppingForPlanDates([input.planDate]);
     revalidateModuleAndDashboard("/meals");
     return { error: null, success: "Meal added." };
   } catch (error) {
@@ -154,7 +166,13 @@ export async function updatePlannedMealAction(
       notes: formString(formData, "notes"),
     });
 
+    const existing = await getPlannedMeal(input.id);
+    if (!existing) {
+      return { error: "That meal could not be found.", success: null };
+    }
+
     await updatePlannedMeal(input);
+    await refreshShoppingForPlanDates([existing.planDate, input.planDate]);
     revalidateModuleAndDashboard("/meals");
     return { error: null, success: "Meal updated." };
   } catch (error) {
@@ -171,7 +189,13 @@ export async function deletePlannedMealAction(
       id: formString(formData, "id"),
       expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
     });
+    const existing = await getPlannedMeal(input.id);
+    if (!existing) {
+      return { error: "That meal could not be found.", success: null };
+    }
+
     await deletePlannedMeal(input);
+    await refreshShoppingForPlanDates([existing.planDate]);
     revalidateModuleAndDashboard("/meals");
     return { error: null, success: "Meal removed." };
   } catch (error) {

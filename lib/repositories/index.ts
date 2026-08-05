@@ -14,10 +14,12 @@ export {
 } from "@/lib/repositories/households";
 
 export {
+  archiveCategory,
   createCategory,
   createTransaction,
   deleteTransaction,
   listCategories,
+  listCategoryDisplayMap,
   listMonthLimits,
   listTransactionsForMonth,
   updateTransaction,
@@ -56,7 +58,10 @@ export {
   getGroceryListForWeek,
   getOrCreateGroceryListForWeek,
   listGroceryItems,
+  loadOrSyncShoppingPageData,
+  loadShoppingPageData,
   setItemChecked,
+  syncShoppingListsForPlanDates,
   updateGroceryItem,
 } from "@/lib/repositories/shopping";
 

@@ -237,6 +237,42 @@ async function loadMealIngredientSources(
   return { sources, skippedCustomMeals };
 }
 
+/** Fast read path for the shopping page — does not regenerate from meals. */
+export async function loadShoppingPageData(weekStart: string): Promise<{
+  list: GroceryList;
+  items: GroceryListItem[];
+}> {
+  const list = await getOrCreateGroceryListForWeek(weekStart);
+  const items = await listGroceryItems(list.id);
+  return { list, items };
+}
+
+/**
+ * Load shopping data, generating from meals only when no list exists yet for
+ * the week. Use after meal-plan mutations to refresh generated lines.
+ */
+export async function loadOrSyncShoppingPageData(weekStart: string): Promise<{
+  list: GroceryList;
+  items: GroceryListItem[];
+}> {
+  const existing = await getGroceryListForWeek(weekStart);
+  if (!existing) {
+    const result = await generateGroceryListFromMeals(weekStart);
+    return { list: result.list, items: result.items };
+  }
+  return loadShoppingPageData(weekStart);
+}
+
+/** Regenerate shopping lists for each week touched by meal plan dates. */
+export async function syncShoppingListsForPlanDates(
+  planDates: string[],
+): Promise<void> {
+  const weeks = [...new Set(planDates.map((planDate) => weekStartOn(planDate)))];
+  for (const weekStart of weeks) {
+    await generateGroceryListFromMeals(weekStart);
+  }
+}
+
 export async function generateGroceryListFromMeals(
   weekStart: string,
 ): Promise<GenerateGroceryResult> {

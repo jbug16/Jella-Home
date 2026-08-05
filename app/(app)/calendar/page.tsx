@@ -43,7 +43,7 @@ export default async function CalendarPage({
   });
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden">
+    <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden sidebar:gap-6">
       <PageHeader title="Calendar" />
       <CalendarPanel
         weekStart={weekStart}

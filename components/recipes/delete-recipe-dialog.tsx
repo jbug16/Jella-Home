@@ -6,15 +6,8 @@ import {
   deleteRecipeAction,
   type RecipeActionState,
 } from "@/app/(app)/recipes/actions";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ResponsiveAlertShell } from "@/components/common/responsive-alert-shell";
+import { AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
 const initialState: RecipeActionState = {
@@ -29,8 +22,7 @@ type DeleteRecipeDialogProps = {
   recipe: { id: string; name: string; updatedAt: string } | null;
 };
 
-// On success `deleteRecipeAction` performs a server-side redirect to /recipes,
-// so there is no client success state to react to here.
+// On success `deleteRecipeAction` performs a server-side redirect to /recipes.
 export function DeleteRecipeDialog({
   open,
   onOpenChange,
@@ -42,44 +34,49 @@ export function DeleteRecipeDialog({
   );
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete this recipe?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {recipe
-              ? `“${recipe.name}” will be removed from your recipes. This cannot be undone.`
-              : "This cannot be undone."}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {state.error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {state.error}
-          </p>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending} className="min-h-11">
-            Cancel
-          </AlertDialogCancel>
-          <form action={formAction}>
-            <input type="hidden" name="id" value={recipe?.id ?? ""} />
-            <input
-              type="hidden"
-              name="expectedUpdatedAt"
-              value={recipe?.updatedAt ?? ""}
-            />
-            <Button
-              type="submit"
-              variant="destructive"
-              disabled={pending || !recipe}
-              className="min-h-11"
-              data-testid="confirm-delete-recipe"
-            >
-              {pending ? "Deleting…" : "Delete"}
-            </Button>
-          </form>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ResponsiveAlertShell
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Delete this recipe?"
+      description={
+        recipe
+          ? `“${recipe.name}” will be removed from your recipes. This cannot be undone.`
+          : "This cannot be undone."
+      }
+    >
+      {state.error ? (
+        <p className="text-sm text-destructive" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+      <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending}
+          className="min-h-11 w-full sm:w-auto sm:min-w-24"
+          onClick={() => onOpenChange(false)}
+        >
+          Cancel
+        </Button>
+        <form action={formAction} className="w-full sm:w-auto">
+          <input type="hidden" name="id" value={recipe?.id ?? ""} />
+          <input
+            type="hidden"
+            name="expectedUpdatedAt"
+            value={recipe?.updatedAt ?? ""}
+          />
+          <Button
+            type="submit"
+            variant="destructive"
+            disabled={pending || !recipe}
+            className="min-h-11 w-full sm:min-w-24"
+            data-testid="confirm-delete-recipe"
+          >
+            {pending ? "Deleting…" : "Delete"}
+          </Button>
+        </form>
+      </AlertDialogFooter>
+    </ResponsiveAlertShell>
   );
 }

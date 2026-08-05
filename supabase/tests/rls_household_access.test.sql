@@ -5,7 +5,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(116);
+SELECT plan(122);
 
 CREATE OR REPLACE FUNCTION public.test_as_user(uid uuid)
 RETURNS void
@@ -63,7 +63,8 @@ SELECT ok(
         'grocery_list_items',
         'subscriptions',
         'calendar_events',
-        'calendar_source_preferences'
+        'calendar_source_preferences',
+        'countdowns'
       )
   ),
   'RLS is enabled on all product tables'
@@ -1497,6 +1498,70 @@ SELECT is(
   (SELECT count(*)::integer FROM public.calendar_source_preferences),
   0,
   'anonymous cannot read calendar_source_preferences'
+);
+
+-- ---------------------------------------------------------------------------
+-- Dashboard countdowns CRUD + isolation
+-- ---------------------------------------------------------------------------
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+SELECT lives_ok(
+  $$INSERT INTO public.countdowns (
+      id, household_id, title, target_on, color
+    ) VALUES (
+      'd1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1',
+      '11111111-1111-4111-8111-111111111111',
+      'Beach trip',
+      '2026-09-01',
+      'teal'
+    )$$,
+  'member can insert household countdown'
+);
+
+SELECT lives_ok(
+  $$UPDATE public.countdowns
+     SET title = 'Beach trip updated'
+     WHERE id = 'd1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1'$$,
+  'member can update household countdown'
+);
+
+SELECT lives_ok(
+  $$DELETE FROM public.countdowns
+     WHERE id = 'd1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1'$$,
+  'member can delete household countdown'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO public.countdowns (
+      household_id, title, target_on
+    ) VALUES (
+      '22222222-2222-4222-8222-222222222222',
+      'Cross household',
+      '2026-09-01'
+    )$$,
+  '42501',
+  NULL,
+  'member cannot insert into another household countdowns'
+);
+
+SELECT public.test_as_user('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.countdowns
+    WHERE household_id = '11111111-1111-4111-8111-111111111111'
+  ),
+  0,
+  'outsider cannot read another household countdowns'
+);
+
+SELECT public.test_as_anon();
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.countdowns),
+  0,
+  'anonymous cannot read countdowns'
 );
 
 SELECT * FROM finish();

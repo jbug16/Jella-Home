@@ -3,10 +3,22 @@
 import { useState } from "react";
 
 import { EmptyState } from "@/components/common/empty-state";
+import {
+  ListRowBody,
+  ListRowButton,
+  ListRowMeta,
+  ListRowTitle,
+} from "@/components/common/list-row";
+import { PanelList, PanelListItem } from "@/components/common/panel-list";
+import { PrimaryAddButton } from "@/components/common/primary-add-button";
+import { RowEditDeleteActions } from "@/components/common/row-edit-delete-actions";
+import {
+  SummaryStat,
+  SummaryStatGrid,
+} from "@/components/common/summary-stat-grid";
+import { SummaryStatRow } from "@/components/common/summary-stat-row";
 import { DeleteSubscriptionDialog } from "@/components/subscriptions/delete-subscription-dialog";
 import { SubscriptionFormDialog } from "@/components/subscriptions/subscription-form-dialog";
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { formatCents } from "@/lib/domain/budget";
 import { formatIsoDateUs, formatRelativeDayPhrase } from "@/lib/domain/dates";
 import type {
@@ -19,10 +31,8 @@ import {
   Cpu,
   CreditCard,
   PawPrint,
-  Pencil,
   Shield,
   Tag,
-  Trash2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,7 +40,6 @@ type SubscriptionsPanelProps = {
   viewModel: SubscriptionsViewModel;
 };
 
-/** Known seed / workbook labels → icon + color (case-insensitive match). */
 const CATEGORY_VISUALS: Record<
   string,
   { icon: LucideIcon; className: string }
@@ -66,28 +75,6 @@ function categoryVisual(categoryLabel: string) {
   return CATEGORY_VISUALS[key] ?? FALLBACK_CATEGORY_VISUAL;
 }
 
-function SummaryStat({
-  label,
-  value,
-  testId,
-}: {
-  label: string;
-  value: string;
-  testId: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-lg border px-3 py-2.5">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p
-        className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight"
-        data-testid={testId}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
 function SubscriptionRow({
   item,
   todayIso,
@@ -106,53 +93,46 @@ function SubscriptionRow({
   const categoryAriaLabel = item.categoryLabel.trim() || "Uncategorized";
 
   return (
-    <li
-      className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between"
-      data-testid={testId}
-    >
-      <div className="flex min-w-0 flex-1 gap-3">
+    <PanelListItem testId={testId}>
+      <ListRowButton
+        onClick={onEdit}
+        className="items-start py-3 sm:items-center"
+      >
         <span
           className={cn(
-            "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg",
+            "flex size-9 shrink-0 items-center justify-center rounded-lg",
             visual.className,
           )}
           aria-label={categoryAriaLabel}
         >
-          <CategoryIcon className="size-5" aria-hidden />
+          <CategoryIcon className="size-4" aria-hidden />
         </span>
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="font-medium">{item.vendor}</p>
-          <p className="text-sm font-medium tabular-nums text-foreground">
+        <ListRowBody className="space-y-0.5">
+          <ListRowTitle>{item.vendor}</ListRowTitle>
+          <p className="text-sm font-semibold tabular-nums">
             {item.billingLabel}
           </p>
           {item.renewalOn ? (
-            <p className="text-sm text-muted-foreground">
-              Next billing{" "}
+            <ListRowMeta>
+              Renews{" "}
               <time dateTime={item.renewalOn}>
                 {formatIsoDateUs(item.renewalOn)}
-              </time>{" "}
-              ({formatRelativeDayPhrase(item.renewalOn, todayIso)})
-            </p>
+              </time>
+              {" · "}
+              {formatRelativeDayPhrase(item.renewalOn, todayIso)}
+            </ListRowMeta>
           ) : null}
-          {item.notes.trim() ? (
-            <p className="text-sm text-muted-foreground">{item.notes}</p>
-          ) : null}
-        </div>
-      </div>
-      <div className="flex shrink-0 gap-1">
-        <IconButton label="Edit subscription" variant="ghost" onClick={onEdit}>
-          <Pencil className="size-4" aria-hidden />
-        </IconButton>
-        <IconButton
-          label="Delete subscription"
-          variant="ghost"
-          className="text-destructive hover:text-destructive"
-          onClick={onDelete}
-        >
-          <Trash2 className="size-4" aria-hidden />
-        </IconButton>
-      </div>
-    </li>
+        </ListRowBody>
+      </ListRowButton>
+      <RowEditDeleteActions
+        className="hidden shrink-0 pr-3 sm:flex"
+        onEdit={onEdit}
+        onDelete={onDelete}
+        editLabel="Edit subscription"
+        deleteLabel="Delete subscription"
+        deleteTestId={`delete-subscription-${item.id}`}
+      />
+    </PanelListItem>
   );
 }
 
@@ -166,57 +146,60 @@ export function SubscriptionsPanel({ viewModel }: SubscriptionsPanelProps) {
   const hasActive = summary.activeCount > 0;
 
   return (
-    <div className="flex flex-col gap-5" data-testid="subscriptions-panel">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Subscriptions
-          </h1>
-        </div>
-        <Button
-          type="button"
-          className="min-h-11 shrink-0"
-          onClick={() => setAddOpen(true)}
-          data-testid="open-add-subscription"
-        >
-          Add
-        </Button>
-      </div>
+    <div
+      className="flex min-w-0 flex-col gap-3 overflow-x-hidden"
+      data-testid="subscriptions-panel"
+    >
+      {!isEmpty ? (
+        <section aria-labelledby="subscriptions-summary-heading">
+          <h2 id="subscriptions-summary-heading" className="sr-only">
+            Summary
+          </h2>
+          <SummaryStatRow
+            headingId="subscriptions-summary-heading"
+            action={
+              <PrimaryAddButton
+                label="Add subscription"
+                stretch
+                onClick={() => setAddOpen(true)}
+                data-testid="open-add-subscription"
+              />
+            }
+          >
+            <SummaryStat
+              label="Monthly"
+              value={formatCents(summary.monthlyTotalCents)}
+              testId="summary-monthly-total"
+            />
+            <SummaryStat
+              label="Yearly"
+              value={formatCents(summary.yearlyTotalCents)}
+              testId="summary-yearly-total"
+            />
+            <SummaryStat
+              label="Active"
+              value={String(summary.activeCount)}
+              testId="summary-active-count"
+            />
+          </SummaryStatRow>
+        </section>
+      ) : null}
 
       {isEmpty ? (
-        <EmptyState
-          icon={CreditCard}
-          title="No subscriptions yet"
-          description="Add a recurring expense to track monthly cost and upcoming charges."
-        />
+        <>
+          <EmptyState
+            icon={CreditCard}
+            title="No subscriptions yet"
+            description="Add a recurring expense to track monthly cost and upcoming charges."
+          />
+          <PrimaryAddButton
+            label="Add subscription"
+            onClick={() => setAddOpen(true)}
+            data-testid="open-add-subscription"
+          />
+        </>
       ) : (
         <>
-          <section
-            aria-labelledby="subscriptions-summary-heading"
-            className="space-y-2"
-          >
-            <h2 id="subscriptions-summary-heading" className="sr-only">
-              Summary
-            </h2>
-            <div className="grid grid-cols-3 gap-2">
-              <SummaryStat
-                label="Monthly"
-                value={formatCents(summary.monthlyTotalCents)}
-                testId="summary-monthly-total"
-              />
-              <SummaryStat
-                label="Yearly"
-                value={formatCents(summary.yearlyTotalCents)}
-                testId="summary-yearly-total"
-              />
-              <SummaryStat
-                label="Active"
-                value={String(summary.activeCount)}
-                testId="summary-active-count"
-              />
-            </div>
-          </section>
-
           {hasActive ? (
             <section
               aria-labelledby="subscriptions-list-heading"
@@ -225,10 +208,7 @@ export function SubscriptionsPanel({ viewModel }: SubscriptionsPanelProps) {
               <h2 id="subscriptions-list-heading" className="sr-only">
                 Active subscriptions
               </h2>
-              <ul
-                className="divide-y rounded-lg border"
-                aria-labelledby="subscriptions-list-heading"
-              >
+              <PanelList aria-labelledby="subscriptions-list-heading">
                 {active.map((item) => (
                   <SubscriptionRow
                     key={item.id}
@@ -239,7 +219,7 @@ export function SubscriptionsPanel({ viewModel }: SubscriptionsPanelProps) {
                     onDelete={() => setDeleting(item)}
                   />
                 ))}
-              </ul>
+              </PanelList>
             </section>
           ) : null}
         </>
@@ -259,6 +239,12 @@ export function SubscriptionsPanel({ viewModel }: SubscriptionsPanelProps) {
         }}
         todayIso={todayIso}
         subscription={editing}
+        onDelete={() => {
+          if (editing) {
+            setDeleting(editing);
+            setEditing(null);
+          }
+        }}
       />
       <DeleteSubscriptionDialog
         open={Boolean(deleting)}

@@ -36,18 +36,21 @@ type SubscriptionFormDialogProps = {
   onOpenChange: (open: boolean) => void;
   todayIso: string;
   subscription?: Subscription | null;
+  onDelete?: () => void;
 };
 
 type SubscriptionFormProps = {
   todayIso: string;
   subscription?: Subscription | null;
   onClose: () => void;
+  onDelete?: () => void;
 };
 
 function SubscriptionForm({
   todayIso,
   subscription,
   onClose,
+  onDelete,
 }: SubscriptionFormProps) {
   const router = useRouter();
   const isEdit = Boolean(subscription);
@@ -179,19 +182,31 @@ function SubscriptionForm({
         />
       </div>
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         <Button
           type="button"
           variant="outline"
-          className="min-h-11"
+          className="min-h-11 w-full sm:w-auto"
           onClick={onClose}
           disabled={pending}
         >
           Cancel
         </Button>
+        {isEdit && onDelete ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-11 w-full text-destructive hover:text-destructive sm:hidden"
+            disabled={pending}
+            onClick={onDelete}
+            data-testid={`delete-subscription-${subscription?.id}`}
+          >
+            Delete subscription
+          </Button>
+        ) : null}
         <Button
           type="submit"
-          className="min-h-11"
+          className="min-h-11 w-full sm:w-auto"
           disabled={pending}
           data-testid={isEdit ? "save-subscription" : "add-subscription-submit"}
         >
@@ -207,6 +222,7 @@ export function SubscriptionFormDialog({
   onOpenChange,
   todayIso,
   subscription,
+  onDelete,
 }: SubscriptionFormDialogProps) {
   const isEdit = Boolean(subscription);
   return (
@@ -221,6 +237,7 @@ export function SubscriptionFormDialog({
         todayIso={todayIso}
         subscription={subscription}
         onClose={() => onOpenChange(false)}
+        onDelete={onDelete}
       />
     </ResponsiveFormShell>
   );

@@ -13,6 +13,8 @@ import { CALENDAR_ENABLED } from "@/lib/features/calendar";
 
 export type NavItem = {
   label: string;
+  /** Shorter label for the bottom bar on narrow phones (360px). */
+  shortLabel?: string;
   href: string;
   icon: LucideIcon;
   /**
@@ -31,13 +33,20 @@ export type NavItem = {
 const allNavItems: NavItem[] = [
   {
     label: "Dashboard",
+    shortLabel: "Home",
     href: "/dashboard",
     icon: LayoutDashboard,
     primary: true,
   },
   { label: "Budget", href: "/budget", icon: Wallet, primary: true },
   { label: "Meals", href: "/meals", icon: UtensilsCrossed, primary: true },
-  { label: "Shopping", href: "/shopping", icon: ShoppingCart, primary: true },
+  {
+    label: "Shopping",
+    shortLabel: "Shop",
+    href: "/shopping",
+    icon: ShoppingCart,
+    primary: true,
+  },
   { label: "Recipes", href: "/recipes", icon: BookOpen, primary: false },
   {
     label: "Subscriptions",

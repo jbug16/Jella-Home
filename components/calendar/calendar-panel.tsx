@@ -1,6 +1,5 @@
 "use client";
 
-import { Plus } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 
 import {
@@ -12,7 +11,8 @@ import { DeleteCalendarEventDialog } from "@/components/calendar/delete-event-di
 import { EventChip } from "@/components/calendar/event-chip";
 import { QuietDayAdd } from "@/components/meals/quiet-day-add";
 import { WeekNavigator } from "@/components/meals/week-navigator";
-import { Button } from "@/components/ui/button";
+import { PeriodPanelHeader } from "@/components/common/panel-header";
+import { PrimaryAddButton } from "@/components/common/primary-add-button";
 import {
   CALENDAR_FILTER_CATEGORIES,
   groupOccurrencesByDate,
@@ -186,35 +186,37 @@ export function CalendarPanel({
 
   return (
     <div
-      className="flex min-w-0 flex-col gap-5 overflow-x-hidden"
+      className="flex min-w-0 flex-col gap-3 overflow-x-hidden"
       data-testid="calendar-panel"
     >
-      <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-3">
-        <WeekNavigator
-          weekStart={weekStart}
-          basePath="/calendar"
-          testIdPrefix="calendar"
-        />
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <CalendarFilters
-            categories={categories}
-            showSubscriptions={showSubscriptions}
-            onToggleCategory={toggleCategory}
-            onToggleSubscriptions={() => setShowSubscriptions((prev) => !prev)}
-            onShowAll={showAllCalendars}
-            onHideAll={hideAllCalendars}
+      <PeriodPanelHeader
+        navigator={
+          <WeekNavigator
+            weekStart={weekStart}
+            basePath="/calendar"
+            testIdPrefix="calendar"
           />
-          <Button
-            type="button"
-            className="h-11 w-fit shrink-0 px-4"
-            data-testid="calendar-add-event"
-            onClick={() => openAdd(preferredAddDay)}
-          >
-            <Plus className="size-4" />
-            Add event
-          </Button>
-        </div>
-      </div>
+        }
+        actions={
+          <>
+            <CalendarFilters
+              categories={categories}
+              showSubscriptions={showSubscriptions}
+              onToggleCategory={toggleCategory}
+              onToggleSubscriptions={() =>
+                setShowSubscriptions((prev) => !prev)
+              }
+              onShowAll={showAllCalendars}
+              onHideAll={hideAllCalendars}
+            />
+            <PrimaryAddButton
+              label="Add event"
+              onClick={() => openAdd(preferredAddDay)}
+              data-testid="calendar-add-event"
+            />
+          </>
+        }
+      />
 
       {!isMounted ? (
         <div
@@ -354,7 +356,7 @@ function WeekBoard({
   );
 }
 
-/** Phone: vertical day spine (same structure as meals). */
+/** Phone: only days with events (plus today if empty). */
 function PhoneDaySpine({
   weekDays,
   todayIso,
@@ -366,101 +368,54 @@ function PhoneDaySpine({
   byDate: Map<string, CalendarOccurrence[]>;
   handlers: EventHandlers;
 }) {
+  const visibleDays = weekDays.filter((day) => {
+    const count = (byDate.get(day) ?? []).length;
+    return count > 0 || day === todayIso;
+  });
+
   return (
-    <div
-      className="flex min-w-0 max-w-full flex-col overflow-x-clip"
-      data-testid="calendar-day-spine"
-    >
-      <div
-        className="mb-3 flex w-full min-w-0 gap-1"
-        role="navigation"
-        aria-label="Jump to day"
-        data-testid="calendar-day-strip"
-      >
-        {weekDays.map((day) => {
-          const isToday = day === todayIso;
-          const count = (byDate.get(day) ?? []).length;
-          return (
-            <a
-              key={day}
-              href={`#calendar-day-${day}`}
-              className={cn(
-                "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center rounded-lg px-1 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground",
-                isToday ? "bg-muted text-foreground" : null,
-              )}
-              data-testid={`calendar-day-chip-${day}`}
-            >
-              <span className="text-[10px] font-medium tracking-[0.08em] uppercase">
-                {formatWeekdayShort(day)}
-              </span>
-              <span className="text-base font-semibold tabular-nums leading-none">
-                {formatDayOfMonth(day)}
-              </span>
-              <span className="sr-only">
-                {count === 0 ? "Nothing scheduled" : `${count} events`}
-              </span>
-            </a>
-          );
-        })}
-      </div>
+    <ul className="divide-y rounded-lg border" data-testid="calendar-day-spine">
+      {visibleDays.map((day) => {
+        const dayEvents = byDate.get(day) ?? [];
+        const isToday = day === todayIso;
 
-      <div className="flex flex-col gap-1">
-        {weekDays.map((day) => {
-          const dayEvents = byDate.get(day) ?? [];
-          const isToday = day === todayIso;
-          const filled = dayEvents.length > 0;
-
-          return (
-            <section
-              key={day}
-              id={`calendar-day-${day}`}
+        return (
+          <li
+            key={day}
+            id={`calendar-day-${day}`}
+            className={cn(
+              "scroll-mt-16 px-3 py-2",
+              isToday ? "bg-muted/20" : null,
+            )}
+            data-testid={`calendar-slots-${day}`}
+          >
+            <p
               className={cn(
-                "scroll-mt-20 rounded-2xl px-1 py-3",
-                isToday ? "bg-muted/40" : null,
+                "mb-1 text-xs font-medium",
+                isToday ? "text-foreground" : "text-muted-foreground",
               )}
-              data-testid={`calendar-slots-${day}`}
             >
-              <div className="mb-2 flex items-baseline gap-2 px-1">
-                <h3 className="text-base font-semibold tracking-tight">
-                  {dayLabel(day)}
-                </h3>
-                {isToday ? (
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    Today
-                  </span>
-                ) : null}
-                {filled ? (
-                  <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-                    {dayEvents.length}
-                  </span>
-                ) : null}
+              {dayLabel(day)}
+              {isToday ? " · Today" : null}
+            </p>
+            {dayEvents.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                {dayEvents.map((occ) => (
+                  <EventChip
+                    key={occ.id}
+                    occurrence={occ}
+                    variant="row"
+                    onEdit={handlers.onEdit}
+                    onDelete={handlers.onDelete}
+                  />
+                ))}
               </div>
-
-              {filled ? (
-                <ul className="flex flex-col gap-2">
-                  {dayEvents.map((occ) => (
-                    <li key={occ.id}>
-                      <EventChip
-                        occurrence={occ}
-                        variant="row"
-                        onEdit={handlers.onEdit}
-                        onDelete={handlers.onDelete}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-
-              <QuietDayAdd
-                label={`Add event on ${dayLabel(day)}`}
-                testId={`calendar-day-add-${day}`}
-                className="mt-1"
-                onAdd={() => handlers.onAdd(day)}
-              />
-            </section>
-          );
-        })}
-      </div>
-    </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Nothing scheduled</p>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

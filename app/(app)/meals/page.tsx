@@ -34,7 +34,7 @@ export default async function MealsPage({ searchParams }: MealsPageProps) {
   ]);
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden">
+    <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden sidebar:gap-6">
       <PageHeader title="Meals" />
       <MealsPanel
         weekStart={weekStart}

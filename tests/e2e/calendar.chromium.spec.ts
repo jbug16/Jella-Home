@@ -50,29 +50,6 @@ test.describe("calendar flows", () => {
     await expect(page).toHaveURL(/week=2026-07-12/);
   });
 
-  test("Jump to this week selects the current local week", async ({ page }) => {
-    await goToCalendar(page, `week=${WEEK}`);
-
-    const thisWeek = await page.evaluate(() => {
-      const now = new Date();
-      const day = now.getDay();
-      const sunday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() - day,
-      );
-      const y = sunday.getFullYear();
-      const m = String(sunday.getMonth() + 1).padStart(2, "0");
-      const d = String(sunday.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    });
-
-    if (WEEK !== thisWeek) {
-      await page.getByTestId("calendar-this-week").click();
-      await expect(page).toHaveURL(new RegExp(`week=${thisWeek}`));
-    }
-  });
-
   test("canonicalizes mid-week dates to Sunday", async ({ page }) => {
     await goToCalendar(page, `week=${DAY}`);
     await expect(page).toHaveURL(/week=2026-07-12/);

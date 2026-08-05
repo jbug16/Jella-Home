@@ -8,11 +8,13 @@ import {
 } from "@/lib/domain/budget";
 import {
   buildBudgetCardViewModel,
+  buildDashboardCountdownsViewModel,
   buildMealWeekCardViewModel,
   buildTodayMealsViewModel,
   resolveDashboardAsOf,
   type DashboardViewModel,
 } from "@/lib/domain/dashboard";
+import { listCountdowns } from "@/lib/repositories/countdowns";
 import {
   listCategories,
   listMonthLimits,
@@ -32,12 +34,13 @@ export async function getDashboardViewModel(
   const asOf = resolveDashboardAsOf(now);
   const monthStart = currentMonthStart(now);
 
-  const [weekMeals, categories, limits, transactions, today] =
+  const [weekMeals, categories, limits, transactions, countdownRows, today] =
     await Promise.all([
       listPlannedMealsForWeek(asOf.weekStart),
       listCategories(),
       listMonthLimits(monthStart),
       listTransactionsForMonth(monthStart),
+      listCountdowns(),
       CALENDAR_ENABLED
         ? getCalendarDayViewModel({ dateIso: asOf.todayIso, now })
         : Promise.resolve(undefined),
@@ -63,6 +66,10 @@ export async function getDashboardViewModel(
       monthStart,
     },
     ...(today ? { today } : {}),
+    countdowns: buildDashboardCountdownsViewModel({
+      todayIso: asOf.todayIso,
+      countdowns: countdownRows,
+    }),
     todayMeals: buildTodayMealsViewModel({
       todayIso: asOf.todayIso,
       weekMeals,
@@ -71,8 +78,6 @@ export async function getDashboardViewModel(
     budget: buildBudgetCardViewModel({
       monthStart,
       snapshot,
-      categories,
-      transactions,
     }),
     mealWeek: buildMealWeekCardViewModel({
       weekStart: asOf.weekStart,

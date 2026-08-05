@@ -2,6 +2,7 @@
 
 import { revalidateModuleAndDashboard } from "@/lib/dashboard/revalidate";
 import {
+  archiveCategoryInputSchema,
   createCategoryInputSchema,
   createTransactionInputSchema,
   deleteTransactionInputSchema,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/domain/budget";
 import { isConcurrencyConflictError } from "@/lib/domain/concurrency";
 import {
+  archiveCategory,
   createCategory,
   createTransaction,
   deleteTransaction,
@@ -210,4 +212,30 @@ export async function deleteTransactionAction(
 
   revalidateModuleAndDashboard("/budget");
   return { error: null, success: "Transaction deleted." };
+}
+
+export async function archiveCategoryAction(
+  _previous: BudgetActionState,
+  formData: FormData,
+): Promise<BudgetActionState> {
+  const parsed = archiveCategoryInputSchema.safeParse({
+    id: formString(formData, "id"),
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
+  });
+
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? "Category not found.",
+      success: null,
+    };
+  }
+
+  try {
+    await archiveCategory(parsed.data);
+  } catch (error) {
+    return conflictOr(error, "Unable to delete category.");
+  }
+
+  revalidateModuleAndDashboard("/budget");
+  return { error: null, success: "Category deleted." };
 }

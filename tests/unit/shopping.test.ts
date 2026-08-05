@@ -6,6 +6,7 @@ import {
   buildAggregationInputsFromMeals,
   buildGenerationKey,
   createManualItemInputSchema,
+  groupGroceryItems,
   resolveShoppingWeekStart,
   scaleLineQuantity,
   type GroceryAggregationInput,
@@ -153,6 +154,57 @@ describe("buildAggregationInputsFromMeals", () => {
       },
     ]);
     expect(inputs[0]?.quantity).toBe(400);
+  });
+});
+
+describe("groupGroceryItems", () => {
+  it("groups empty store sections under Other", () => {
+    const item = {
+      id: "11111111-1111-4111-8111-111111111111",
+      householdId: "22222222-2222-4222-8222-222222222222",
+      listId: "33333333-3333-4333-8333-333333333333",
+      name: "Paper towels",
+      quantity: null,
+      unit: "",
+      storeSection: "",
+      isChecked: false,
+      source: "manual" as const,
+      ingredientId: null,
+      recipeId: null,
+      notes: "",
+      generationKey: null,
+      sortOrder: 0,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const sections = groupGroceryItems([item]);
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.label).toBe("Other");
+    expect(sections[0]?.key).toBe("__other__");
+  });
+
+  it("keeps named sections separate from Other", () => {
+    const named = {
+      id: "11111111-1111-4111-8111-111111111111",
+      householdId: "22222222-2222-4222-8222-222222222222",
+      listId: "33333333-3333-4333-8333-333333333333",
+      name: "Spaghetti",
+      quantity: 200,
+      unit: "g",
+      storeSection: "Pasta",
+      isChecked: false,
+      source: "generated" as const,
+      ingredientId: null,
+      recipeId: null,
+      notes: "",
+      generationKey: "k1",
+      sortOrder: 0,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const other = { ...named, id: "44444444-4444-4444-8444-444444444444", name: "Tape", storeSection: "  " };
+
+    const sections = groupGroceryItems([other, named]);
+    expect(sections.map((section) => section.label)).toEqual(["Pasta", "Other"]);
   });
 });
 

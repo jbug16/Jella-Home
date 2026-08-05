@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildBudgetMonthSnapshot } from "@/lib/domain/budget";
 import {
   buildBudgetCardViewModel,
+  buildBudgetExpenseSlices,
   buildGroceryCardViewModel,
   buildHouseholdCardViewModel,
   buildMealWeekCardViewModel,
@@ -226,6 +227,16 @@ describe("buildBudgetCardViewModel", () => {
       kind: "expense" as const,
       sortOrder: 0,
       archivedAt: null,
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    },
+    {
+      id: "44444444-4444-4444-8444-444444444444",
+      householdId: HOUSEHOLD,
+      name: "Dining out",
+      kind: "expense" as const,
+      sortOrder: 1,
+      archivedAt: null,
+      updatedAt: "2026-07-01T00:00:00.000Z",
     },
   ];
 
@@ -239,13 +250,11 @@ describe("buildBudgetCardViewModel", () => {
     const card = buildBudgetCardViewModel({
       monthStart: "2026-07-01",
       snapshot,
-      categories,
-      transactions: [],
     });
     expect(card.hasBudgetSetup).toBe(false);
     expect(card.remainingTone).toBe("muted");
     expect(card.spendingProgressPercent).toBe(0);
-    expect(card.recentTransactions).toEqual([]);
+    expect(card.expenseSlices).toEqual([]);
   });
 
   it("keeps negative remaining unclamped and clamps progress", () => {
@@ -278,61 +287,61 @@ describe("buildBudgetCardViewModel", () => {
     const card = buildBudgetCardViewModel({
       monthStart: "2026-07-01",
       snapshot,
+    });
+    expect(card.remainingOutCents).toBe(-1500);
+    expect(card.remainingLabel).toContain("Over by");
+    expect(card.remainingTone).toBe("danger");
+    expect(card.spendingProgressPercent).toBe(100);
+    expect(card.expenseSlices).toEqual([
+      {
+        categoryId: categories[0]!.id,
+        name: "Groceries",
+        kind: "expense",
+        amountCents: 2500,
+        sharePercent: 100,
+      },
+    ]);
+  });
+
+  it("builds expense slices by category share", () => {
+    const snapshot = buildBudgetMonthSnapshot({
+      monthStart: "2026-07-01",
       categories,
+      limits: [],
       transactions: [
         {
           id: "66666666-6666-4666-8666-666666666661",
           householdId: HOUSEHOLD,
           categoryId: categories[0]!.id,
-          amountCents: 2500,
+          amountCents: 3000,
           direction: "out",
           occurredOn: "2026-07-02",
           payee: "Store",
           notes: "",
           updatedAt: "2026-07-02T00:00:00.000Z",
         },
-      ],
-    });
-    expect(card.remainingOutCents).toBe(-1500);
-    expect(card.remainingLabel).toContain("Over by");
-    expect(card.remainingTone).toBe("danger");
-    expect(card.spendingProgressPercent).toBe(100);
-  });
-
-  it("caps recent transactions at three", () => {
-    const transactions = Array.from({ length: 5 }, (_, index) => ({
-      id: `66666666-6666-4666-8666-66666666666${index}`,
-      householdId: HOUSEHOLD,
-      categoryId: categories[0]!.id,
-      amountCents: 100 * (index + 1),
-      direction: "out" as const,
-      occurredOn: `2026-07-0${index + 1}`,
-      payee: `Payee ${index}`,
-      notes: "",
-      updatedAt: `2026-07-0${index + 1}T00:00:00.000Z`,
-    }));
-    const snapshot = buildBudgetMonthSnapshot({
-      monthStart: "2026-07-01",
-      categories,
-      limits: [
         {
-          id: "55555555-5555-4555-8555-555555555555",
+          id: "66666666-6666-4666-8666-666666666662",
           householdId: HOUSEHOLD,
-          categoryId: categories[0]!.id,
-          monthStart: "2026-07-01",
-          limitCents: 50_000,
+          categoryId: categories[1]!.id,
+          amountCents: 1000,
+          direction: "out",
+          occurredOn: "2026-07-03",
+          payee: "Cafe",
+          notes: "",
+          updatedAt: "2026-07-03T00:00:00.000Z",
         },
       ],
-      transactions,
     });
     const card = buildBudgetCardViewModel({
       monthStart: "2026-07-01",
       snapshot,
-      categories,
-      transactions,
     });
-    expect(card.recentTransactions).toHaveLength(3);
-    expect(card.recentTransactions[0]?.occurredOn).toBe("2026-07-05");
+    expect(card.expenseSlices).toHaveLength(2);
+    expect(card.expenseSlices[0]?.name).toBe("Groceries");
+    expect(card.expenseSlices[0]?.sharePercent).toBe(75);
+    expect(card.expenseSlices[1]?.name).toBe("Dining out");
+    expect(card.expenseSlices[1]?.sharePercent).toBe(25);
   });
 });
 

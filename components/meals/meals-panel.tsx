@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { Plus } from "lucide-react";
 
 import { DeleteMealDialog } from "@/components/meals/delete-meal-dialog";
 import { MealChip } from "@/components/meals/meal-chip";
@@ -11,7 +10,8 @@ import {
 } from "@/components/meals/meal-form-dialog";
 import { QuietDayAdd } from "@/components/meals/quiet-day-add";
 import { WeekNavigator } from "@/components/meals/week-navigator";
-import { Button } from "@/components/ui/button";
+import { PeriodPanelHeader } from "@/components/common/panel-header";
+import { PrimaryAddButton } from "@/components/common/primary-add-button";
 import {
   daysInWeek,
   formatDayOfMonth,
@@ -143,21 +143,19 @@ export function MealsPanel({
 
   return (
     <div
-      className="flex min-w-0 flex-col gap-5 overflow-x-hidden"
+      className="flex min-w-0 flex-col gap-3 overflow-x-hidden"
       data-testid="meals-panel"
     >
-      <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-3">
-        <WeekNavigator weekStart={weekStart} />
-        <Button
-          type="button"
-          className="h-11 w-fit shrink-0 px-4"
-          data-testid="open-add-meal"
-          onClick={() => openAdd(preferredAddDay, "dinner")}
-        >
-          <Plus className="size-4" />
-          Plan a meal
-        </Button>
-      </div>
+      <PeriodPanelHeader
+        navigator={<WeekNavigator weekStart={weekStart} />}
+        actions={
+          <PrimaryAddButton
+            label="Plan a meal"
+            onClick={() => openAdd(preferredAddDay, "dinner")}
+            data-testid="open-add-meal"
+          />
+        }
+      />
 
       {!isMounted ? (
         <div
@@ -303,7 +301,7 @@ function ImageWeekBoard({
   );
 }
 
-/** Phone: vertical day spine (all days visible — image board collapsed). */
+/** Phone: only days with meals (plus today if empty) — one line per meal. */
 function PhoneDaySpine({
   weekDays,
   todayIso,
@@ -317,103 +315,56 @@ function PhoneDaySpine({
   imageFor: (meal: PlannedMeal) => string | null;
   handlers: MealHandlers;
 }) {
+  void imageFor;
+
+  const visibleDays = weekDays.filter((day) => {
+    const count = (byDate.get(day) ?? []).length;
+    return count > 0 || day === todayIso;
+  });
+
   return (
-    <div
-      className="flex min-w-0 max-w-full flex-col overflow-x-clip"
-      data-testid="meals-day-spine"
-    >
-      {/* Jump chips kept for quick scroll targets + e2e compatibility */}
-      <div
-        className="mb-3 flex w-full min-w-0 gap-1"
-        role="navigation"
-        aria-label="Jump to day"
-        data-testid="meals-day-strip"
-      >
-        {weekDays.map((day) => {
-          const isToday = day === todayIso;
-          const count = (byDate.get(day) ?? []).length;
-          return (
-            <a
-              key={day}
-              href={`#meals-day-${day}`}
-              className={cn(
-                "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center rounded-lg px-1 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground",
-                isToday ? "bg-muted text-foreground" : null,
-              )}
-              data-testid={`meals-day-chip-${day}`}
-            >
-              <span className="text-[10px] font-medium tracking-[0.08em] uppercase">
-                {formatWeekdayShort(day)}
-              </span>
-              <span className="text-base font-semibold tabular-nums leading-none">
-                {formatDayOfMonth(day)}
-              </span>
-              <span className="sr-only">
-                {count === 0 ? "Nothing planned" : `${count} meals`}
-              </span>
-            </a>
-          );
-        })}
-      </div>
+    <ul className="divide-y rounded-lg border" data-testid="meals-day-spine">
+      {visibleDays.map((day) => {
+        const dayMeals = byDate.get(day) ?? [];
+        const isToday = day === todayIso;
 
-      <div className="flex flex-col gap-1">
-        {weekDays.map((day) => {
-          const dayMeals = byDate.get(day) ?? [];
-          const isToday = day === todayIso;
-          const filled = dayMeals.length > 0;
-
-          return (
-            <section
-              key={day}
-              id={`meals-day-${day}`}
+        return (
+          <li
+            key={day}
+            id={`meals-day-${day}`}
+            className={cn(
+              "scroll-mt-16 px-3 py-2",
+              isToday ? "bg-muted/20" : null,
+            )}
+            data-testid={`meals-slots-${day}`}
+          >
+            <p
               className={cn(
-                "scroll-mt-20 rounded-2xl px-1 py-3",
-                isToday ? "bg-muted/40" : null,
+                "mb-1 text-xs font-medium",
+                isToday ? "text-foreground" : "text-muted-foreground",
               )}
-              data-testid={`meals-slots-${day}`}
             >
-              <div className="mb-2 flex items-baseline gap-2 px-1">
-                <h3 className="text-base font-semibold tracking-tight">
-                  {dayLabel(day)}
-                </h3>
-                {isToday ? (
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    Today
-                  </span>
-                ) : null}
-                {filled ? (
-                  <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-                    {dayMeals.length}
-                  </span>
-                ) : null}
+              {dayLabel(day)}
+              {isToday ? " · Today" : null}
+            </p>
+            {dayMeals.length > 0 ? (
+              <div className="flex flex-col">
+                {dayMeals.map((meal) => (
+                  <MealChip
+                    key={meal.id}
+                    meal={meal}
+                    variant="compact"
+                    onEdit={handlers.onEdit}
+                    onDelete={handlers.onDelete}
+                  />
+                ))}
               </div>
-
-              {filled ? (
-                <ul className="flex flex-col gap-2">
-                  {dayMeals.map((meal) => (
-                    <li key={meal.id}>
-                      <MealChip
-                        meal={meal}
-                        imageUrl={imageFor(meal)}
-                        variant="row"
-                        onEdit={handlers.onEdit}
-                        onDelete={handlers.onDelete}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-
-              <QuietDayAdd
-                label={`Plan a meal for ${dayLabel(day)}`}
-                testId={`meals-day-add-${day}`}
-                className="mt-1"
-                onAdd={() => handlers.onAdd(day, "dinner")}
-              />
-            </section>
-          );
-        })}
-      </div>
-    </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Nothing planned</p>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   createManualItemAction,
@@ -11,7 +12,6 @@ import { ResponsiveFormShell } from "@/components/budget/responsive-form-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import type { GroceryListItem } from "@/lib/domain/shopping";
 
 const initialState: ShoppingActionState = { error: null, success: null };
@@ -22,7 +22,7 @@ type ShoppingItemFormDialogProps = {
   listId?: string | null;
   weekStart?: string;
   item?: GroceryListItem | null;
-  onSaved: () => void;
+  onSaved?: () => void;
 };
 
 export function ShoppingItemFormDialog({
@@ -33,16 +33,22 @@ export function ShoppingItemFormDialog({
   item,
   onSaved,
 }: ShoppingItemFormDialogProps) {
+  const router = useRouter();
   const isEdit = Boolean(item);
   const action = isEdit ? updateGroceryItemAction : createManualItemAction;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const onSavedRef = useRef(onSaved);
+  useEffect(() => {
+    onSavedRef.current = onSaved;
+  }, [onSaved]);
 
   useEffect(() => {
     if (state.success) {
-      onSaved();
+      onSavedRef.current?.();
+      router.refresh();
       onOpenChange(false);
     }
-  }, [state.success, onSaved, onOpenChange]);
+  }, [state.success, router, onOpenChange]);
 
   return (
     <ResponsiveFormShell
@@ -127,17 +133,6 @@ export function ShoppingItemFormDialog({
             className="min-h-11"
             defaultValue={item?.storeSection ?? ""}
             data-testid="shopping-item-section"
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="shopping-item-notes">Notes</Label>
-          <Textarea
-            id="shopping-item-notes"
-            name="notes"
-            rows={2}
-            defaultValue={item?.notes ?? ""}
-            data-testid="shopping-item-notes"
           />
         </div>
 

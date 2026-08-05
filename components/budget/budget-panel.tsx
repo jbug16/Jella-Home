@@ -1,59 +1,120 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Plus, SlidersHorizontal, Trash2, Wallet } from "lucide-react";
 
 import { CreateCategoryDialog } from "@/components/budget/create-category-dialog";
+import { DeleteCategoryDialog } from "@/components/budget/delete-category-dialog";
 import { DeleteTransactionDialog } from "@/components/budget/delete-transaction-dialog";
 import { MonthNavigator } from "@/components/budget/month-navigator";
 import { SetLimitDialog } from "@/components/budget/set-limit-dialog";
 import { TransactionFormDialog } from "@/components/budget/transaction-form-dialog";
+import { EmptyState } from "@/components/common/empty-state";
+import {
+  ListRowBody,
+  ListRowButton,
+  ListRowMeta,
+  ListRowTitle,
+  ListRowTrailing,
+} from "@/components/common/list-row";
+import { PeriodPanelHeader } from "@/components/common/panel-header";
+import { PanelList, PanelListItem } from "@/components/common/panel-list";
+import { PrimaryAddButton } from "@/components/common/primary-add-button";
+import { RowEditDeleteActions } from "@/components/common/row-edit-delete-actions";
+import {
+  SummaryStat,
+  SummaryStatGrid,
+} from "@/components/common/summary-stat-grid";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Progress } from "@/components/ui/progress";
+import { budgetCategoryVisual } from "@/lib/budget/category-visual";
 import {
   formatCents,
+  transactionAmountTone,
   type BudgetCategory,
+  type BudgetCategoryKind,
   type BudgetMonthSnapshot,
+  type CategorySummary,
   type Transaction,
 } from "@/lib/domain/budget";
+import { formatIsoDateUs } from "@/lib/domain/dates";
 import { cn } from "@/lib/utils";
 
-const KIND_LABELS: Record<string, string> = {
-  income: "Income",
-  expense: "Expenses",
-  bill: "Bills",
-  savings: "Savings",
-  debt: "Debt",
-};
-
-/** Categories at or above this share of planned spend need attention. */
-const ATTENTION_RATIO = 0.85;
+type BudgetView = "overview" | "transactions";
 
 type BudgetPanelProps = {
   monthStart: string;
   todayIso: string;
   categories: BudgetCategory[];
+  categoryDisplayById: Record<
+    string,
+    { name: string; kind: BudgetCategoryKind }
+  >;
   transactions: Transaction[];
   snapshot: BudgetMonthSnapshot;
 };
+
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: BudgetView;
+  onChange: (view: BudgetView) => void;
+}) {
+  return (
+    <div
+      className="flex rounded-lg border p-1"
+      role="tablist"
+      aria-label="Budget views"
+    >
+      {(
+        [
+          ["overview", "Overview"],
+          ["transactions", "Transactions"],
+        ] as const
+      ).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={view === value}
+          className={cn(
+            "min-h-11 flex-1 rounded-md px-2 text-sm font-medium transition-colors sm:px-3",
+            view === value
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => onChange(value)}
+          data-testid={`budget-view-${value}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function BudgetPanel({
   monthStart,
   todayIso,
   categories,
+  categoryDisplayById,
   transactions,
   snapshot,
 }: BudgetPanelProps) {
+  const [view, setView] = useState<BudgetView>("overview");
   const [addOpen, setAddOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
   const [limitCategoryId, setLimitCategoryId] = useState<string | undefined>();
+  const [deletingCategory, setDeletingCategory] =
+    useState<BudgetCategory | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
 
-  const categoryNameById = useMemo(() => {
-    return new Map(categories.map((category) => [category.id, category.name]));
+  const categoryById = useMemo(() => {
+    return new Map(categories.map((category) => [category.id, category]));
   }, [categories]);
 
   const plannedDollarsByCategoryId = useMemo(() => {
@@ -64,245 +125,190 @@ export function BudgetPanel({
     return map;
   }, [snapshot.categorySummaries]);
 
-  const spendingCategories = useMemo(() => {
-    return snapshot.categorySummaries.filter((row) => row.kind !== "income");
-  }, [snapshot.categorySummaries]);
+  const hasCategories = snapshot.categorySummaries.length > 0;
 
-  const attentionCategories = useMemo(() => {
-    return spendingCategories.filter((row) => {
-      if (row.plannedCents <= 0) {
-        return row.actualCents > 0;
-      }
-      return row.actualCents / row.plannedCents >= ATTENTION_RATIO;
-    });
-  }, [spendingCategories]);
-
-  const remainingTone =
+  const spentValueClass = "text-destructive";
+  const remainingValueClass =
     snapshot.remainingOutCents < 0
-      ? "danger"
+      ? "text-destructive"
       : snapshot.remainingOutCents === 0
-        ? "muted"
-        : "ok";
+        ? "text-muted-foreground"
+        : "text-emerald-600 dark:text-emerald-400";
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <MonthNavigator monthStart={monthStart} />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11"
-            onClick={() => setCategoryOpen(true)}
-            data-testid="open-create-category"
-          >
-            Add category
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11"
-            onClick={() => {
-              setLimitCategoryId(undefined);
-              setLimitOpen(true);
-            }}
-            disabled={categories.length === 0}
-            data-testid="open-set-limit"
-          >
-            Set limit
-          </Button>
-          <Button
-            type="button"
-            className="min-h-11"
+    <div
+      className="flex min-w-0 flex-col gap-3 overflow-x-hidden"
+      data-testid="budget-panel"
+    >
+      <PeriodPanelHeader
+        navigator={<MonthNavigator monthStart={monthStart} />}
+        actions={
+          <PrimaryAddButton
+            label="Add transaction"
             onClick={() => setAddOpen(true)}
             disabled={categories.length === 0}
             data-testid="open-add-transaction"
-          >
-            Add transaction
-          </Button>
-        </div>
-      </div>
+          />
+        }
+      />
 
-      <section
-        aria-labelledby="budget-summary-heading"
-        className="space-y-4"
-        data-testid="budget-summary"
-      >
-        <div className="flex flex-col gap-1">
-          <h2 id="budget-summary-heading" className="sr-only">
-            This month
-          </h2>
-          <p className="text-sm text-muted-foreground">Remaining</p>
-          <p
-            className={cn(
-              "text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl",
-              remainingTone === "danger" && "text-destructive",
-              remainingTone === "muted" && "text-muted-foreground",
-            )}
-            data-testid="summary-remaining"
-          >
-            {formatCents(snapshot.remainingOutCents, { signed: true })}
-          </p>
-          <p
-            className="text-sm text-muted-foreground"
-            data-testid="summary-income"
-          >
-            Income received: {formatCents(snapshot.actualInCents)}
-          </p>
-        </div>
+      {!hasCategories ? (
+        <EmptyState
+          icon={Wallet}
+          title="No categories yet"
+          description="Add a category to start tracking."
+        />
+      ) : (
+        <>
+          <ViewToggle view={view} onChange={setView} />
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-border/80 bg-card px-4 py-3">
-            <p className="text-xs text-muted-foreground">Planned</p>
-            <p
-              className="mt-1 text-lg font-semibold tabular-nums tracking-tight"
-              data-testid="summary-planned"
+          {view === "overview" ? (
+            <section
+              aria-labelledby="budget-summary-heading"
+              className="space-y-3"
+              data-testid="budget-summary"
             >
-              {formatCents(snapshot.plannedTotalCents)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-card px-4 py-3">
-            <p className="text-xs text-muted-foreground">Spent</p>
-            <p
-              className="mt-1 text-lg font-semibold tabular-nums tracking-tight"
-              data-testid="summary-actual"
-            >
-              {formatCents(snapshot.actualOutCents)}
-            </p>
-          </div>
-        </div>
-      </section>
+              <h2 id="budget-summary-heading" className="sr-only">
+                This month
+              </h2>
 
-      {attentionCategories.length > 0 ? (
-        <section
-          aria-labelledby="budget-attention-heading"
-          className="space-y-3"
-          data-testid="budget-attention"
-        >
-          <h2
-            id="budget-attention-heading"
-            className="text-base font-semibold tracking-tight"
-          >
-            Needs attention
-          </h2>
-          <ul className="flex flex-col gap-2">
-            {attentionCategories.map((row) => (
-              <CategoryProgressRow
-                key={row.categoryId}
-                name={row.name}
-                kindLabel={KIND_LABELS[row.kind] ?? row.kind}
-                plannedCents={row.plannedCents}
-                actualCents={row.actualCents}
-                remainingCents={row.remainingCents}
-                testId={`attention-row-${row.kind}-${row.name}`}
-                onSetLimit={() => {
-                  setLimitCategoryId(row.categoryId);
-                  setLimitOpen(true);
-                }}
-              />
-            ))}
-          </ul>
-        </section>
-      ) : null}
+              <SummaryStatGrid headingId="budget-summary-heading">
+                <SummaryStat
+                  label="Planned"
+                  value={formatCents(snapshot.plannedTotalCents)}
+                  testId="summary-planned"
+                />
+                <SummaryStat
+                  label="Spent"
+                  value={formatCents(snapshot.actualOutCents)}
+                  testId="summary-actual"
+                  valueClassName={spentValueClass}
+                />
+                <SummaryStat
+                  label="Remaining"
+                  value={formatCents(snapshot.remainingOutCents)}
+                  testId="summary-remaining"
+                  valueClassName={remainingValueClass}
+                />
+              </SummaryStatGrid>
 
-      <section aria-labelledby="category-summary-heading" className="space-y-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2
-            id="category-summary-heading"
-            className="text-base font-semibold tracking-tight"
-          >
-            Categories
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Planned vs spent this month
-          </p>
-        </div>
-        {snapshot.categorySummaries.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No categories yet. Add a category to start planning.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {snapshot.categorySummaries.map((row) => (
-              <CategoryProgressRow
-                key={row.categoryId}
-                name={row.name}
-                kindLabel={KIND_LABELS[row.kind] ?? row.kind}
-                plannedCents={row.plannedCents}
-                actualCents={row.actualCents}
-                remainingCents={row.remainingCents}
-                testId={`category-row-${row.kind}-${row.name}`}
-                onSetLimit={() => {
-                  setLimitCategoryId(row.categoryId);
-                  setLimitOpen(true);
-                }}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
+              <PanelList>
+                {snapshot.categorySummaries.map((row) => (
+                  <CategoryRow
+                    key={row.categoryId}
+                    row={row}
+                    testId={`category-row-${row.kind}-${row.name}`}
+                    onSetLimit={() => {
+                      setLimitCategoryId(row.categoryId);
+                      setLimitOpen(true);
+                    }}
+                    onDelete={() => {
+                      const category = categoryById.get(row.categoryId);
+                      if (category) {
+                        setDeletingCategory(category);
+                      }
+                    }}
+                  />
+                ))}
+              </PanelList>
 
-      <section aria-labelledby="transactions-heading" className="space-y-3">
-        <h2
-          id="transactions-heading"
-          className="text-base font-semibold tracking-tight"
-        >
-          Recent activity
-        </h2>
-        {transactions.length === 0 ? (
-          <p
-            className="text-sm text-muted-foreground"
-            data-testid="transactions-empty"
-          >
-            No transactions this month. Add one to update what&apos;s left.
-          </p>
-        ) : (
-          <ul
-            className="divide-y rounded-xl border border-border/80"
-            data-testid="transactions-list"
-          >
-            {transactions.map((transaction) => (
-              <li
-                key={transaction.id}
-                className="flex items-center gap-3 px-3 py-3 sm:px-4"
-                data-testid={`transaction-row-${transaction.id}`}
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-11 w-full text-muted-foreground"
+                onClick={() => setCategoryOpen(true)}
+                data-testid="open-create-category"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium tabular-nums">
-                    {transaction.direction === "out" ? "−" : "+"}
-                    {formatCents(transaction.amountCents)}
-                  </p>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {categoryNameById.get(transaction.categoryId) ?? "Category"}
-                    {" · "}
-                    {transaction.occurredOn}
-                    {transaction.payee ? ` · ${transaction.payee}` : ""}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <IconButton
-                    label="Edit transaction"
-                    variant="ghost"
-                    onClick={() => setEditing(transaction)}
-                    data-testid={`edit-transaction-${transaction.id}`}
-                  >
-                    <Pencil className="size-4" aria-hidden />
-                  </IconButton>
-                  <IconButton
-                    label="Delete transaction"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => setDeleting(transaction)}
-                    data-testid={`delete-transaction-${transaction.id}`}
-                  >
-                    <Trash2 className="size-4" aria-hidden />
-                  </IconButton>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                <Plus className="size-4" aria-hidden />
+                Add category
+              </Button>
+            </section>
+          ) : (
+            <section aria-labelledby="transactions-heading">
+              <h2 id="transactions-heading" className="sr-only">
+                Transactions
+              </h2>
+              {transactions.length === 0 ? (
+                <p
+                  className="py-8 text-center text-sm text-muted-foreground"
+                  data-testid="transactions-empty"
+                >
+                  No transactions this month.
+                </p>
+              ) : (
+                <PanelList testId="transactions-list">
+                  {transactions.map((transaction) => {
+                    const display = categoryDisplayById[transaction.categoryId];
+                    const category = categoryById.get(transaction.categoryId);
+                    const categoryKind = display?.kind ?? category?.kind;
+                    const categoryName = display?.name ?? category?.name;
+                    const amountTone = transactionAmountTone(
+                      categoryKind,
+                      transaction.direction,
+                    );
+
+                    return (
+                      <PanelListItem
+                        key={transaction.id}
+                        testId={`transaction-row-${transaction.id}`}
+                      >
+                        <ListRowButton
+                          onClick={() => setEditing(transaction)}
+                          testId={`edit-transaction-${transaction.id}`}
+                          className="items-center justify-between gap-3"
+                        >
+                          <ListRowBody>
+                            <ListRowTitle>
+                              {categoryName ?? "Category"}
+                            </ListRowTitle>
+                            <ListRowMeta>
+                              <time dateTime={transaction.occurredOn}>
+                                {formatIsoDateUs(transaction.occurredOn)}
+                              </time>
+                              {transaction.payee
+                                ? ` · ${transaction.payee}`
+                                : null}
+                            </ListRowMeta>
+                          </ListRowBody>
+                          <ListRowTrailing
+                            className={cn(
+                              amountTone === "income" &&
+                                "text-emerald-600 dark:text-emerald-400",
+                              amountTone === "spending" && "text-destructive",
+                            )}
+                          >
+                            {transaction.direction === "out" ? "−" : "+"}
+                            {formatCents(transaction.amountCents)}
+                          </ListRowTrailing>
+                        </ListRowButton>
+                        <RowEditDeleteActions
+                          className="hidden shrink-0 pr-3 sm:flex"
+                          onEdit={() => setEditing(transaction)}
+                          onDelete={() => setDeleting(transaction)}
+                          editLabel="Edit transaction"
+                          deleteLabel="Delete transaction"
+                          deleteTestId={`delete-transaction-${transaction.id}`}
+                        />
+                      </PanelListItem>
+                    );
+                  })}
+                </PanelList>
+              )}
+            </section>
+          )}
+        </>
+      )}
+
+      {!hasCategories ? (
+        <Button
+          type="button"
+          className="min-h-11"
+          onClick={() => setCategoryOpen(true)}
+          data-testid="open-create-category"
+        >
+          Add category
+        </Button>
+      ) : null}
 
       <CreateCategoryDialog
         open={categoryOpen}
@@ -315,6 +321,15 @@ export function BudgetPanel({
         monthStart={monthStart}
         initialCategoryId={limitCategoryId}
         plannedDollarsByCategoryId={plannedDollarsByCategoryId}
+      />
+      <DeleteCategoryDialog
+        open={Boolean(deletingCategory)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingCategory(null);
+          }
+        }}
+        category={deletingCategory}
       />
       <TransactionFormDialog
         open={addOpen}
@@ -334,6 +349,12 @@ export function BudgetPanel({
         monthStart={monthStart}
         todayIso={todayIso}
         transaction={editing}
+        onDelete={() => {
+          if (editing) {
+            setDeleting(editing);
+            setEditing(null);
+          }
+        }}
       />
       <DeleteTransactionDialog
         open={Boolean(deleting)}
@@ -348,76 +369,93 @@ export function BudgetPanel({
   );
 }
 
-function CategoryProgressRow({
-  name,
-  kindLabel,
-  plannedCents,
-  actualCents,
-  remainingCents,
+function CategoryRow({
+  row,
   testId,
   onSetLimit,
+  onDelete,
 }: {
-  name: string;
-  kindLabel: string;
-  plannedCents: number;
-  actualCents: number;
-  remainingCents: number;
+  row: CategorySummary;
   testId: string;
   onSetLimit: () => void;
+  onDelete: () => void;
 }) {
+  const visual = budgetCategoryVisual(row.name, row.kind);
+  const Icon = visual.icon;
+  const isIncome = row.kind === "income";
   const percent =
-    plannedCents > 0
-      ? Math.min(100, Math.round((actualCents / plannedCents) * 100))
-      : actualCents > 0
-        ? 100
-        : 0;
-  const over = remainingCents < 0;
+    row.plannedCents > 0
+      ? Math.min(100, Math.round((row.actualCents / row.plannedCents) * 100))
+      : 0;
+  const over = row.remainingCents < 0;
 
   return (
     <li
-      className="rounded-xl border border-border/80 px-3 py-3 sm:px-4"
+      className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3"
       data-testid={testId}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-medium">{name}</p>
-          <p className="text-xs text-muted-foreground">{kindLabel}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg sm:mt-0",
+          visual.chipClassName,
+        )}
+        aria-hidden
+      >
+        <Icon className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+          <p className="truncate font-medium">{row.name}</p>
           <p
             className={cn(
-              "text-sm font-medium tabular-nums",
-              over ? "text-destructive" : "text-muted-foreground",
+              "shrink-0 text-sm tabular-nums",
+              isIncome
+                ? "text-foreground"
+                : over
+                  ? "text-destructive"
+                  : row.plannedCents > 0
+                    ? "text-muted-foreground"
+                    : "text-destructive",
             )}
           >
-            {over
-              ? `${formatCents(Math.abs(remainingCents))} over`
-              : `${formatCents(remainingCents)} left`}
+            {isIncome
+              ? formatCents(row.actualCents)
+              : over
+                ? formatCents(Math.abs(row.remainingCents))
+                : row.plannedCents > 0
+                  ? `${formatCents(row.remainingCents)} left`
+                  : formatCents(row.actualCents)}
           </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="min-h-11 px-2"
-            onClick={onSetLimit}
-            data-testid={`set-limit-${name}`}
-          >
-            Set limit
-          </Button>
         </div>
+        {!isIncome && row.plannedCents > 0 ? (
+          <Progress
+            value={percent}
+            aria-label={`${row.name}: ${percent}% of planned`}
+            className={cn(
+              "mt-1.5 h-1",
+              over && "[&_[data-slot=progress-indicator]]:bg-destructive",
+            )}
+          />
+        ) : null}
       </div>
-      <div className="mt-2 space-y-1">
-        <Progress
-          value={percent}
-          aria-label={`${name}: ${percent}% of planned`}
-          className={cn(
-            over && "[&_[data-slot=progress-indicator]]:bg-destructive",
-          )}
-        />
-        <p className="text-xs text-muted-foreground tabular-nums">
-          Spent {formatCents(actualCents)}
-          {plannedCents > 0 ? ` of ${formatCents(plannedCents)} planned` : ""}
-        </p>
+      <div className="hidden shrink-0 gap-0.5 sm:flex">
+        <IconButton
+          label="Set limit"
+          variant="ghost"
+          onClick={onSetLimit}
+          data-testid={`set-limit-${row.name}`}
+        >
+          <SlidersHorizontal className="size-4" aria-hidden />
+        </IconButton>
+        <IconButton
+          label="Delete category"
+          variant="ghost"
+          className="text-destructive hover:text-destructive"
+          onClick={onDelete}
+          data-testid={`delete-category-${row.name}`}
+        >
+          <Trash2 className="size-4" aria-hidden />
+        </IconButton>
       </div>
     </li>
   );

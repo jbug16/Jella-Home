@@ -1,11 +1,19 @@
 "use client";
 
 import { BookOpen, Search } from "lucide-react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { EmptyState } from "@/components/common/empty-state";
+import {
+  ListRowBody,
+  ListRowLink,
+  ListRowMeta,
+  ListRowTitle,
+} from "@/components/common/list-row";
+import { SearchPanelHeader } from "@/components/common/panel-header";
+import { PanelList } from "@/components/common/panel-list";
+import { PrimaryAddButton } from "@/components/common/primary-add-button";
 import { RecipeFormDialog } from "@/components/recipes/recipe-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,8 +62,6 @@ export function RecipeListPanel({
   const [syncedQuery, setSyncedQuery] = useState(query);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reflect external navigation (back button, cleared search) into the input
-  // without an effect. See https://react.dev/learn/you-might-not-need-an-effect.
   if (query !== syncedQuery) {
     setSyncedQuery(query);
     setValue(query);
@@ -101,44 +107,45 @@ export function RecipeListPanel({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative sm:max-w-xs sm:flex-1">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
+    <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden">
+      <SearchPanelHeader
+        search={
+          <div className="relative min-w-0 w-full">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              className="h-11 w-full pl-9"
+              placeholder="Search recipes"
+              aria-label="Search recipes"
+              value={value}
+              onChange={(e) => onSearchChange(e.target.value)}
+              data-testid="recipe-search"
+            />
+          </div>
+        }
+        actions={
+          <PrimaryAddButton
+            label="Add recipe"
+            onClick={() => setAddOpen(true)}
+            data-testid="open-add-recipe"
           />
-          <Input
-            type="search"
-            className="min-h-11 pl-9"
-            placeholder="Search recipes"
-            aria-label="Search recipes"
-            value={value}
-            onChange={(e) => onSearchChange(e.target.value)}
-            data-testid="recipe-search"
-          />
-        </div>
-        <Button
-          type="button"
-          className="min-h-11"
-          onClick={() => setAddOpen(true)}
-          data-testid="open-add-recipe"
-        >
-          Add recipe
-        </Button>
-      </div>
+        }
+      />
 
       {recipes.length === 0 ? (
         query ? (
           <div
-            className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-6 py-16 text-center"
+            className="flex flex-col items-center gap-2 rounded-lg border border-dashed px-4 py-8 text-center sm:gap-3 sm:py-12"
             data-testid="recipes-no-results"
           >
             <p className="text-base font-medium">No recipes match “{query}”</p>
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              size="touch"
               onClick={clearSearch}
             >
               Clear search
@@ -152,19 +159,12 @@ export function RecipeListPanel({
           />
         )
       ) : (
-        <ul
-          className="divide-y rounded-lg border"
-          data-testid="recipes-list"
-          aria-busy={isPending}
-        >
+        <PanelList testId="recipes-list" aria-busy={isPending}>
           {recipes.map((recipe) => (
             <li key={recipe.id} data-testid={`recipe-row-${recipe.id}`}>
-              <Link
-                href={`/recipes/${recipe.id}`}
-                className="flex min-h-11 items-center gap-4 px-4 py-3 hover:bg-accent"
-              >
+              <ListRowLink href={`/recipes/${recipe.id}`}>
                 <span
-                  className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted sm:size-24"
+                  className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted sm:size-14"
                   aria-hidden="true"
                 >
                   {recipe.imageUrl ? (
@@ -178,21 +178,19 @@ export function RecipeListPanel({
                     />
                   ) : (
                     <BookOpen
-                      className="size-7 text-muted-foreground"
+                      className="size-5 text-muted-foreground sm:size-6"
                       aria-hidden="true"
                     />
                   )}
                 </span>
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="truncate font-medium">{recipe.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {metadata(recipe)}
-                  </span>
-                </span>
-              </Link>
+                <ListRowBody>
+                  <ListRowTitle>{recipe.name}</ListRowTitle>
+                  <ListRowMeta>{metadata(recipe)}</ListRowMeta>
+                </ListRowBody>
+              </ListRowLink>
             </li>
           ))}
-        </ul>
+        </PanelList>
       )}
 
       <RecipeFormDialog

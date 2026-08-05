@@ -339,12 +339,19 @@ export type GrocerySection = {
   items: GroceryListItem[];
 };
 
-/** Group items for UI: non-empty store_section, else "List". */
+export const GROCERY_OTHER_SECTION_KEY = "__other__";
+export const GROCERY_OTHER_SECTION_LABEL = "Other";
+
+function grocerySectionKey(storeSection: string): string {
+  return storeSection.trim() ? storeSection.trim() : GROCERY_OTHER_SECTION_KEY;
+}
+
+/** Group items for UI: non-empty store_section, else "Other". */
 export function groupGroceryItems(items: GroceryListItem[]): GrocerySection[] {
   const sorted = sortGroceryItems(items);
   const map = new Map<string, GroceryListItem[]>();
   for (const item of sorted) {
-    const key = item.storeSection.trim() ? item.storeSection.trim() : "";
+    const key = grocerySectionKey(item.storeSection);
     const list = map.get(key) ?? [];
     list.push(item);
     map.set(key, list);
@@ -352,14 +359,17 @@ export function groupGroceryItems(items: GroceryListItem[]): GrocerySection[] {
 
   const sections: GrocerySection[] = [];
   const keys = [...map.keys()].sort((a, b) => {
-    if (a === "") return 1;
-    if (b === "") return -1;
+    if (a === GROCERY_OTHER_SECTION_KEY) return 1;
+    if (b === GROCERY_OTHER_SECTION_KEY) return -1;
     return a.localeCompare(b);
   });
   for (const key of keys) {
     sections.push({
-      key: key || "__list__",
-      label: key || "List",
+      key,
+      label:
+        key === GROCERY_OTHER_SECTION_KEY
+          ? GROCERY_OTHER_SECTION_LABEL
+          : key,
       items: map.get(key) ?? [],
     });
   }

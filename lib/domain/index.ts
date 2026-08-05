@@ -32,6 +32,7 @@ export {
   buildBudgetMonthSnapshot,
   createCategoryInputSchema,
   createTransactionInputSchema,
+  DEFAULT_BUDGET_CATEGORIES,
   currentMonthStart,
   defaultOccurredOnForMonth,
   directionForKind,

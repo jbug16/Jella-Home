@@ -1,8 +1,36 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { goToBudget, signInAsMember } from "./helpers/auth";
 
 test.describe.configure({ mode: "serial" });
+
+async function openAddTransaction(page: Page) {
+  await page.getByTestId("open-add-transaction").click();
+}
+
+async function openEditTransaction(
+  page: Page,
+  row: ReturnType<Page["locator"]>,
+) {
+  const mobileEdit = row.getByTestId(/^edit-transaction-/).first();
+  if (await mobileEdit.isVisible()) {
+    await mobileEdit.click();
+    return;
+  }
+  await row.getByRole("button", { name: "Edit transaction" }).click();
+}
+
+async function deleteTransaction(page: Page, row: ReturnType<Page["locator"]>) {
+  const desktopDelete = row.getByRole("button", { name: "Delete transaction" });
+  if (await desktopDelete.isVisible()) {
+    await desktopDelete.click();
+    return;
+  }
+  const rowTestId = await row.getAttribute("data-testid");
+  const transactionId = rowTestId?.replace("transaction-row-", "");
+  await openEditTransaction(page, row);
+  await page.getByTestId(`delete-transaction-${transactionId}`).click();
+}
 
 test.describe("budget flows", () => {
   test.beforeEach(async ({ page }) => {
@@ -12,12 +40,12 @@ test.describe("budget flows", () => {
   test("loads seeded summary values", async ({ page }) => {
     await goToBudget(page);
 
-    await expect(page.getByTestId("summary-planned")).toHaveText("$500.00");
-    await expect(page.getByTestId("summary-actual")).toHaveText("$12.50");
-    await expect(page.getByTestId("summary-remaining")).toHaveText("+$487.50");
+    await expect(page.getByTestId("summary-planned")).toHaveText("$650.00");
+    await expect(page.getByTestId("summary-actual")).toHaveText("$294.50");
+    await expect(page.getByTestId("summary-remaining")).toHaveText("$355.50");
     await expect(page.getByTestId("budget-summary")).toBeVisible();
     await expect(
-      page.getByTestId("category-row-expense-Groceries"),
+      page.getByTestId("category-row-expense-Food"),
     ).toBeVisible();
     await expect(page.getByTestId("transactions-list")).toBeVisible();
     await expect(page.getByText("By type")).toHaveCount(0);
@@ -28,7 +56,7 @@ test.describe("budget flows", () => {
 
     const payee = `E2E Market ${testInfo.project.name} ${Date.now()}`;
 
-    await page.getByTestId("open-add-transaction").click();
+    await openAddTransaction(page);
     await page.getByLabel("Amount").fill("8.25");
     await page.getByLabel("Payee (optional)").fill(payee);
     await page.getByTestId("add-transaction-submit").click();
@@ -39,9 +67,9 @@ test.describe("budget flows", () => {
         hasText: payee,
       });
     await expect(createdRow).toBeVisible();
-    await expect(page.getByTestId("summary-actual")).toHaveText("$20.75");
+    await expect(page.getByTestId("summary-actual")).toHaveText("$302.75");
 
-    await createdRow.getByRole("button", { name: "Edit transaction" }).click();
+    await openEditTransaction(page, createdRow);
     await page.getByLabel("Amount").fill("9.00");
     await page.getByLabel("Payee (optional)").fill(`${payee} Updated`);
     await page.getByTestId("save-transaction").click();
@@ -52,11 +80,9 @@ test.describe("budget flows", () => {
         hasText: `${payee} Updated`,
       });
     await expect(updatedRow).toBeVisible();
-    await expect(page.getByTestId("summary-actual")).toHaveText("$21.50");
+    await expect(page.getByTestId("summary-actual")).toHaveText("$303.50");
 
-    await updatedRow
-      .getByRole("button", { name: "Delete transaction" })
-      .click();
+    await deleteTransaction(page, updatedRow);
     await page.getByTestId("confirm-delete-transaction").click();
 
     await expect(
@@ -64,7 +90,7 @@ test.describe("budget flows", () => {
         hasText: `${payee} Updated`,
       }),
     ).toHaveCount(0);
-    await expect(page.getByTestId("summary-actual")).toHaveText("$12.50");
+    await expect(page.getByTestId("summary-actual")).toHaveText("$294.50");
   });
 
   test("budget page has no horizontal scroll", async ({ page }) => {

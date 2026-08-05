@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
   formatCalendarHourLabel,
   type CalendarDayEvent,
@@ -19,6 +18,8 @@ type CalendarDayViewProps = {
   actionTestId?: string;
   className?: string;
   fillHeight?: boolean;
+  /** Tighter header and body for dashboard / mobile contexts. */
+  compact?: boolean;
   now?: Date;
 };
 
@@ -34,6 +35,7 @@ export function CalendarDayView({
   actionTestId,
   className,
   fillHeight = false,
+  compact = false,
   now = new Date(),
 }: CalendarDayViewProps) {
   const timedEvents = day.events
@@ -47,42 +49,60 @@ export function CalendarDayView({
   const isToday = day.dateIso === todayIsoDate(now);
   const title = heading ?? day.dateLabel;
   const nowHour = now.getHours() + now.getMinutes() / 60;
+  const showSubtitle = !compact || !heading;
 
   return (
     <section
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/80 bg-card text-card-foreground shadow-sm",
+        "relative flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-sm sm:rounded-2xl",
         fillHeight ? "h-full" : null,
+        actionHref ? "transition-colors hover:bg-muted/20" : null,
         className,
       )}
       data-testid="calendar-day-view"
       aria-label={`Calendar for ${day.dateLabel}`}
     >
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
+      {actionHref && actionLabel ? (
+        <Link
+          href={actionHref}
+          className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label={actionLabel}
+          data-testid={actionTestId}
+        />
+      ) : null}
+      <header
+        className={cn(
+          "relative z-10 flex shrink-0 items-center border-b border-border/70",
+          compact ? "px-3 py-2.5" : "px-5 py-4",
+        )}
+      >
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-          <p className="mt-0.5 truncate text-sm text-muted-foreground">
-            {day.dateLabel}
-          </p>
-        </div>
-        {actionHref && actionLabel ? (
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="min-h-11 shrink-0"
-            data-testid={actionTestId}
+          <h2
+            className={cn(
+              "font-semibold tracking-tight",
+              compact ? "text-sm" : "text-xl",
+            )}
           >
-            <Link href={actionHref}>{actionLabel}</Link>
-          </Button>
-        ) : null}
+            {title}
+          </h2>
+          {showSubtitle ? (
+            <p className="mt-0.5 truncate text-xs text-muted-foreground sm:text-sm">
+              {day.dateLabel}
+            </p>
+          ) : null}
+        </div>
       </header>
 
-      <div className="relative min-h-0 flex-1 overflow-y-auto">
+      <div className="relative z-10 min-h-0 flex-1 overflow-y-auto">
         {isEmpty ? (
-          <EmptyDay isToday={isToday} />
+          <EmptyDay compact={compact} isToday={isToday} />
         ) : (
-          <div className="flex flex-col gap-4 px-5 py-4">
+          <div
+            className={cn(
+              "flex flex-col gap-3",
+              compact ? "px-3 py-2.5" : "gap-4 px-5 py-4",
+            )}
+          >
             {allDayEvents.length > 0 ? (
               <div className="space-y-2">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -139,16 +159,35 @@ export function CalendarDayView({
   );
 }
 
-function EmptyDay({ isToday }: { isToday: boolean }) {
+function EmptyDay({
+  compact = false,
+  isToday,
+}: {
+  compact?: boolean;
+  isToday: boolean;
+}) {
   return (
     <div
-      className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 px-6 py-10 text-center"
+      className={cn(
+        "flex flex-col items-center justify-center gap-2 text-center",
+        compact ? "px-4 py-6" : "min-h-[16rem] gap-3 px-6 py-10",
+      )}
       data-testid="calendar-day-empty"
     >
-      <span className="flex size-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-        <CalendarDays className="size-5" aria-hidden />
+      <span
+        className={cn(
+          "flex items-center justify-center rounded-xl bg-muted text-muted-foreground",
+          compact ? "size-9" : "size-12 rounded-2xl",
+        )}
+      >
+        <CalendarDays className={compact ? "size-4" : "size-5"} aria-hidden />
       </span>
-      <p className="text-sm font-medium text-foreground">
+      <p
+        className={cn(
+          "font-medium text-foreground",
+          compact ? "text-xs" : "text-sm",
+        )}
+      >
         {isToday ? "Nothing on the calendar today" : "Nothing scheduled"}
       </p>
     </div>
@@ -204,7 +243,7 @@ function AgendaEvent({ event }: { event: CalendarDayEvent }) {
     return (
       <Link
         href={event.href}
-        className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 py-2.5"
+        className="relative z-20 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 py-2.5"
         data-testid={`calendar-event-${event.id}`}
       >
         {inner}
@@ -242,7 +281,11 @@ function DayEventChip({
 
   if (event.href) {
     return (
-      <Link href={event.href} className={className} data-testid={testId}>
+      <Link
+        href={event.href}
+        className={cn(className, "relative z-20")}
+        data-testid={testId}
+      >
         {label}
       </Link>
     );

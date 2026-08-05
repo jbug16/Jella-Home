@@ -35,9 +35,10 @@ export function CalendarFilters({
   onShowAll,
   onHideAll,
 }: CalendarFiltersProps) {
-  const activeDots = CALENDAR_FILTER_CATEGORIES.filter((key) => categories[key]);
-  const activeCount =
-    activeDots.length + (showSubscriptions ? 1 : 0);
+  const activeDots = CALENDAR_FILTER_CATEGORIES.filter(
+    (key) => categories[key],
+  );
+  const activeCount = activeDots.length + (showSubscriptions ? 1 : 0);
   const totalCount = CALENDAR_FILTER_CATEGORIES.length + 1;
   const allOn = activeCount === totalCount;
 
@@ -48,7 +49,8 @@ export function CalendarFilters({
           <Button
             type="button"
             variant="outline"
-            className="h-11 max-w-full gap-2 px-3"
+            size="touch"
+            className="shrink-0 gap-1.5 px-2 sm:max-w-full sm:px-3"
             data-testid="calendar-filters-trigger"
             aria-label={`Calendars, ${activeCount} of ${totalCount} visible`}
           >
@@ -71,7 +73,9 @@ export function CalendarFilters({
                 </span>
               ) : null}
             </span>
-            <span className="text-sm font-medium">Calendars</span>
+            <span className="hidden text-sm font-medium sm:inline">
+              Calendars
+            </span>
             {!allOn ? (
               <span className="text-xs text-muted-foreground tabular-nums">
                 {activeCount}/{totalCount}

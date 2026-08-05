@@ -217,6 +217,44 @@ export type Database = {
           },
         ];
       };
+      countdowns: {
+        Row: {
+          color: string;
+          created_at: string;
+          household_id: string;
+          id: string;
+          target_on: string;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          color?: string;
+          created_at?: string;
+          household_id: string;
+          id?: string;
+          target_on: string;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          color?: string;
+          created_at?: string;
+          household_id?: string;
+          id?: string;
+          target_on?: string;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "countdowns_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       grocery_list_items: {
         Row: {
           created_at: string;

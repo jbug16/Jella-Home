@@ -7,11 +7,7 @@ test.describe("shopping webkit smoke", () => {
     await signInAsMember(page);
     await goToShopping(page);
     await expect(page.getByTestId("shopping-panel")).toBeVisible();
-    await expect(
-      page
-        .getByTestId("shopping-generate")
-        .or(page.getByTestId("shopping-refresh")),
-    ).toBeVisible();
+    await expect(page.getByTestId("shopping-add-item")).toBeVisible();
 
     await page.getByTestId("shopping-add-item").click();
     await expect(page.getByTestId("shopping-item-name")).toBeVisible();

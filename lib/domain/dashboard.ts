@@ -1,9 +1,8 @@
 import {
   currentMonthStart,
   formatCents,
-  type BudgetCategory,
+  type BudgetCategoryKind,
   type BudgetMonthSnapshot,
-  type Transaction,
 } from "@/lib/domain/budget";
 import {
   buildCalendarDayViewModel,
@@ -11,6 +10,11 @@ import {
   type CalendarDayViewModel,
 } from "@/lib/domain/calendar";
 import { todayIsoDate } from "@/lib/domain/dates";
+import {
+  buildCountdownsCardViewModel,
+  type Countdown,
+  type CountdownsCardViewModel,
+} from "@/lib/domain/countdown";
 import {
   comparePlannedMeals,
   currentWeekStart,
@@ -24,8 +28,8 @@ import {
   type GroceryListItem,
 } from "@/lib/domain/shopping";
 
-export const DASHBOARD_RECENT_TRANSACTION_LIMIT = 3;
 export const DASHBOARD_RECENT_RECIPE_LIMIT = 3;
+export const DASHBOARD_EXPENSE_SLICE_LIMIT = 6;
 
 export type DashboardMealSummary = {
   id: string;
@@ -51,13 +55,12 @@ export type DashboardGrocerySummary = {
   progressPercent: number;
 };
 
-export type DashboardRecentTransaction = {
-  id: string;
-  occurredOn: string;
+export type DashboardExpenseSlice = {
+  categoryId: string;
+  name: string;
+  kind: BudgetCategoryKind;
   amountCents: number;
-  direction: "in" | "out";
-  payee: string;
-  categoryName: string;
+  sharePercent: number;
 };
 
 export type DashboardBudgetSummary = {
@@ -69,7 +72,7 @@ export type DashboardBudgetSummary = {
   remainingLabel: string;
   remainingTone: "ok" | "danger" | "muted";
   spendingProgressPercent: number;
-  recentTransactions: DashboardRecentTransaction[];
+  expenseSlices: DashboardExpenseSlice[];
 };
 
 export type DashboardMealWeekSummary = {
@@ -98,11 +101,15 @@ export type DashboardViewModel = {
   };
   /** Household calendar day (events only — never meals). Omitted when calendar is disabled. */
   today?: CalendarDayViewModel;
+  /** Upcoming fun things to count down to. */
+  countdowns: CountdownsCardViewModel;
   /** Meals planned to eat today (Meal Planning card). */
   todayMeals: DashboardMealSummary[];
   budget: DashboardBudgetSummary;
   mealWeek: DashboardMealWeekSummary;
 };
+
+export { buildCountdownsCardViewModel, type CountdownsCardViewModel };
 
 export function clampProgressPercent(raw: number): number {
   if (!Number.isFinite(raw)) {
@@ -129,6 +136,16 @@ function toMealSummary(
     recipeId: meal.recipeId,
     imageUrl,
   };
+}
+
+export function buildDashboardCountdownsViewModel(args: {
+  todayIso: string;
+  countdowns: Countdown[];
+}): CountdownsCardViewModel {
+  return buildCountdownsCardViewModel({
+    todayIso: args.todayIso,
+    countdowns: args.countdowns,
+  });
 }
 
 export function buildTodayMealsViewModel(args: {
@@ -210,36 +227,49 @@ export function buildGroceryCardViewModel(args: {
   };
 }
 
+export function buildBudgetExpenseSlices(
+  snapshot: BudgetMonthSnapshot,
+  limit = DASHBOARD_EXPENSE_SLICE_LIMIT,
+): DashboardExpenseSlice[] {
+  const spending = snapshot.categorySummaries
+    .filter((row) => row.kind !== "income" && row.actualCents > 0)
+    .slice()
+    .sort((a, b) => b.actualCents - a.actualCents);
+
+  const total = spending.reduce((sum, row) => sum + row.actualCents, 0);
+  if (total <= 0) {
+    return [];
+  }
+
+  const top = spending.slice(0, limit);
+  const rest = spending.slice(limit);
+  const restTotal = rest.reduce((sum, row) => sum + row.actualCents, 0);
+
+  const slices: DashboardExpenseSlice[] = top.map((row) => ({
+    categoryId: row.categoryId,
+    name: row.name,
+    kind: row.kind,
+    amountCents: row.actualCents,
+    sharePercent: clampProgressPercent((row.actualCents / total) * 100),
+  }));
+
+  if (restTotal > 0) {
+    slices.push({
+      categoryId: "other",
+      name: "Other",
+      kind: "expense",
+      amountCents: restTotal,
+      sharePercent: clampProgressPercent((restTotal / total) * 100),
+    });
+  }
+
+  return slices;
+}
+
 export function buildBudgetCardViewModel(args: {
   monthStart: string;
   snapshot: BudgetMonthSnapshot;
-  categories: BudgetCategory[];
-  transactions: Transaction[];
-  recentLimit?: number;
 }): DashboardBudgetSummary {
-  const limit = args.recentLimit ?? DASHBOARD_RECENT_TRANSACTION_LIMIT;
-  const categoryNames = new Map(
-    args.categories.map((category) => [category.id, category.name]),
-  );
-
-  const recentTransactions = args.transactions
-    .slice()
-    .sort((a, b) => {
-      if (a.occurredOn !== b.occurredOn) {
-        return a.occurredOn < b.occurredOn ? 1 : -1;
-      }
-      return a.id < b.id ? 1 : -1;
-    })
-    .slice(0, limit)
-    .map((txn) => ({
-      id: txn.id,
-      occurredOn: txn.occurredOn,
-      amountCents: txn.amountCents,
-      direction: txn.direction,
-      payee: txn.payee.trim() || "Transaction",
-      categoryName: categoryNames.get(txn.categoryId) ?? "Category",
-    }));
-
   const { plannedTotalCents, actualOutCents, remainingOutCents } =
     args.snapshot;
   const hasBudgetSetup = plannedTotalCents > 0;
@@ -270,7 +300,7 @@ export function buildBudgetCardViewModel(args: {
     remainingLabel,
     remainingTone,
     spendingProgressPercent,
-    recentTransactions,
+    expenseSlices: buildBudgetExpenseSlices(args.snapshot),
   };
 }
 

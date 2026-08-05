@@ -4,8 +4,10 @@ import {
   budgetCategoryKindSchema,
   budgetCategorySchema,
   budgetMonthLimitSchema,
+  archiveCategoryInputSchema,
   createCategoryInputSchema,
   createTransactionInputSchema,
+  DEFAULT_BUDGET_CATEGORIES,
   deleteTransactionInputSchema,
   directionForKind,
   monthEndFor,
@@ -13,6 +15,7 @@ import {
   transactionSchema,
   updateTransactionInputSchema,
   upsertMonthLimitInputSchema,
+  type ArchiveCategoryInput,
   type BudgetCategory,
   type BudgetCategoryKind,
   type BudgetMonthLimit,
@@ -39,6 +42,7 @@ function mapCategory(row: {
   kind: string;
   sort_order: number;
   archived_at: string | null;
+  updated_at: string;
 }): BudgetCategory {
   return budgetCategorySchema.parse({
     id: row.id,
@@ -47,6 +51,7 @@ function mapCategory(row: {
     kind: row.kind,
     sortOrder: row.sort_order,
     archivedAt: row.archived_at,
+    updatedAt: toVersionTimestamp(row.updated_at),
   });
 }
 
@@ -90,13 +95,46 @@ function mapTransaction(row: {
   });
 }
 
+async function ensureDefaultCategories(householdId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { count, error: countError } = await supabase
+    .from("budget_categories")
+    .select("id", { count: "exact", head: true })
+    .eq("household_id", householdId);
+
+  if (countError) {
+    throw new Error("Unable to load budget categories.");
+  }
+
+  if ((count ?? 0) > 0) {
+    return;
+  }
+
+  const { error: insertError } = await supabase.from("budget_categories").insert(
+    DEFAULT_BUDGET_CATEGORIES.map((category, index) => ({
+      household_id: householdId,
+      name: category.name,
+      kind: category.kind,
+      sort_order: index,
+    })),
+  );
+
+  if (insertError) {
+    throw new Error("Unable to create default budget categories.");
+  }
+}
+
 export async function listCategories(): Promise<BudgetCategory[]> {
   const membership = await requireCurrentMembership();
+  await ensureDefaultCategories(membership.household.id);
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("budget_categories")
-    .select("id, household_id, name, kind, sort_order, archived_at")
+    .select(
+      "id, household_id, name, kind, sort_order, archived_at, updated_at",
+    )
     .eq("household_id", membership.household.id)
     .is("archived_at", null)
     .order("kind")
@@ -124,7 +162,9 @@ export async function createCategory(
       name: parsed.name,
       kind: parsed.kind,
     })
-    .select("id, household_id, name, kind, sort_order, archived_at")
+    .select(
+      "id, household_id, name, kind, sort_order, archived_at, updated_at",
+    )
     .single();
 
   if (error || !data) {
@@ -132,6 +172,58 @@ export async function createCategory(
   }
 
   return mapCategory(data);
+}
+
+/** Labels for active and archived categories (transaction display). */
+export async function listCategoryDisplayMap(): Promise<
+  Record<string, { name: string; kind: BudgetCategoryKind }>
+> {
+  const membership = await requireCurrentMembership();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("budget_categories")
+    .select("id, name, kind")
+    .eq("household_id", membership.household.id);
+
+  if (error) {
+    throw new Error("Unable to load budget categories.");
+  }
+
+  const map: Record<string, { name: string; kind: BudgetCategoryKind }> = {};
+  for (const row of data ?? []) {
+    map[row.id] = {
+      name: row.name,
+      kind: budgetCategoryKindSchema.parse(row.kind),
+    };
+  }
+  return map;
+}
+
+export async function archiveCategory(
+  input: ArchiveCategoryInput,
+): Promise<void> {
+  const membership = await requireCurrentMembership();
+  const parsed = archiveCategoryInputSchema.parse(input);
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("budget_categories")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("household_id", membership.household.id)
+    .eq("id", parsed.id)
+    .is("archived_at", null)
+    .eq("updated_at", parsed.expectedUpdatedAt)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("Unable to delete category.");
+  }
+
+  if (!data) {
+    throw new ConcurrencyConflictError();
+  }
 }
 
 export async function listMonthLimits(

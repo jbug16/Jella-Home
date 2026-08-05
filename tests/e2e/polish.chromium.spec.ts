@@ -38,11 +38,13 @@ test.describe("UI/UX polish", () => {
     await expect(page.getByTestId("card-meals")).toBeVisible();
   });
 
-  test("mobile shell keeps brand header and bottom nav", async ({ page }) => {
+  test("mobile shell keeps page title header and bottom nav", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 360, height: 780 });
     await goToDashboard(page);
 
-    await expect(page.locator("header").getByText("Jella's Home")).toBeVisible();
+    await expect(page.locator("header").getByText("Dashboard")).toBeVisible();
     await expect(
       page.getByRole("navigation", { name: "Primary" }),
     ).toBeVisible();
@@ -106,7 +108,6 @@ test.describe("UI/UX polish", () => {
     await page.getByLabel("Amount").fill("1.00");
     const submit = page.getByTestId("add-transaction-submit");
     await expect(submit).toBeVisible();
-    await submit.scrollIntoViewIfNeeded();
     await expect(submit).toBeInViewport();
   });
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBudgetMonthSnapshot,
   currentMonthStart,
+  DEFAULT_BUDGET_CATEGORIES,
   defaultOccurredOnForMonth,
   directionForKind,
   formatCents,
@@ -12,6 +13,7 @@ import {
   parseDollarInputToCents,
   parseDollarInputToNonNegativeCents,
   shiftMonthStart,
+  transactionAmountTone,
   type BudgetCategory,
   type BudgetMonthLimit,
   type Transaction,
@@ -92,6 +94,26 @@ describe("month boundaries", () => {
   });
 });
 
+describe("DEFAULT_BUDGET_CATEGORIES", () => {
+  it("includes Food, Gas, Bills, and Fun", () => {
+    expect(DEFAULT_BUDGET_CATEGORIES.map((category) => category.name)).toEqual([
+      "Food",
+      "Gas",
+      "Bills",
+      "Fun",
+    ]);
+  });
+
+  it("maps Bills to the bill kind and the rest to expense", () => {
+    expect(DEFAULT_BUDGET_CATEGORIES).toEqual([
+      { name: "Food", kind: "expense" },
+      { name: "Gas", kind: "expense" },
+      { name: "Bills", kind: "bill" },
+      { name: "Fun", kind: "expense" },
+    ]);
+  });
+});
+
 describe("directionForKind", () => {
   it("maps income to in and all other kinds to out", () => {
     expect(directionForKind("income")).toBe("in");
@@ -99,6 +121,24 @@ describe("directionForKind", () => {
     expect(directionForKind("bill")).toBe("out");
     expect(directionForKind("savings")).toBe("out");
     expect(directionForKind("debt")).toBe("out");
+  });
+});
+
+describe("transactionAmountTone", () => {
+  it("colors income as green and everyday spending as red", () => {
+    expect(transactionAmountTone("income", "in")).toBe("income");
+    expect(transactionAmountTone("expense", "out")).toBe("spending");
+    expect(transactionAmountTone("bill", "out")).toBe("spending");
+  });
+
+  it("keeps savings and debt transfers neutral", () => {
+    expect(transactionAmountTone("savings", "out")).toBe("neutral");
+    expect(transactionAmountTone("debt", "out")).toBe("neutral");
+  });
+
+  it("falls back safely when category kind is unknown", () => {
+    expect(transactionAmountTone(undefined, "in")).toBe("income");
+    expect(transactionAmountTone(undefined, "out")).toBe("neutral");
   });
 });
 
@@ -111,6 +151,7 @@ describe("buildBudgetMonthSnapshot", () => {
       kind: "income",
       sortOrder: 0,
       archivedAt: null,
+      updatedAt: "2026-07-01T00:00:00.000Z",
     },
     {
       id: "11111111-1111-4111-8111-111111111102",
@@ -119,6 +160,7 @@ describe("buildBudgetMonthSnapshot", () => {
       kind: "expense",
       sortOrder: 0,
       archivedAt: null,
+      updatedAt: "2026-07-01T00:00:00.000Z",
     },
     {
       id: "11111111-1111-4111-8111-111111111103",
@@ -127,6 +169,7 @@ describe("buildBudgetMonthSnapshot", () => {
       kind: "bill",
       sortOrder: 0,
       archivedAt: null,
+      updatedAt: "2026-07-01T00:00:00.000Z",
     },
   ];
 

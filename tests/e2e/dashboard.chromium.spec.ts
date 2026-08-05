@@ -49,10 +49,11 @@ test.describe("dashboard home", () => {
     await expect(page.getByTestId("calendar-day-view")).toHaveCount(0);
     await expect(page.getByTestId("card-meals")).toBeVisible();
     await expect(page.getByTestId("card-budget")).toBeVisible();
+    await expect(page.getByTestId("card-countdowns")).toBeVisible();
     await expect(page.getByTestId("card-grocery")).toHaveCount(0);
 
     await expect(page.getByTestId("dashboard-budget-remaining")).toContainText(
-      "487.50",
+      "355.50",
     );
   });
 
@@ -127,7 +128,7 @@ test.describe("dashboard home", () => {
     await signInAsOutsider(page);
     await goToDashboard(page);
 
-    await expect(page.getByTestId("card-budget")).not.toContainText("487.50");
+    await expect(page.getByTestId("card-budget")).not.toContainText("355.50");
     await expect(page.getByTestId("calendar-day-view")).toHaveCount(0);
   });
 });

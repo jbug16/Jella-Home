@@ -16,8 +16,11 @@ DECLARE
   non_member uuid := 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   household_a uuid := '11111111-1111-4111-8111-111111111111';
   household_b uuid := '22222222-2222-4222-8222-222222222222';
-  category_a uuid := '33333333-3333-4333-8333-333333333333';
+  category_food uuid := '33333333-3333-4333-8333-333333333333';
   category_b uuid := '44444444-4444-4444-8444-444444444444';
+  category_fun uuid := '66666666-6666-4666-8666-666666666662';
+  category_bills uuid := '66666666-6666-4666-8666-666666666663';
+  category_gas uuid := '66666666-6666-4666-8666-666666666664';
   password_hash text := crypt('local-dev-password', gen_salt('bf'));
 BEGIN
   DELETE FROM auth.identities
@@ -182,13 +185,16 @@ BEGIN
 
   INSERT INTO public.budget_categories (id, household_id, name, kind)
   VALUES
-    (category_a, household_a, 'Groceries', 'expense'),
-    (category_b, household_b, 'Groceries', 'expense'),
+    (category_food, household_a, 'Food', 'expense'),
+    (category_gas, household_a, 'Gas', 'expense'),
+    (category_bills, household_a, 'Bills', 'bill'),
+    (category_fun, household_a, 'Fun', 'expense'),
+    (category_b, household_b, 'Food', 'expense'),
     -- Same display name under a different kind is allowed after the unique-key change.
     (
       '55555555-5555-4555-8555-555555555555',
       household_a,
-      'Groceries Fund',
+      'Food Fund',
       'savings'
     );
 
@@ -201,7 +207,18 @@ BEGIN
     payee
   )
   VALUES
-    (household_a, category_a, 1250, 'out', CURRENT_DATE, 'Fixture Store A'),
+    (household_a, category_food, 10250, 'out', CURRENT_DATE, 'Whole Foods'),
+    (household_a, category_food, 4850, 'out', CURRENT_DATE, 'Local Bistro'),
+    (
+      household_a,
+      category_fun,
+      3200,
+      'out',
+      CURRENT_DATE,
+      'Movie night'
+    ),
+    (household_a, category_bills, 8750, 'out', CURRENT_DATE, 'Electric co'),
+    (household_a, category_gas, 2400, 'out', CURRENT_DATE, 'Metro pass'),
     (household_b, category_b, 9900, 'out', CURRENT_DATE, 'Fixture Store B');
 
   INSERT INTO public.budget_month_limits (
@@ -213,9 +230,27 @@ BEGIN
   VALUES
     (
       household_a,
-      category_a,
+      category_food,
       date_trunc('month', CURRENT_DATE)::date,
-      50000
+      35000
+    ),
+    (
+      household_a,
+      category_gas,
+      date_trunc('month', CURRENT_DATE)::date,
+      8000
+    ),
+    (
+      household_a,
+      category_bills,
+      date_trunc('month', CURRENT_DATE)::date,
+      12000
+    ),
+    (
+      household_a,
+      category_fun,
+      date_trunc('month', CURRENT_DATE)::date,
+      10000
     );
 
   -- Realistic household subscriptions with staggered renewals for sort demos.

@@ -4,10 +4,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/common/page-header";
 import { ShoppingPanel } from "@/components/shopping/shopping-panel";
 import { resolveShoppingWeekStart } from "@/lib/domain/shopping";
-import {
-  getGroceryListForWeek,
-  listGroceryItems,
-} from "@/lib/repositories/shopping";
+import { loadOrSyncShoppingPageData } from "@/lib/repositories/shopping";
 
 export const metadata: Metadata = {
   title: "Shopping",
@@ -27,11 +24,10 @@ export default async function ShoppingPage({
     redirect(`/shopping?week=${weekStart}`);
   }
 
-  const list = await getGroceryListForWeek(weekStart);
-  const items = list ? await listGroceryItems(list.id) : [];
+  const { list, items } = await loadOrSyncShoppingPageData(weekStart);
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden">
+    <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden sidebar:gap-6">
       <PageHeader title="Shopping" />
       <ShoppingPanel weekStart={weekStart} list={list} items={items} />
     </div>

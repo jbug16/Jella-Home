@@ -20,6 +20,17 @@ export const budgetCategoryKindSchema = z.enum([
 
 export type BudgetCategoryKind = z.infer<typeof budgetCategoryKindSchema>;
 
+/** Starter categories for households with none yet. */
+export const DEFAULT_BUDGET_CATEGORIES: ReadonlyArray<{
+  name: string;
+  kind: BudgetCategoryKind;
+}> = [
+  { name: "Food", kind: "expense" },
+  { name: "Gas", kind: "expense" },
+  { name: "Bills", kind: "bill" },
+  { name: "Fun", kind: "expense" },
+];
+
 export const transactionDirectionSchema = z.enum(["in", "out"]);
 
 export type TransactionDirection = z.infer<typeof transactionDirectionSchema>;
@@ -42,6 +53,7 @@ export const budgetCategorySchema = z.object({
   kind: budgetCategoryKindSchema,
   sortOrder: z.number().int(),
   archivedAt: z.string().nullable(),
+  updatedAt: z.string(),
 });
 
 export type BudgetCategory = z.infer<typeof budgetCategorySchema>;
@@ -113,6 +125,13 @@ export type DeleteTransactionInput = z.infer<
   typeof deleteTransactionInputSchema
 >;
 
+export const archiveCategoryInputSchema = z.object({
+  id: z.uuid(),
+  expectedUpdatedAt: expectedUpdatedAtSchema,
+});
+
+export type ArchiveCategoryInput = z.infer<typeof archiveCategoryInputSchema>;
+
 export type UpdateTransactionInput = z.infer<
   typeof updateTransactionInputSchema
 >;
@@ -129,6 +148,25 @@ export function directionForKind(
   kind: BudgetCategoryKind,
 ): TransactionDirection {
   return KIND_DIRECTION[kind];
+}
+
+/** Color treatment for transaction amounts in lists. */
+export type TransactionAmountTone = "income" | "spending" | "neutral";
+
+export function transactionAmountTone(
+  kind: BudgetCategoryKind | undefined,
+  direction: TransactionDirection,
+): TransactionAmountTone {
+  if (kind === "income") {
+    return "income";
+  }
+  if (kind === "expense" || kind === "bill") {
+    return "spending";
+  }
+  if (kind === "savings" || kind === "debt") {
+    return "neutral";
+  }
+  return direction === "in" ? "income" : "neutral";
 }
 
 /**

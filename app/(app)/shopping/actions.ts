@@ -10,6 +10,7 @@ import {
   resolveShoppingWeekStart,
   setItemCheckedInputSchema,
   updateGroceryItemInputSchema,
+  type GroceryListItem,
 } from "@/lib/domain/shopping";
 import {
   clearCheckedItems,
@@ -23,6 +24,8 @@ import {
 export type ShoppingActionState = {
   error: string | null;
   success: string | null;
+  /** Present after a successful check toggle so the client can sync version. */
+  updatedItem?: GroceryListItem;
 };
 
 function formString(formData: FormData, key: string): string {
@@ -160,9 +163,8 @@ export async function setItemCheckedAction(
       expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
       isChecked: formString(formData, "isChecked") === "true",
     });
-    await setItemChecked(input);
-    revalidateShopping();
-    return { error: null, success: null };
+    const updatedItem = await setItemChecked(input);
+    return { error: null, success: null, updatedItem };
   } catch (error) {
     return actionError(error, "Unable to update that item.");
   }

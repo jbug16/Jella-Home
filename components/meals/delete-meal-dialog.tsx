@@ -7,15 +7,8 @@ import {
   deletePlannedMealAction,
   type MealActionState,
 } from "@/app/(app)/meals/actions";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ResponsiveAlertShell } from "@/components/common/responsive-alert-shell";
+import { AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { PlannedMeal } from "@/lib/domain/meal-plan";
 import { formatWeekdayShort, mealSlotLabel } from "@/lib/domain/meal-plan";
@@ -47,27 +40,24 @@ function DeleteForm({ meal, onClose }: DeleteFormProps) {
     }
   }, [state.success, onClose, router]);
 
-  const weekday = formatWeekdayShort(meal.planDate);
-  const slot = mealSlotLabel(meal.mealSlot);
-
   return (
     <>
-      <AlertDialogHeader>
-        <AlertDialogTitle>Remove this meal?</AlertDialogTitle>
-        <AlertDialogDescription>
-          {`Remove “${meal.title}” from ${weekday} ${slot.toLowerCase()}?`}
-        </AlertDialogDescription>
-      </AlertDialogHeader>
       {state.error ? (
         <p className="text-sm text-destructive" role="alert">
           {state.error}
         </p>
       ) : null}
-      <AlertDialogFooter>
-        <AlertDialogCancel disabled={pending} className="min-h-11">
+      <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending}
+          className="min-h-11 w-full sm:w-auto sm:min-w-24"
+          onClick={onClose}
+        >
           Cancel
-        </AlertDialogCancel>
-        <form action={formAction}>
+        </Button>
+        <form action={formAction} className="w-full sm:w-auto">
           <input type="hidden" name="id" value={meal.id} />
           <input
             type="hidden"
@@ -78,7 +68,7 @@ function DeleteForm({ meal, onClose }: DeleteFormProps) {
             type="submit"
             variant="destructive"
             disabled={pending}
-            className="min-h-11"
+            className="min-h-11 w-full sm:min-w-24"
             data-testid="confirm-delete-meal"
           >
             {pending ? "Removing…" : "Remove"}
@@ -94,13 +84,23 @@ export function DeleteMealDialog({
   onOpenChange,
   meal,
 }: DeleteMealDialogProps) {
+  const weekday = meal ? formatWeekdayShort(meal.planDate) : "";
+  const slot = meal ? mealSlotLabel(meal.mealSlot) : "";
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        {open && meal ? (
-          <DeleteForm meal={meal} onClose={() => onOpenChange(false)} />
-        ) : null}
-      </AlertDialogContent>
-    </AlertDialog>
+    <ResponsiveAlertShell
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Remove this meal?"
+      description={
+        meal
+          ? `Remove “${meal.title}” from ${weekday} ${slot.toLowerCase()}?`
+          : undefined
+      }
+    >
+      {open && meal ? (
+        <DeleteForm meal={meal} onClose={() => onOpenChange(false)} />
+      ) : null}
+    </ResponsiveAlertShell>
   );
 }

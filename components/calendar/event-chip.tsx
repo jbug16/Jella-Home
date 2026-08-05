@@ -98,14 +98,14 @@ export function EventChip({
     return (
       <div
         className={cn(
-          "group/event relative flex min-w-0 items-start gap-0.5 rounded-xl border-l-[3px] bg-card p-2 shadow-sm ring-1 ring-border/50",
+          "group/event relative flex min-w-0 items-center gap-1 border-l-[3px] pl-2",
           color.chip,
         )}
         data-testid={`calendar-occ-${occurrence.id}`}
       >
         <button
           type="button"
-          className="flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded-lg px-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-10 min-w-0 flex-1 flex-col justify-center rounded-md py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`Edit ${accessibleName}`}
           data-testid={seriesId ? `calendar-occ-open-${seriesId}` : undefined}
           onClick={() => {
@@ -113,7 +113,7 @@ export function EventChip({
           }}
           disabled={!canMutate}
         >
-          <span className="truncate text-sm leading-snug font-semibold text-foreground">
+          <span className="truncate text-sm font-medium leading-snug text-foreground">
             {occurrence.title}
           </span>
           {timeLabel ? (
@@ -127,7 +127,7 @@ export function EventChip({
             type="button"
             variant="ghost"
             size="icon"
-            className="mt-0.5 size-8 shrink-0 text-muted-foreground/55 hover:bg-transparent hover:text-destructive"
+            className="hidden size-8 shrink-0 text-muted-foreground/55 hover:bg-transparent hover:text-destructive sm:inline-flex"
             aria-label={`Delete ${accessibleName}`}
             data-testid={`calendar-delete-${seriesId}`}
             onClick={() => onDelete?.(seriesId!)}

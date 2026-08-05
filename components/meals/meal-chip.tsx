@@ -17,7 +17,7 @@ type MealChipProps = {
   meal: PlannedMeal;
   imageUrl?: string | null;
   /** Image-forward tile for the week board (default). */
-  variant?: "board" | "row";
+  variant?: "board" | "row" | "compact";
   onEdit: (meal: PlannedMeal) => void;
   onDelete: (meal: PlannedMeal) => void;
 };
@@ -32,25 +32,51 @@ export function MealChip({
   const accessibleName = `${meal.title}, ${mealSlotLabel(meal.mealSlot)}, ${formatWeekdayShort(meal.planDate)}`;
   const hasImage = Boolean(imageUrl);
 
+  if (variant === "compact") {
+    return (
+      <button
+        type="button"
+        className="flex min-h-10 w-full items-center gap-2 rounded-md px-1 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`Edit ${accessibleName}`}
+        data-testid={`meal-chip-open-${meal.id}`}
+        data-meal-notes={meal.notes}
+        onClick={() => onEdit(meal)}
+      >
+        <span className="w-14 shrink-0 text-xs text-muted-foreground">
+          {mealSlotLabel(meal.mealSlot)}
+        </span>
+        <span className="min-w-0 flex-1 truncate font-medium">
+          {meal.title}
+        </span>
+        {meal.notes ? (
+          <StickyNote
+            className="size-3 shrink-0 text-muted-foreground/70"
+            aria-hidden
+          />
+        ) : null}
+      </button>
+    );
+  }
+
   if (variant === "row") {
     return (
       <div
-        className="group/meal relative flex min-w-0 items-start gap-0.5 rounded-xl bg-card p-2 shadow-sm ring-1 ring-border/50"
+        className="group/meal relative flex min-w-0 items-center gap-1"
         data-testid={`meal-chip-${meal.id}`}
         data-meal-notes={meal.notes}
       >
         <button
           type="button"
-          className="flex min-h-11 min-w-0 flex-1 items-start gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-10 min-w-0 flex-1 items-center gap-2.5 rounded-md py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`Edit ${accessibleName}`}
           data-testid={`meal-chip-open-${meal.id}`}
           onClick={() => onEdit(meal)}
         >
           {hasImage ? (
-            <Cover imageUrl={imageUrl!} className="size-12 rounded-lg border" />
+            <Cover imageUrl={imageUrl!} className="size-10 rounded-md border" />
           ) : null}
-          <span className="min-w-0 flex-1 py-0.5">
-            <span className="block truncate text-sm leading-snug font-semibold text-foreground">
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium leading-snug text-foreground">
               {meal.title}
             </span>
             <MealMeta meal={meal} />
@@ -59,7 +85,7 @@ export function MealChip({
         <DeleteButton
           meal={meal}
           accessibleName={accessibleName}
-          className="mt-0.5 size-8 shrink-0 text-muted-foreground/55 hover:bg-transparent hover:text-destructive"
+          className="hidden size-8 shrink-0 text-muted-foreground/55 hover:bg-transparent hover:text-destructive sm:inline-flex"
           onDelete={onDelete}
         />
       </div>

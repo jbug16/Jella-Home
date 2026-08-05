@@ -21,8 +21,6 @@ import {
 
 /**
  * Bottom navigation for phones and iPad portrait (< 1120px).
- * Shows the four primary destinations plus a "More" sheet for the rest,
- * because seven items do not fit a 360px-wide bottom bar.
  */
 export function MobileNav() {
   const pathname = usePathname();
@@ -40,11 +38,13 @@ export function MobileNav() {
         {primaryNavItems.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
+          const tabLabel = item.shortLabel ?? item.label;
           return (
             <li key={item.href}>
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
+                aria-label={item.label}
                 className={cn(
                   "flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-xs font-medium transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
@@ -58,7 +58,7 @@ export function MobileNav() {
                   strokeWidth={active ? 2.5 : 2}
                   aria-hidden="true"
                 />
-                <span className="truncate">{item.label}</span>
+                <span className="max-w-full truncate">{tabLabel}</span>
               </Link>
             </li>
           );
@@ -68,6 +68,7 @@ export function MobileNav() {
           <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
             <SheetTrigger
               aria-current={moreActive ? "page" : undefined}
+              aria-label="More"
               className={cn(
                 "flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-xs font-medium transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
