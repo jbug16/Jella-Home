@@ -48,7 +48,7 @@ export default async function BudgetPage({ searchParams }: BudgetPageProps) {
       (row) => row.archivedAt === null,
     );
     return (
-      <div className="flex min-w-0 flex-col gap-3 sidebar:gap-6">
+      <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden sidebar:gap-6">
         <PageHeader title="Budget" />
         <BudgetPanel
           period={period}
@@ -84,7 +84,7 @@ export default async function BudgetPage({ searchParams }: BudgetPageProps) {
   });
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 sidebar:gap-6">
+    <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden sidebar:gap-6">
       <PageHeader title="Budget" />
       <BudgetPanel
         period={period}

@@ -48,7 +48,10 @@ test.describe("budget flows", () => {
     await expect(page.getByTestId("summary-remaining")).toHaveText("$355.50");
     await expect(page.getByTestId("budget-summary")).toBeVisible();
     await expect(page.getByTestId("category-row-expense-Food")).toBeVisible();
+    await expect(page.getByTestId("transactions-list")).toHaveCount(0);
+    await page.getByRole("tab", { name: "Transactions" }).click();
     await expect(page.getByTestId("transactions-list")).toBeVisible();
+    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByText("By type")).toHaveCount(0);
   });
 
@@ -65,14 +68,17 @@ test.describe("budget flows", () => {
     await addForm.getByLabel("Payee (optional)").fill(payee);
     await addForm.getByTestId("add-transaction-submit").click();
     await expect(page.getByTestId("responsive-form-shell")).toHaveCount(0);
+    await page.getByRole("tab", { name: "Transactions" }).click();
     const createdRow = page
       .locator('[data-testid^="transaction-row-"]')
       .filter({
         hasText: payee,
       });
     await expect(createdRow).toBeVisible();
+    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByTestId("summary-actual")).toHaveText("$302.75");
 
+    await page.getByRole("tab", { name: "Transactions" }).click();
     await openEditTransaction(page, createdRow);
     const editForm = page
       .getByTestId("responsive-form-shell")
@@ -89,8 +95,10 @@ test.describe("budget flows", () => {
         hasText: `${payee} Updated`,
       });
     await expect(updatedRow).toBeVisible();
+    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByTestId("summary-actual")).toHaveText("$303.50");
 
+    await page.getByRole("tab", { name: "Transactions" }).click();
     await deleteTransaction(page, updatedRow);
     await page.getByTestId("confirm-delete-transaction").click();
 
@@ -99,6 +107,7 @@ test.describe("budget flows", () => {
         hasText: `${payee} Updated`,
       }),
     ).toHaveCount(0);
+    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByTestId("summary-actual")).toHaveText("$294.50");
   });
 
@@ -112,6 +121,10 @@ test.describe("budget flows", () => {
     await expect(page.getByTestId("year-category-list")).toBeVisible();
     await page.getByLabel("Next year").click();
     await expect(page).toHaveURL(/view=year&year=2027/);
+    await expect(page.getByTestId("budget-year-summary")).toContainText(
+      "No transactions in 2027.",
+    );
+    await page.getByRole("tab", { name: "Transactions" }).click();
     await expect(page.getByTestId("transactions-empty")).toHaveText(
       "No transactions in 2027.",
     );

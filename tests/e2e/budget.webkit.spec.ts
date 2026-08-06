@@ -9,6 +9,16 @@ test.describe("budget webkit", () => {
     await signInAsMember(page);
     await page.goto("/budget?view=month&month=2026-07");
     await expect(page.getByTestId("budget-summary")).toBeVisible();
+    const periodToggleBox = await page
+      .getByTestId("budget-period-year")
+      .boundingBox();
+    const addButtonBox = await page
+      .getByTestId("open-add-transaction")
+      .boundingBox();
+    expect(periodToggleBox).not.toBeNull();
+    expect(addButtonBox).not.toBeNull();
+    expect(Math.round(periodToggleBox!.y)).toBe(Math.round(addButtonBox!.y));
+    expect(periodToggleBox!.x).toBeLessThan(addButtonBox!.x);
     await page.getByTestId("budget-period-year").click();
     await expect(page).toHaveURL(/view=year&year=2026/);
     await expect(page.getByTestId("budget-year-summary")).toBeVisible();

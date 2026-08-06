@@ -6,7 +6,10 @@ import { Plus, SlidersHorizontal, Trash2, Wallet } from "lucide-react";
 import { CreateCategoryDialog } from "@/components/budget/create-category-dialog";
 import { DeleteCategoryDialog } from "@/components/budget/delete-category-dialog";
 import { DeleteTransactionDialog } from "@/components/budget/delete-transaction-dialog";
-import { BudgetPeriodControls } from "@/components/budget/budget-period-controls";
+import {
+  BudgetPeriodNavigator,
+  BudgetPeriodToggle,
+} from "@/components/budget/budget-period-controls";
 import { SetLimitDialog } from "@/components/budget/set-limit-dialog";
 import { TransactionFormDialog } from "@/components/budget/transaction-form-dialog";
 import { EmptyState } from "@/components/common/empty-state";
@@ -56,6 +59,48 @@ type BudgetPanelProps = {
   yearSnapshot?: BudgetYearSnapshot;
 };
 
+type BudgetView = "overview" | "transactions";
+
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: BudgetView;
+  onChange: (view: BudgetView) => void;
+}) {
+  return (
+    <div
+      className="flex rounded-lg border p-1"
+      role="tablist"
+      aria-label="Budget views"
+    >
+      {(
+        [
+          ["overview", "Overview"],
+          ["transactions", "Transactions"],
+        ] as const
+      ).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={view === value}
+          className={cn(
+            "min-h-11 flex-1 rounded-md px-2 text-sm font-medium transition-colors sm:px-3",
+            view === value
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => onChange(value)}
+          data-testid={`budget-view-${value}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function BudgetPanel({
   period,
   todayIso,
@@ -65,6 +110,7 @@ export function BudgetPanel({
   monthSnapshot,
   yearSnapshot,
 }: BudgetPanelProps) {
+  const [view, setView] = useState<BudgetView>("overview");
   const [addOpen, setAddOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
@@ -99,16 +145,22 @@ export function BudgetPanel({
         : "text-emerald-600 dark:text-emerald-400";
 
   return (
-    <div className="flex min-w-0 flex-col gap-4" data-testid="budget-panel">
+    <div
+      className="flex min-w-0 flex-col gap-3 overflow-x-hidden"
+      data-testid="budget-panel"
+    >
       <PeriodPanelHeader
-        navigator={<BudgetPeriodControls period={period} />}
+        navigator={<BudgetPeriodNavigator period={period} />}
         actions={
-          <PrimaryAddButton
-            label="Add transaction"
-            onClick={() => setAddOpen(true)}
-            disabled={categories.length === 0}
-            data-testid="open-add-transaction"
-          />
+          <div className="flex items-center gap-1">
+            <BudgetPeriodToggle period={period} />
+            <PrimaryAddButton
+              label="Add transaction"
+              onClick={() => setAddOpen(true)}
+              disabled={categories.length === 0}
+              data-testid="open-add-transaction"
+            />
+          </div>
         }
       />
 
@@ -120,7 +172,9 @@ export function BudgetPanel({
         />
       ) : (
         <>
-          {period.view === "month" && monthSnapshot ? (
+          <ViewToggle view={view} onChange={setView} />
+
+          {view === "overview" && period.view === "month" && monthSnapshot ? (
             <section
               aria-labelledby="budget-summary-heading"
               className="space-y-3"
@@ -181,7 +235,7 @@ export function BudgetPanel({
                 Add category
               </Button>
             </section>
-          ) : yearSnapshot ? (
+          ) : view === "overview" && yearSnapshot ? (
             <section className="space-y-3" data-testid="budget-year-summary">
               <div className="grid grid-cols-2 divide-x divide-y rounded-lg border sm:grid-cols-4 sm:divide-y-0">
                 <SummaryStat
@@ -233,78 +287,80 @@ export function BudgetPanel({
                 </p>
               )}
             </section>
-          ) : null}
-
-          <section aria-labelledby="transactions-heading" className="space-y-3">
-            <h2 id="transactions-heading" className="text-base font-semibold">
-              Transactions
-            </h2>
-            {transactions.length === 0 ? (
-              <p
-                className="py-8 text-center text-sm text-muted-foreground"
-                data-testid="transactions-empty"
-              >
-                No transactions{" "}
-                {period.view === "month" ? "this month" : `in ${period.year}`}.
-              </p>
-            ) : (
-              <PanelList testId="transactions-list">
-                {transactions.map((transaction) => {
-                  const display = categoryDisplayById[transaction.categoryId];
-                  const category = categoryById.get(transaction.categoryId);
-                  const categoryKind = display?.kind ?? category?.kind;
-                  const categoryName = display?.name ?? category?.name;
-                  const amountTone = transactionAmountTone(
-                    categoryKind,
-                    transaction.direction,
-                  );
-                  return (
-                    <PanelListItem
-                      key={transaction.id}
-                      testId={`transaction-row-${transaction.id}`}
-                    >
-                      <ListRowButton
-                        onClick={() => setEditing(transaction)}
-                        testId={`edit-transaction-${transaction.id}`}
-                        className="items-center justify-between gap-3"
+          ) : view === "transactions" ? (
+            <section aria-labelledby="transactions-heading">
+              <h2 id="transactions-heading" className="sr-only">
+                Transactions
+              </h2>
+              {transactions.length === 0 ? (
+                <p
+                  className="py-8 text-center text-sm text-muted-foreground"
+                  data-testid="transactions-empty"
+                >
+                  No transactions{" "}
+                  {period.view === "month" ? "this month" : `in ${period.year}`}
+                  .
+                </p>
+              ) : (
+                <PanelList testId="transactions-list">
+                  {transactions.map((transaction) => {
+                    const display = categoryDisplayById[transaction.categoryId];
+                    const category = categoryById.get(transaction.categoryId);
+                    const categoryKind = display?.kind ?? category?.kind;
+                    const categoryName = display?.name ?? category?.name;
+                    const amountTone = transactionAmountTone(
+                      categoryKind,
+                      transaction.direction,
+                    );
+                    return (
+                      <PanelListItem
+                        key={transaction.id}
+                        testId={`transaction-row-${transaction.id}`}
                       >
-                        <ListRowBody>
-                          <ListRowTitle>
-                            {categoryName ?? "Category"}
-                          </ListRowTitle>
-                          <ListRowMeta>
-                            <time dateTime={transaction.occurredOn}>
-                              {formatIsoDateUs(transaction.occurredOn)}
-                            </time>
-                            {transaction.payee
-                              ? ` · ${transaction.payee}`
-                              : null}
-                          </ListRowMeta>
-                        </ListRowBody>
-                        <ListRowTrailing
-                          className={cn(
-                            amountTone === "income" && "text-emerald-600",
-                            amountTone === "spending" && "text-destructive",
-                          )}
+                        <ListRowButton
+                          onClick={() => setEditing(transaction)}
+                          testId={`edit-transaction-${transaction.id}`}
+                          className="items-center justify-between gap-3"
                         >
-                          {transaction.direction === "out" ? "−" : "+"}
-                          {formatCents(transaction.amountCents)}
-                        </ListRowTrailing>
-                      </ListRowButton>
-                      <RowEditDeleteActions
-                        className="hidden shrink-0 pr-3 sm:flex"
-                        onEdit={() => setEditing(transaction)}
-                        onDelete={() => setDeleting(transaction)}
-                        editLabel="Edit transaction"
-                        deleteLabel="Delete transaction"
-                        deleteTestId={`delete-transaction-${transaction.id}`}
-                      />
-                    </PanelListItem>
-                  );
-                })}
-              </PanelList>
-            )}
-          </section>
+                          <ListRowBody>
+                            <ListRowTitle>
+                              {categoryName ?? "Category"}
+                            </ListRowTitle>
+                            <ListRowMeta>
+                              <time dateTime={transaction.occurredOn}>
+                                {formatIsoDateUs(transaction.occurredOn)}
+                              </time>
+                              {transaction.payee
+                                ? ` · ${transaction.payee}`
+                                : null}
+                            </ListRowMeta>
+                          </ListRowBody>
+                          <ListRowTrailing
+                            className={cn(
+                              amountTone === "income" &&
+                                "text-emerald-600 dark:text-emerald-400",
+                              amountTone === "spending" && "text-destructive",
+                            )}
+                          >
+                            {transaction.direction === "out" ? "−" : "+"}
+                            {formatCents(transaction.amountCents)}
+                          </ListRowTrailing>
+                        </ListRowButton>
+                        <RowEditDeleteActions
+                          className="hidden shrink-0 pr-3 sm:flex"
+                          onEdit={() => setEditing(transaction)}
+                          onDelete={() => setDeleting(transaction)}
+                          editLabel="Edit transaction"
+                          deleteLabel="Delete transaction"
+                          deleteTestId={`delete-transaction-${transaction.id}`}
+                        />
+                      </PanelListItem>
+                    );
+                  })}
+                </PanelList>
+              )}
+            </section>
+          ) : null}
         </>
       )}
 
