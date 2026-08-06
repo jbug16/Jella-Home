@@ -131,7 +131,13 @@ test.describe("dashboard home", () => {
       "Fixture Spaghetti",
     );
     await expect(
-      page.getByTestId("dashboard-meal-thumbnail").first(),
+      page
+        .locator('[data-slot="meal-summary-row"]')
+        .filter({ hasText: "Fixture Spaghetti" })
+        .first(),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-slot="meal-summary-thumbnail"]').first(),
     ).toBeVisible();
 
     await page

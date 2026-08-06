@@ -1,8 +1,7 @@
-import Link from "next/link";
-
 import { BudgetExpenseChart } from "@/components/dashboard/budget-expense-chart";
 import { CountdownsCard } from "@/components/dashboard/countdowns-card";
 import { DashboardCardShell } from "@/components/dashboard/dashboard-card-shell";
+import { MealSummaryRow } from "@/components/meals/meal-summary-row";
 import { formatCents } from "@/lib/domain/budget";
 import type { DashboardViewModel } from "@/lib/domain/dashboard";
 import { cn } from "@/lib/utils";
@@ -89,63 +88,18 @@ function TodaysMealsCard({ viewModel }: DashboardPanelProps) {
         <ul className="flex flex-col gap-1" data-testid="dashboard-today-meals">
           {todayMeals.map((meal) => (
             <li key={meal.id}>
-              <Link
+              <MealSummaryRow
                 href={mealHref(meal, asOf.weekStart)}
-                className="flex min-h-11 items-center gap-2.5 rounded-lg p-1 pr-2 transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-14 sm:gap-3 sm:p-1.5 sm:pr-3"
-                data-testid={`dashboard-meal-${meal.id}`}
-              >
-                <MealCover title={meal.title} imageUrl={meal.imageUrl} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold leading-snug text-foreground">
-                    {meal.title}
-                  </span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {meal.mealSlotLabel}
-                  </span>
-                </span>
-              </Link>
+                title={meal.title}
+                meta={meal.mealSlotLabel}
+                imageUrl={meal.imageUrl}
+                testId={`dashboard-meal-${meal.id}`}
+              />
             </li>
           ))}
         </ul>
       ) : null}
     </DashboardCardShell>
-  );
-}
-
-function MealCover({
-  title,
-  imageUrl,
-}: {
-  title: string;
-  imageUrl: string | null;
-}) {
-  if (imageUrl) {
-    return (
-      <span
-        className="relative size-11 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border/60 sm:size-14 sm:rounded-lg"
-        aria-hidden
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- signed Storage URLs */}
-        <img
-          src={imageUrl}
-          alt=""
-          loading="lazy"
-          className="size-full object-cover"
-          data-testid="dashboard-meal-thumbnail"
-        />
-      </span>
-    );
-  }
-
-  return (
-    <span
-      className="flex size-11 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold tracking-wide text-muted-foreground ring-1 ring-border/60 sm:size-14 sm:rounded-lg"
-      aria-hidden
-      data-testid="dashboard-meal-thumbnail-placeholder"
-      title={`${title} has no photo`}
-    >
-      {title.trim().slice(0, 1).toUpperCase() || "?"}
-    </span>
   );
 }
 

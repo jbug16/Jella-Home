@@ -316,8 +316,6 @@ function PhoneDaySpine({
   imageFor: (meal: PlannedMeal) => string | null;
   handlers: MealHandlers;
 }) {
-  void imageFor;
-
   const visibleDays = weekDays.filter((day) => {
     const count = (byDate.get(day) ?? []).length;
     return count > 0 || day === todayIso;
@@ -354,6 +352,7 @@ function PhoneDaySpine({
                   <MealChip
                     key={meal.id}
                     meal={meal}
+                    imageUrl={imageFor(meal)}
                     variant="compact"
                     onEdit={handlers.onEdit}
                     onDelete={handlers.onDelete}

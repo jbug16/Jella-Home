@@ -2,6 +2,7 @@
 
 import { StickyNote, Trash2 } from "lucide-react";
 
+import { MealSummaryRow } from "@/components/meals/meal-summary-row";
 import { Button } from "@/components/ui/button";
 import {
   formatWeekdayShort,
@@ -34,27 +35,16 @@ export function MealChip({
 
   if (variant === "compact") {
     return (
-      <button
-        type="button"
-        className="flex min-h-10 w-full items-center gap-2 rounded-md px-1 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      <MealSummaryRow
+        title={meal.title}
+        meta={mealSlotLabel(meal.mealSlot)}
+        imageUrl={imageUrl}
         aria-label={`Edit ${accessibleName}`}
-        data-testid={`meal-chip-open-${meal.id}`}
-        data-meal-notes={meal.notes}
+        testId={`meal-chip-open-${meal.id}`}
+        notes={meal.notes}
+        showNotesIndicator
         onClick={() => onEdit(meal)}
-      >
-        <span className="w-14 shrink-0 text-xs text-muted-foreground">
-          {mealSlotLabel(meal.mealSlot)}
-        </span>
-        <span className="min-w-0 flex-1 truncate font-medium">
-          {meal.title}
-        </span>
-        {meal.notes ? (
-          <StickyNote
-            className="size-3 shrink-0 text-muted-foreground/70"
-            aria-hidden
-          />
-        ) : null}
-      </button>
+      />
     );
   }
 
