@@ -8,7 +8,12 @@ import {
   updateGroceryItemAction,
   type ShoppingActionState,
 } from "@/app/(app)/shopping/actions";
-import { ResponsiveFormShell } from "@/components/budget/responsive-form-shell";
+import {
+  FormError,
+  FormScrollBody,
+  FormStickyFooter,
+  ResponsiveFormShell,
+} from "@/components/ui/responsive-form-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,7 +68,7 @@ export function ShoppingItemFormDialog({
     >
       <form
         action={formAction}
-        className="flex flex-col gap-4"
+        className="flex min-h-0 flex-1 flex-col"
         key={item?.id ?? "new"}
       >
         {isEdit && item ? (
@@ -81,86 +86,88 @@ export function ShoppingItemFormDialog({
           <input type="hidden" name="weekStart" value={weekStart} />
         ) : null}
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="shopping-item-name">Item</Label>
-          <Input
-            id="shopping-item-name"
-            name="name"
-            required
-            className="min-h-11"
-            defaultValue={item?.name ?? ""}
-            maxLength={160}
-            data-testid="shopping-item-name"
-          />
-        </div>
+        <FormScrollBody>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="shopping-item-name">Item</Label>
+              <Input
+                id="shopping-item-name"
+                name="name"
+                required
+                className="min-h-11"
+                defaultValue={item?.name ?? ""}
+                maxLength={160}
+                data-testid="shopping-item-name"
+              />
+            </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="shopping-item-quantity">Quantity</Label>
-            <Input
-              id="shopping-item-quantity"
-              name="quantity"
-              inputMode="decimal"
-              placeholder="Optional"
-              className="min-h-11"
-              defaultValue={
-                item?.quantity === null || item?.quantity === undefined
-                  ? ""
-                  : String(item.quantity)
-              }
-              data-testid="shopping-item-quantity"
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="shopping-item-quantity">Quantity</Label>
+                <Input
+                  id="shopping-item-quantity"
+                  name="quantity"
+                  inputMode="decimal"
+                  placeholder="Optional"
+                  className="min-h-11"
+                  defaultValue={
+                    item?.quantity === null || item?.quantity === undefined
+                      ? ""
+                      : String(item.quantity)
+                  }
+                  data-testid="shopping-item-quantity"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="shopping-item-unit">Unit</Label>
+                <Input
+                  id="shopping-item-unit"
+                  name="unit"
+                  placeholder="Optional"
+                  className="min-h-11"
+                  defaultValue={item?.unit ?? ""}
+                  data-testid="shopping-item-unit"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="shopping-item-section">Section</Label>
+              <Input
+                id="shopping-item-section"
+                name="storeSection"
+                placeholder="Optional"
+                className="min-h-11"
+                defaultValue={item?.storeSection ?? ""}
+                data-testid="shopping-item-section"
+              />
+            </div>
+
+            <FormError message={state.error} />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="shopping-item-unit">Unit</Label>
-            <Input
-              id="shopping-item-unit"
-              name="unit"
-              placeholder="Optional"
+        </FormScrollBody>
+
+        <FormStickyFooter>
+          <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
               className="min-h-11"
-              defaultValue={item?.unit ?? ""}
-              data-testid="shopping-item-unit"
-            />
+              onClick={() => onOpenChange(false)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="min-h-11"
+              disabled={pending}
+              data-testid="shopping-item-submit"
+            >
+              {pending ? "Saving…" : isEdit ? "Save" : "Add item"}
+            </Button>
           </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="shopping-item-section">Section</Label>
-          <Input
-            id="shopping-item-section"
-            name="storeSection"
-            placeholder="Optional"
-            className="min-h-11"
-            defaultValue={item?.storeSection ?? ""}
-            data-testid="shopping-item-section"
-          />
-        </div>
-
-        {state.error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {state.error}
-          </p>
-        ) : null}
-
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11"
-            onClick={() => onOpenChange(false)}
-            disabled={pending}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            className="min-h-11"
-            disabled={pending}
-            data-testid="shopping-item-submit"
-          >
-            {pending ? "Saving…" : isEdit ? "Save" : "Add item"}
-          </Button>
-        </div>
+        </FormStickyFooter>
       </form>
     </ResponsiveFormShell>
   );

@@ -36,7 +36,7 @@ test("sign-in preserves safe internal next path with query", async ({
   await page.getByLabel("Household email").fill(E2E_EMAIL);
   await page.getByLabel("Password").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/budget\?month=2026-07/);
+  await expect(page).toHaveURL(/\/budget\?view=month&month=2026-07/);
 });
 
 test("sign-in rejects protocol-relative open redirects", async ({ page }) => {

@@ -48,9 +48,7 @@ test.describe("budget flows", () => {
     await expect(page.getByTestId("summary-remaining")).toHaveText("$355.50");
     await expect(page.getByTestId("budget-summary")).toBeVisible();
     await expect(page.getByTestId("category-row-expense-Food")).toBeVisible();
-    await page.getByRole("tab", { name: "Transactions" }).click();
     await expect(page.getByTestId("transactions-list")).toBeVisible();
-    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByText("By type")).toHaveCount(0);
   });
 
@@ -60,25 +58,30 @@ test.describe("budget flows", () => {
     const payee = `E2E Market ${testInfo.project.name} ${Date.now()}`;
 
     await openAddTransaction(page);
-    await page.getByLabel("Amount").fill("8.25");
-    await page.getByLabel("Payee (optional)").fill(payee);
-    await page.getByTestId("add-transaction-submit").click();
-    await page.getByRole("tab", { name: "Transactions" }).click();
-
+    const addForm = page
+      .getByTestId("responsive-form-shell")
+      .filter({ visible: true });
+    await addForm.getByLabel("Amount").fill("8.25");
+    await addForm.getByLabel("Payee (optional)").fill(payee);
+    await addForm.getByTestId("add-transaction-submit").click();
+    await expect(page.getByTestId("responsive-form-shell")).toHaveCount(0);
     const createdRow = page
       .locator('[data-testid^="transaction-row-"]')
       .filter({
         hasText: payee,
       });
     await expect(createdRow).toBeVisible();
-    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByTestId("summary-actual")).toHaveText("$302.75");
 
-    await page.getByRole("tab", { name: "Transactions" }).click();
     await openEditTransaction(page, createdRow);
-    await page.getByLabel("Amount").fill("9.00");
-    await page.getByLabel("Payee (optional)").fill(`${payee} Updated`);
-    await page.getByTestId("save-transaction").click();
+    const editForm = page
+      .getByTestId("responsive-form-shell")
+      .filter({ visible: true });
+    await editForm.getByLabel("Amount").fill("9.00");
+    await editForm.getByLabel("Payee (optional)").fill(`${payee} Updated`);
+    await editForm.getByTestId("save-transaction").click();
+
+    await expect(page.getByTestId("responsive-form-shell")).toHaveCount(0);
 
     const updatedRow = page
       .locator('[data-testid^="transaction-row-"]')
@@ -86,10 +89,8 @@ test.describe("budget flows", () => {
         hasText: `${payee} Updated`,
       });
     await expect(updatedRow).toBeVisible();
-    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByTestId("summary-actual")).toHaveText("$303.50");
 
-    await page.getByRole("tab", { name: "Transactions" }).click();
     await deleteTransaction(page, updatedRow);
     await page.getByTestId("confirm-delete-transaction").click();
 
@@ -98,8 +99,25 @@ test.describe("budget flows", () => {
         hasText: `${payee} Updated`,
       }),
     ).toHaveCount(0);
-    await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByTestId("summary-actual")).toHaveText("$294.50");
+  });
+
+  test("switches to canonical Year mode with actual category totals", async ({
+    page,
+  }) => {
+    await page.goto("/budget?view=year&year=2026&month=2025-01");
+    await expect(page).toHaveURL(/\/budget\?view=year&year=2026$/);
+    await expect(page.getByTestId("budget-year-summary")).toBeVisible();
+    await expect(page.getByTestId("summary-year-spending")).toBeVisible();
+    await expect(page.getByTestId("year-category-list")).toBeVisible();
+    await page.getByLabel("Next year").click();
+    await expect(page).toHaveURL(/view=year&year=2027/);
+    await expect(page.getByTestId("transactions-empty")).toHaveText(
+      "No transactions in 2027.",
+    );
+    await page.getByTestId("budget-period-month").click();
+    await expect(page).toHaveURL(/view=month&month=/);
+    expect(new URL(page.url()).searchParams.has("year")).toBe(false);
   });
 
   test("budget page has no horizontal scroll", async ({ page }) => {

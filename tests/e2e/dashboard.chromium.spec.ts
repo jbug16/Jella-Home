@@ -89,9 +89,12 @@ test.describe("dashboard home", () => {
     await expect(todayButton).toHaveAttribute("aria-pressed", "true");
     await pickFixtureRecipe(page);
     await page.getByTestId("meal-form-submit").click();
+    await expect(page.getByTestId("responsive-form-shell")).toHaveCount(0);
     await expect(
-      page.locator('[data-testid^="meal-chip-"]').first(),
-    ).toBeVisible({ timeout: 15_000 });
+      page.locator(
+        `[data-testid="meals-day-column-${today}"], [data-testid="meals-slots-${today}"]`,
+      ),
+    ).toContainText("Fixture Spaghetti", { timeout: 15_000 });
 
     await goToDashboard(page);
     await expect(page.getByTestId("dashboard-today-meals")).toContainText(

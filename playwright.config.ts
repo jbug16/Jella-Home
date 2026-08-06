@@ -164,14 +164,23 @@ export default defineConfig({
     {
       name: "webkit-iphone",
       testMatch:
-        /(shell|recipes|meals|shopping|dashboard|subscriptions|polish)\.webkit\.spec\.ts/,
+        /(shell|budget|recipes|meals|shopping|dashboard|subscriptions|polish)\.webkit\.spec\.ts/,
       use: { ...devices["iPhone 13"] },
     },
     {
       name: "webkit-ipad",
       testMatch:
-        /(shell|recipes|meals|shopping|dashboard|subscriptions|polish)\.webkit\.spec\.ts/,
+        /(shell|budget|recipes|meals|shopping|dashboard|subscriptions|polish)\.webkit\.spec\.ts/,
       use: { ...devices["iPad Pro 11"] },
+    },
+    {
+      name: "webkit-ipad-landscape",
+      testMatch:
+        /(shell|budget|recipes|meals|shopping|dashboard|subscriptions|polish)\.webkit\.spec\.ts/,
+      use: {
+        ...devices["iPad Pro 11"],
+        viewport: { width: 1194, height: 834 },
+      },
     },
   ],
   webServer: {

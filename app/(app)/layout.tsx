@@ -21,7 +21,7 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex min-h-[100dvh] overflow-x-hidden sidebar:h-[100dvh] sidebar:overflow-hidden">
+    <div className="flex min-h-[100dvh] min-w-0 max-w-full sidebar:h-[100dvh] sidebar:overflow-hidden">
       <SessionKeepAlive />
       <a
         href="#main-content"

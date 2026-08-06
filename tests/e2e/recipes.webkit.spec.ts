@@ -31,5 +31,7 @@ test.describe("recipes safari smoke", () => {
     await page.getByTestId("open-add-recipe").click();
     await expect(page.getByLabel("Name", { exact: true })).toBeVisible();
     await expect(page.getByTestId("add-ingredient-row")).toBeVisible();
+    await expect(page.getByLabel("Name", { exact: true })).not.toBeFocused();
+    await expect(page.getByTestId("responsive-form-footer")).toBeVisible();
   });
 });

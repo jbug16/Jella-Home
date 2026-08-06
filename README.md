@@ -3,11 +3,13 @@
 A private household web app for budgets, meals, shopping, recipes, and
 subscriptions.
 
-**Current checkpoint:** V1 production cutover is complete. Dashboard, Budget,
-Meals, Shopping, Recipes, and Subscriptions use Supabase Auth,
-Postgres/RLS, private recipe-image Storage, and a responsive app shell. Supabase
-is the sole source of truth; the legacy workbook was a one-time migration source
-only. See [`IMPLEMENTATION.md`](IMPLEMENTATION.md) for the decision log.
+**Current checkpoint:** V1.1 adds ordered recipe instructions, Month/Year Budget
+views, an editorial recipe detail page, reliable shared comboboxes, and a
+keyboard-safe responsive form shell. Dashboard, Budget, Meals, Shopping,
+Recipes, and Subscriptions use Supabase Auth, Postgres/RLS, private recipe-image
+Storage, and a responsive app shell. Supabase is the sole source of truth; the
+legacy workbook was a one-time migration source only. See
+[`IMPLEMENTATION.md`](IMPLEMENTATION.md) for the decision log.
 
 ## Documentation
 
@@ -120,7 +122,9 @@ app/
   not-provisioned/
   auth/actions.ts
 components/
-  budget/                 # month nav, summaries, transaction forms
+  budget/                 # Month/Year period ledger and transaction forms
+  recipes/                # recipe forms, ordered steps, editorial detail actions
+  ui/                     # shared responsive form shell and combobox
 lib/
   supabase/               # SSR, browser (auth-only), admin (secret)
   repositories/           # cookie-backed domain API (household + budget)

@@ -89,7 +89,6 @@ export const recipeSchema = z.object({
   servings: servingsSchema,
   prepTimeMinutes: optionalMinutesSchema,
   cookTimeMinutes: optionalMinutesSchema,
-  instructions: z.string(),
   notes: z.string(),
   imagePath: z.string().nullable(),
   archivedAt: z.string().nullable(),
@@ -111,8 +110,18 @@ export const recipeIngredientSchema = z.object({
 
 export type RecipeIngredient = z.infer<typeof recipeIngredientSchema>;
 
+export const recipeStepSchema = z.object({
+  id: z.uuid(),
+  recipeId: z.uuid(),
+  instruction: z.string().trim().min(1).max(2_000),
+  sortOrder: z.number().int().nonnegative(),
+});
+
+export type RecipeStep = z.infer<typeof recipeStepSchema>;
+
 export const recipeWithIngredientsSchema = recipeSchema.extend({
   ingredients: z.array(recipeIngredientSchema),
+  steps: z.array(recipeStepSchema),
 });
 
 export type RecipeWithIngredients = z.infer<typeof recipeWithIngredientsSchema>;
@@ -149,17 +158,28 @@ export const ingredientLineInputSchema = z.object({
 
 export type IngredientLineInput = z.infer<typeof ingredientLineInputSchema>;
 
+export const recipeStepInputSchema = z.object({
+  id: z.uuid(),
+  instruction: z
+    .string()
+    .trim()
+    .min(1, "Instruction text is required.")
+    .max(2_000, "Keep each step under 2,000 characters."),
+});
+
+export type RecipeStepInput = z.infer<typeof recipeStepInputSchema>;
+
 export const createRecipeInputSchema = z.object({
   name: z.string().trim().min(1, "Recipe name is required.").max(160),
   servings: servingsSchema,
   prepTimeMinutes: optionalMinutesSchema,
   cookTimeMinutes: optionalMinutesSchema,
-  instructions: z.string().trim().max(10_000).default(""),
   notes: z.string().trim().max(2_000).default(""),
   ingredients: z
     .array(ingredientLineInputSchema)
     .min(1, "Add at least one ingredient.")
     .max(100, "That is too many ingredients."),
+  steps: z.array(recipeStepInputSchema).max(100, "That is too many steps."),
 });
 
 export type CreateRecipeInput = z.infer<typeof createRecipeInputSchema>;
@@ -363,7 +383,6 @@ export type RecipeRow = {
   servings: number;
   prep_time_minutes: number | null;
   cook_time_minutes: number | null;
-  instructions: string;
   notes: string;
   image_path: string | null;
   archived_at: string | null;
@@ -381,6 +400,13 @@ export type RecipeIngredientRow = {
   ingredient: { name: string } | { name: string }[] | null;
 };
 
+export type RecipeStepRow = {
+  id: string;
+  recipe_id: string;
+  instruction: string;
+  sort_order: number;
+};
+
 export function mapRecipe(row: RecipeRow): Recipe {
   return recipeSchema.parse({
     id: row.id,
@@ -389,7 +415,6 @@ export function mapRecipe(row: RecipeRow): Recipe {
     servings: row.servings,
     prepTimeMinutes: row.prep_time_minutes,
     cookTimeMinutes: row.cook_time_minutes,
-    instructions: row.instructions,
     notes: row.notes,
     imagePath: row.image_path,
     archivedAt: row.archived_at,
@@ -427,4 +452,17 @@ export function sortRecipeIngredients(
   ingredients: RecipeIngredient[],
 ): RecipeIngredient[] {
   return [...ingredients].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export function mapRecipeStep(row: RecipeStepRow): RecipeStep {
+  return recipeStepSchema.parse({
+    id: row.id,
+    recipeId: row.recipe_id,
+    instruction: row.instruction,
+    sortOrder: row.sort_order,
+  });
+}
+
+export function sortRecipeSteps(steps: RecipeStep[]): RecipeStep[] {
+  return [...steps].sort((a, b) => a.sortOrder - b.sortOrder);
 }

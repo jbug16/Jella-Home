@@ -12,6 +12,8 @@ import {
   directionForKind,
   monthEndFor,
   monthStartFor,
+  yearEndFor,
+  yearStartFor,
   transactionSchema,
   updateTransactionInputSchema,
   upsertMonthLimitInputSchema,
@@ -127,19 +129,22 @@ async function ensureDefaultCategories(householdId: string): Promise<void> {
   }
 }
 
-export async function listCategories(): Promise<BudgetCategory[]> {
+export async function listCategories(options?: {
+  includeArchived?: boolean;
+}): Promise<BudgetCategory[]> {
   const membership = await requireCurrentMembership();
   await ensureDefaultCategories(membership.household.id);
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("budget_categories")
     .select("id, household_id, name, kind, sort_order, archived_at, updated_at")
     .eq("household_id", membership.household.id)
-    .is("archived_at", null)
     .order("kind")
     .order("sort_order")
     .order("name");
+  if (!options?.includeArchived) query = query.is("archived_at", null);
+  const { data, error } = await query;
 
   if (error) {
     throw new Error("Unable to load budget categories.");
@@ -307,6 +312,23 @@ export async function listTransactionsForMonth(
     throw new Error("Unable to load transactions.");
   }
 
+  return (data ?? []).map(mapTransaction);
+}
+
+export async function listTransactionsForYear(
+  year: number,
+): Promise<Transaction[]> {
+  const membership = await requireCurrentMembership();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .select(TRANSACTION_COLUMNS)
+    .eq("household_id", membership.household.id)
+    .gte("occurred_on", yearStartFor(year))
+    .lte("occurred_on", yearEndFor(year))
+    .order("occurred_on", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw new Error("Unable to load yearly transactions.");
   return (data ?? []).map(mapTransaction);
 }
 

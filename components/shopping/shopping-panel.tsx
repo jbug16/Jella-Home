@@ -147,7 +147,7 @@ export function ShoppingPanel({ weekStart, list, items }: ShoppingPanelProps) {
 
   return (
     <div
-      className="flex min-w-0 flex-col gap-3 overflow-x-hidden"
+      className="flex min-w-0 max-w-full flex-col gap-3"
       data-testid="shopping-panel"
     >
       <PeriodPanelHeader

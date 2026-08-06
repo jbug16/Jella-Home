@@ -7,7 +7,12 @@ import {
   upsertMonthLimitAction,
   type BudgetActionState,
 } from "@/app/(app)/budget/actions";
-import { ResponsiveFormShell } from "@/components/budget/responsive-form-shell";
+import {
+  FormError,
+  FormScrollBody,
+  FormStickyFooter,
+  ResponsiveFormShell,
+} from "@/components/ui/responsive-form-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,60 +59,73 @@ function SetLimitForm({
   }, [state.success, onClose, router]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} className="flex min-h-0 flex-1 flex-col">
       <input type="hidden" name="monthStart" value={monthStart} />
       <input type="hidden" name="categoryId" value={categoryId} />
+      <FormScrollBody>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="limit-category">Category</Label>
+            <select
+              id="limit-category"
+              className="min-h-11 rounded-md border border-input bg-background px-3"
+              value={categoryId}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                setCategoryId(nextId);
+                setLimitDollars(plannedDollarsByCategoryId[nextId] ?? "0.00");
+              }}
+              disabled={pending}
+            >
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name} ({category.kind})
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="limit-category">Category</Label>
-        <select
-          id="limit-category"
-          className="min-h-11 rounded-md border border-input bg-background px-3"
-          value={categoryId}
-          onChange={(event) => {
-            const nextId = event.target.value;
-            setCategoryId(nextId);
-            setLimitDollars(plannedDollarsByCategoryId[nextId] ?? "0.00");
-          }}
-          disabled={pending}
-        >
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name} ({category.kind})
-            </option>
-          ))}
-        </select>
-      </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="limitDollars">Planned amount</Label>
+            <Input
+              id="limitDollars"
+              name="limitDollars"
+              inputMode="decimal"
+              required
+              disabled={pending}
+              value={limitDollars}
+              onChange={(event) => setLimitDollars(event.target.value)}
+              placeholder="500.00"
+              className="min-h-11"
+            />
+          </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="limitDollars">Planned amount</Label>
-        <Input
-          id="limitDollars"
-          name="limitDollars"
-          inputMode="decimal"
-          required
-          disabled={pending}
-          value={limitDollars}
-          onChange={(event) => setLimitDollars(event.target.value)}
-          placeholder="500.00"
-          className="min-h-11"
-        />
-      </div>
+          <FormError message={state.error} />
+        </div>
+      </FormScrollBody>
 
-      {state.error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-
-      <Button
-        type="submit"
-        disabled={pending || !categoryId}
-        className="min-h-11 w-full"
-        data-testid="save-month-limit"
-      >
-        {pending ? "Saving…" : "Save limit"}
-      </Button>
+      <FormStickyFooter>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="touch"
+            onClick={onClose}
+            disabled={pending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            size="touch"
+            disabled={pending || !categoryId}
+            className="min-h-11 w-full"
+            data-testid="save-month-limit"
+          >
+            {pending ? "Saving…" : "Save limit"}
+          </Button>
+        </div>
+      </FormStickyFooter>
     </form>
   );
 }

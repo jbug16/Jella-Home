@@ -20,7 +20,6 @@ import {
   createRecipe,
   deleteRecipeImage,
   getRecipe,
-  setRecipeImagePath,
   updateRecipe,
   uploadRecipeImage,
 } from "@/lib/repositories/recipes";
@@ -47,6 +46,11 @@ const rawLineSchema = z.object({
   quantity: z.string().default(""),
   unit: z.string().default(""),
   notes: z.string().default(""),
+});
+
+const rawStepSchema = z.object({
+  id: z.uuid(),
+  instruction: z.string().default(""),
 });
 
 type ParsedForm =
@@ -113,6 +117,20 @@ function parseRecipeForm(formData: FormData): ParsedForm {
     });
   }
 
+  let rawSteps: unknown;
+  try {
+    rawSteps = JSON.parse(formString(formData, "steps") || "[]");
+  } catch {
+    return { success: false, error: "Instruction steps could not be read." };
+  }
+
+  const stepsParsed = z.array(rawStepSchema).safeParse(rawSteps);
+  if (!stepsParsed.success) {
+    return { success: false, error: "Instruction steps could not be read." };
+  }
+
+  const steps = stepsParsed.data.filter((step) => step.instruction.trim());
+
   return {
     success: true,
     data: {
@@ -120,9 +138,9 @@ function parseRecipeForm(formData: FormData): ParsedForm {
       servings,
       prepTimeMinutes,
       cookTimeMinutes,
-      instructions: formString(formData, "instructions"),
       notes: formString(formData, "notes"),
       ingredients,
+      steps,
     },
   };
 }
@@ -169,25 +187,12 @@ export async function createRecipeAction(
 
   let recipeId: string;
   try {
-    recipeId = await createRecipe(parsed.data);
+    recipeId = await createRecipe(parsed.data, uploadedPath);
   } catch {
     if (uploadedPath) {
       await deleteRecipeImage(uploadedPath);
     }
     return { error: "Unable to save recipe.", success: null, recipeId: null };
-  }
-
-  if (uploadedPath) {
-    try {
-      await setRecipeImagePath(recipeId, uploadedPath);
-    } catch {
-      await deleteRecipeImage(uploadedPath);
-      return {
-        error: "Recipe saved, but the image could not be attached.",
-        success: null,
-        recipeId,
-      };
-    }
   }
 
   revalidateModuleAndDashboard("/recipes");
@@ -241,9 +246,10 @@ export async function updateRecipeAction(
     }
   }
 
+  const desiredPath = uploadedPath ?? (removeImage ? null : oldPath);
   let recipeId: string;
   try {
-    recipeId = await updateRecipe(parsed.data);
+    recipeId = await updateRecipe(parsed.data, desiredPath);
   } catch (error) {
     if (uploadedPath) {
       await deleteRecipeImage(uploadedPath);
@@ -254,31 +260,8 @@ export async function updateRecipeAction(
     return { error: "Unable to save recipe.", success: null, recipeId: null };
   }
 
-  if (uploadedPath) {
-    try {
-      await setRecipeImagePath(recipeId, uploadedPath);
-      if (oldPath && oldPath !== uploadedPath) {
-        await deleteRecipeImage(oldPath);
-      }
-    } catch {
-      await deleteRecipeImage(uploadedPath);
-      return {
-        error: "Recipe saved, but the image could not be updated.",
-        success: null,
-        recipeId,
-      };
-    }
-  } else if (removeImage && oldPath) {
-    try {
-      await setRecipeImagePath(recipeId, null);
-      await deleteRecipeImage(oldPath);
-    } catch {
-      return {
-        error: "Recipe saved, but the image could not be removed.",
-        success: null,
-        recipeId,
-      };
-    }
+  if (oldPath && oldPath !== desiredPath) {
+    await deleteRecipeImage(oldPath);
   }
 
   revalidateModuleAndDashboard("/recipes", `/recipes/${parsed.data.id}`);

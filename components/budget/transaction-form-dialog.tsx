@@ -10,9 +10,10 @@ import {
 } from "@/app/(app)/budget/actions";
 import {
   FormScrollBody,
+  FormError,
   FormStickyFooter,
   ResponsiveFormShell,
-} from "@/components/budget/responsive-form-shell";
+} from "@/components/ui/responsive-form-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -161,8 +162,8 @@ function TransactionForm({
 
   useEffect(() => {
     if (state.success) {
-      router.refresh();
       onClose();
+      requestAnimationFrame(() => router.refresh());
     }
   }, [state.success, onClose, router]);
 
@@ -192,20 +193,26 @@ function TransactionForm({
             setCategoryId={setCategoryId}
           />
 
-          {state.error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {state.error}
-            </p>
-          ) : null}
+          <FormError message={state.error} />
         </div>
       </FormScrollBody>
 
       <FormStickyFooter>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="touch"
+            onClick={onClose}
+            disabled={pending}
+          >
+            Cancel
+          </Button>
           <Button
             type="submit"
             disabled={pending || !categoryId}
-            className="min-h-11 w-full"
+            size="touch"
+            className="w-full sm:w-auto"
             data-testid={isEdit ? "save-transaction" : "add-transaction-submit"}
           >
             {pending ? "Saving…" : isEdit ? "Save changes" : "Add transaction"}
@@ -245,7 +252,6 @@ export function TransactionFormDialog({
       onOpenChange={onOpenChange}
       title={transaction ? "Edit transaction" : "Add transaction"}
       description="Income categories count as money in; everything else is money out."
-      stickyFooter
     >
       <TransactionForm
         key={formKey}

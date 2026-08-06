@@ -345,7 +345,6 @@ BEGIN
     servings,
     prep_time_minutes,
     cook_time_minutes,
-    instructions,
     notes
   )
   VALUES
@@ -356,7 +355,6 @@ BEGIN
       2,
       10,
       20,
-      'Boil the pasta.\nToss with oil and season.',
       'House favorite'
     ),
     (
@@ -366,9 +364,18 @@ BEGIN
       4,
       5,
       15,
-      'Combine and serve.',
       ''
     );
+
+  INSERT INTO public.recipe_steps (
+    id, household_id, recipe_id, instruction, sort_order
+  ) VALUES
+    ('c0000000-0000-4000-8000-000000000001', household_a,
+     '66666666-6666-4666-8666-666666666666', 'Boil the pasta.', 0),
+    ('c0000000-0000-4000-8000-000000000002', household_a,
+     '66666666-6666-4666-8666-666666666666', 'Toss with oil and season.', 1),
+    ('c0000000-0000-4000-8000-000000000003', household_b,
+     '77777777-7777-4777-8777-777777777777', 'Combine and serve.', 0);
 
   INSERT INTO public.ingredients (id, household_id, name, default_unit)
   VALUES

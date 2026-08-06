@@ -144,7 +144,7 @@ export function SubscriptionsPanel({ viewModel }: SubscriptionsPanelProps) {
 
   return (
     <div
-      className="flex min-w-0 flex-col gap-3 overflow-x-hidden"
+      className="flex min-w-0 max-w-full flex-col gap-3"
       data-testid="subscriptions-panel"
     >
       {!isEmpty ? (

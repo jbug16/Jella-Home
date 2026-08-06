@@ -5,7 +5,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(103);
+SELECT plan(108);
 
 CREATE OR REPLACE FUNCTION public.test_as_user(uid uuid)
 RETURNS void
@@ -58,6 +58,7 @@ SELECT ok(
         'ingredients',
         'recipes',
         'recipe_ingredients',
+        'recipe_steps',
         'planned_meals',
         'grocery_lists',
         'grocery_list_items',
@@ -334,6 +335,12 @@ SELECT is(
   'anonymous cannot read recipe ingredients'
 );
 
+SELECT is(
+  (SELECT count(*)::integer FROM public.recipe_steps),
+  0,
+  'anonymous cannot read recipe steps'
+);
+
 -- Authenticated non-member cannot read recipes
 SELECT public.test_as_user('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
 
@@ -450,6 +457,19 @@ SELECT throws_ok(
   'recipe_ingredients rejects an ingredient from a different household'
 );
 
+SELECT throws_ok(
+  $$INSERT INTO public.recipe_steps (
+      household_id, recipe_id, instruction, sort_order
+    ) VALUES (
+      '11111111-1111-4111-8111-111111111111',
+      '77777777-7777-4777-8777-777777777777',
+      'Cross household step', 0
+    )$$,
+  '23514',
+  NULL,
+  'recipe_steps rejects a recipe from a different household'
+);
+
 -- Atomic save RPC as a member: reuses existing ingredients, creates new ones.
 SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 
@@ -461,11 +481,30 @@ SELECT lives_ok(
       NULL,
       NULL,
       '',
-      '',
       '[{"name":"Spaghetti","quantity":"100","unit":"g","notes":""},
-        {"name":"Garlic","quantity":"2","unit":"clove","notes":""}]'::jsonb
+        {"name":"Garlic","quantity":"2","unit":"clove","notes":""}]'::jsonb,
+      '[{"id":"c1000000-0000-4000-8000-000000000001","instruction":"Prep."},
+        {"id":"c1000000-0000-4000-8000-000000000002","instruction":"Cook."}]'::jsonb,
+      NULL
     )$$,
   'member can save a recipe via the RPC'
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.recipe_steps
+   WHERE id IN ('c1000000-0000-4000-8000-000000000001',
+                'c1000000-0000-4000-8000-000000000002')),
+  2,
+  'RPC saves ordered recipe steps atomically'
+);
+
+SELECT is(
+  (SELECT string_agg(instruction, ',' ORDER BY sort_order)
+   FROM public.recipe_steps
+   WHERE id IN ('c1000000-0000-4000-8000-000000000001',
+                'c1000000-0000-4000-8000-000000000002')),
+  'Prep.,Cook.',
+  'recipe step order is deterministic'
 );
 
 SELECT is(
@@ -510,12 +549,21 @@ SELECT throws_ok(
       NULL,
       NULL,
       '',
-      '',
-      '[{"name":"X","quantity":"1","unit":"","notes":""}]'::jsonb
+      '[{"name":"X","quantity":"1","unit":"","notes":""}]'::jsonb,
+      '[]'::jsonb,
+      NULL
     )$$,
   '42501',
   NULL,
   'non-member cannot save a recipe via the RPC'
+);
+
+SELECT public.test_as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+SELECT is(
+  (SELECT count(*)::integer FROM public.recipe_steps
+   WHERE household_id = '22222222-2222-4222-8222-222222222222'),
+  0,
+  'other-household recipe steps remain isolated'
 );
 
 -- ---------------------------------------------------------------------------

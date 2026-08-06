@@ -36,8 +36,7 @@ async function fillIngredient(
   if (values.unit !== undefined) {
     await page
       .getByRole("combobox", { name: `Unit for ingredient ${index}` })
-      .click();
-    await page.getByTestId(`unit-option-${values.unit}`).click();
+      .selectOption(values.unit);
   }
   await page.getByLabel(`Ingredient name for row ${index}`).fill(values.name);
   await page
@@ -90,6 +89,12 @@ test.describe("recipe flows", () => {
       unit: "g",
       name: "Spaghetti",
     });
+    await page.getByTestId("add-recipe-step").click();
+    await page.getByLabel("Step 1", { exact: true }).fill("Boil the pasta.");
+    await page.getByTestId("add-recipe-step").click();
+    await page
+      .getByLabel("Step 2", { exact: true })
+      .fill("Toss with tomato and serve.");
     await page.getByTestId("create-recipe-submit").click();
 
     const createdRow = page
@@ -106,12 +111,17 @@ test.describe("recipe flows", () => {
     const items = page.getByTestId("recipe-ingredients").getByRole("listitem");
     await expect(items.nth(0)).toContainText("Tomato");
     await expect(items.nth(1)).toContainText("Spaghetti");
+    const steps = page.getByTestId("recipe-instructions").getByRole("listitem");
+    await expect(steps).toHaveCount(2);
+    await expect(steps.nth(0)).toContainText("Boil the pasta.");
 
     // Edit: rename, change a quantity, and reorder the ingredients.
     await page.getByTestId("open-edit-recipe").click();
     await page.getByLabel("Name", { exact: true }).fill(`${name} Updated`);
     await page.getByLabel("Quantity for ingredient 1").fill("3");
     await page.getByRole("button", { name: /Move Tomato down/ }).click();
+    await page.getByRole("button", { name: "Move step 2 up" }).click();
+    await page.getByRole("button", { name: "Remove step 2" }).click();
     await page.getByTestId("save-recipe").click();
 
     await expect(
@@ -122,6 +132,12 @@ test.describe("recipe flows", () => {
       .getByRole("listitem");
     await expect(reordered.nth(0)).toContainText("Spaghetti");
     await expect(reordered.nth(1)).toContainText("Tomato");
+    await expect(
+      page.getByTestId("recipe-instructions").getByRole("listitem"),
+    ).toHaveCount(1);
+    await expect(page.getByTestId("recipe-instructions")).toContainText(
+      "Toss with tomato",
+    );
 
     // Delete: confirm and return to the list; seeded recipe remains.
     await page.getByTestId("open-delete-recipe").click();

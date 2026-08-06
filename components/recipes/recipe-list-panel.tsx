@@ -107,7 +107,7 @@ export function RecipeListPanel({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden">
+    <div className="flex min-w-0 max-w-full flex-col gap-3">
       <SearchPanelHeader
         search={
           <div className="relative min-w-0 w-full">

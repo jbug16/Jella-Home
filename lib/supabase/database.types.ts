@@ -491,6 +491,48 @@ export type Database = {
           },
         ];
       };
+      recipe_steps: {
+        Row: {
+          created_at: string;
+          household_id: string;
+          id: string;
+          instruction: string;
+          recipe_id: string;
+          sort_order: number;
+        };
+        Insert: {
+          created_at?: string;
+          household_id: string;
+          id?: string;
+          instruction: string;
+          recipe_id: string;
+          sort_order: number;
+        };
+        Update: {
+          created_at?: string;
+          household_id?: string;
+          id?: string;
+          instruction?: string;
+          recipe_id?: string;
+          sort_order?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "recipe_steps_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recipe_steps_recipe_id_fkey";
+            columns: ["recipe_id"];
+            isOneToOne: false;
+            referencedRelation: "recipes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       recipes: {
         Row: {
           archived_at: string | null;
@@ -499,7 +541,6 @@ export type Database = {
           household_id: string;
           id: string;
           image_path: string | null;
-          instructions: string;
           name: string;
           notes: string;
           prep_time_minutes: number | null;
@@ -514,7 +555,6 @@ export type Database = {
           household_id: string;
           id?: string;
           image_path?: string | null;
-          instructions?: string;
           name: string;
           notes?: string;
           prep_time_minutes?: number | null;
@@ -529,7 +569,6 @@ export type Database = {
           household_id?: string;
           id?: string;
           image_path?: string | null;
-          instructions?: string;
           name?: string;
           notes?: string;
           prep_time_minutes?: number | null;
@@ -676,13 +715,14 @@ export type Database = {
           p_cook_time_minutes: number;
           p_expected_updated_at?: string;
           p_household_id: string;
+          p_image_path: string;
           p_ingredients: Json;
-          p_instructions: string;
           p_name: string;
           p_notes: string;
           p_prep_time_minutes: number;
           p_recipe_id?: string;
           p_servings: number;
+          p_steps: Json;
         };
         Returns: string;
       };

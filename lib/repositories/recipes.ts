@@ -7,13 +7,16 @@ import {
   imageExtensionForType,
   mapRecipe,
   mapRecipeIngredient,
+  mapRecipeStep,
   recipeSortSchema,
   sortRecipeIngredients,
+  sortRecipeSteps,
   updateRecipeInputSchema,
   type ArchiveRecipeInput,
   type CreateRecipeInput,
   type RecipeDetail,
   type RecipeIngredientRow,
+  type RecipeStepRow,
   type RecipeSort,
   type RecipeSummary,
   type UpdateRecipeInput,
@@ -22,7 +25,7 @@ import { requireCurrentMembership } from "@/lib/repositories/households";
 import { createClient } from "@/lib/supabase/server";
 
 const RECIPE_COLUMNS =
-  "id, household_id, name, servings, prep_time_minutes, cook_time_minutes, instructions, notes, image_path, archived_at, updated_at";
+  "id, household_id, name, servings, prep_time_minutes, cook_time_minutes, notes, image_path, archived_at, updated_at";
 
 function isRecipeConcurrencyConflict(error: {
   message?: string;
@@ -38,6 +41,7 @@ function isRecipeConcurrencyConflict(error: {
 
 const RECIPE_INGREDIENT_COLUMNS =
   "id, recipe_id, ingredient_id, quantity, unit, notes, sort_order, ingredient:ingredients(name)";
+const RECIPE_STEP_COLUMNS = "id, recipe_id, instruction, sort_order";
 
 const RECIPE_IMAGE_BUCKET = "recipe-images";
 
@@ -210,7 +214,7 @@ export async function getRecipe(id: string): Promise<RecipeDetail | null> {
   const { data, error } = await supabase
     .from("recipes")
     .select(
-      `${RECIPE_COLUMNS}, recipe_ingredients(${RECIPE_INGREDIENT_COLUMNS})`,
+      `${RECIPE_COLUMNS}, recipe_ingredients(${RECIPE_INGREDIENT_COLUMNS}), recipe_steps(${RECIPE_STEP_COLUMNS})`,
     )
     .eq("id", id)
     .eq("household_id", membership.household.id)
@@ -231,6 +235,9 @@ export async function getRecipe(id: string): Promise<RecipeDetail | null> {
       mapRecipeIngredient,
     ),
   );
+  const steps = sortRecipeSteps(
+    ((data.recipe_steps ?? []) as RecipeStepRow[]).map(mapRecipeStep),
+  );
 
   let imageUrl: string | null = null;
   if (recipe.imagePath) {
@@ -238,7 +245,7 @@ export async function getRecipe(id: string): Promise<RecipeDetail | null> {
     imageUrl = urls.get(recipe.imagePath) ?? null;
   }
 
-  return { ...recipe, ingredients, imageUrl };
+  return { ...recipe, ingredients, steps, imageUrl };
 }
 
 function ingredientPayload(input: CreateRecipeInput) {
@@ -250,8 +257,18 @@ function ingredientPayload(input: CreateRecipeInput) {
   }));
 }
 
+function stepPayload(input: CreateRecipeInput) {
+  return input.steps.map((step) => ({
+    id: step.id,
+    instruction: step.instruction,
+  }));
+}
+
 /** Create a recipe and its ingredients atomically via the save RPC. */
-export async function createRecipe(input: CreateRecipeInput): Promise<string> {
+export async function createRecipe(
+  input: CreateRecipeInput,
+  imagePath: string | null,
+): Promise<string> {
   const membership = await requireCurrentMembership();
   const parsed = createRecipeInputSchema.parse(input);
   const supabase = await createClient();
@@ -264,9 +281,11 @@ export async function createRecipe(input: CreateRecipeInput): Promise<string> {
     // runtime and means "no time given".
     p_prep_time_minutes: parsed.prepTimeMinutes as number,
     p_cook_time_minutes: parsed.cookTimeMinutes as number,
-    p_instructions: parsed.instructions,
     p_notes: parsed.notes,
     p_ingredients: ingredientPayload(parsed),
+    p_steps: stepPayload(parsed),
+    // Generated RPC args cannot express nullable SQL parameters.
+    p_image_path: imagePath as string,
   });
 
   if (error || !data) {
@@ -277,7 +296,10 @@ export async function createRecipe(input: CreateRecipeInput): Promise<string> {
 }
 
 /** Update a recipe and rewrite its ingredient lines atomically. */
-export async function updateRecipe(input: UpdateRecipeInput): Promise<string> {
+export async function updateRecipe(
+  input: UpdateRecipeInput,
+  imagePath: string | null,
+): Promise<string> {
   const membership = await requireCurrentMembership();
   const parsed = updateRecipeInputSchema.parse(input);
   const supabase = await createClient();
@@ -289,9 +311,10 @@ export async function updateRecipe(input: UpdateRecipeInput): Promise<string> {
     // See createRecipe: NULL minutes are valid at runtime.
     p_prep_time_minutes: parsed.prepTimeMinutes as number,
     p_cook_time_minutes: parsed.cookTimeMinutes as number,
-    p_instructions: parsed.instructions,
     p_notes: parsed.notes,
     p_ingredients: ingredientPayload(parsed),
+    p_steps: stepPayload(parsed),
+    p_image_path: imagePath as string,
     p_recipe_id: parsed.id,
     p_expected_updated_at: parsed.expectedUpdatedAt,
   });
@@ -401,26 +424,5 @@ export async function deleteRecipeImage(path: string): Promise<void> {
     await supabase.storage.from(RECIPE_IMAGE_BUCKET).remove([path]);
   } catch {
     // Orphaned objects are harmless; do not fail the surrounding action.
-  }
-}
-
-/** Point a recipe at a new image object key (or clear it). */
-export async function setRecipeImagePath(
-  recipeId: string,
-  path: string | null,
-): Promise<void> {
-  const membership = await requireCurrentMembership();
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("recipes")
-    .update({ image_path: path })
-    .eq("household_id", membership.household.id)
-    .eq("id", recipeId)
-    .select("id")
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error("Unable to update recipe image.");
   }
 }

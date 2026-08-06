@@ -303,6 +303,59 @@ export function formatMonthLabel(monthStart: string): string {
   return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
+export const budgetViewSchema = z.enum(["month", "year"]);
+export type BudgetPeriodView = z.infer<typeof budgetViewSchema>;
+
+export function currentBudgetYear(now = new Date()): number {
+  return Number(todayIsoDate(now).slice(0, 4));
+}
+
+export function resolveBudgetYear(
+  raw: string | null | undefined,
+): number | null {
+  if (!raw || !/^\d{4}$/.test(raw)) return null;
+  const year = Number(raw);
+  return year >= 1900 && year <= 2200 ? year : null;
+}
+
+export function yearStartFor(year: number): string {
+  const parsed = resolveBudgetYear(String(year));
+  if (!parsed) throw new Error("Use a valid calendar year.");
+  return `${parsed}-01-01`;
+}
+
+export function yearEndFor(year: number): string {
+  const parsed = resolveBudgetYear(String(year));
+  if (!parsed) throw new Error("Use a valid calendar year.");
+  return `${parsed}-12-31`;
+}
+
+export type BudgetPeriod =
+  | { view: "month"; monthStart: string; canonicalQuery: string }
+  | { view: "year"; year: number; canonicalQuery: string };
+
+export function resolveBudgetPeriod(args: {
+  view?: string | null;
+  month?: string | null;
+  year?: string | null;
+  now?: Date;
+}): BudgetPeriod {
+  const view = budgetViewSchema.safeParse(args.view).success
+    ? (args.view as BudgetPeriodView)
+    : "month";
+  if (view === "year") {
+    const year = resolveBudgetYear(args.year) ?? currentBudgetYear(args.now);
+    return { view, year, canonicalQuery: `view=year&year=${year}` };
+  }
+  const monthStart =
+    resolveMonthStartParam(args.month) ?? currentMonthStart(args.now);
+  return {
+    view,
+    monthStart,
+    canonicalQuery: `view=month&month=${monthStart.slice(0, 7)}`,
+  };
+}
+
 export type KindSummary = {
   kind: BudgetCategoryKind;
   plannedCents: number;
@@ -328,6 +381,69 @@ export type BudgetMonthSnapshot = {
   actualInCents: number;
   remainingOutCents: number;
 };
+
+export type BudgetYearSnapshot = {
+  year: number;
+  categorySummaries: Array<{
+    categoryId: string;
+    name: string;
+    kind: BudgetCategoryKind;
+    actualCents: number;
+  }>;
+  spendingCents: number;
+  incomeCents: number;
+  savingsCents: number;
+  debtCents: number;
+};
+
+export function buildBudgetYearSnapshot(args: {
+  year: number;
+  categories: BudgetCategory[];
+  transactions: Transaction[];
+}): BudgetYearSnapshot {
+  const start = yearStartFor(args.year);
+  const end = yearEndFor(args.year);
+  const categoriesById = new Map(args.categories.map((row) => [row.id, row]));
+  const actualByCategory = new Map<string, number>();
+
+  for (const transaction of args.transactions) {
+    if (transaction.occurredOn < start || transaction.occurredOn > end)
+      continue;
+    const category = categoriesById.get(transaction.categoryId);
+    if (!category || transaction.direction !== directionForKind(category.kind))
+      continue;
+    actualByCategory.set(
+      category.id,
+      (actualByCategory.get(category.id) ?? 0) + transaction.amountCents,
+    );
+  }
+
+  const categorySummaries = args.categories
+    .map((category) => ({
+      categoryId: category.id,
+      name: category.name,
+      kind: category.kind,
+      actualCents: actualByCategory.get(category.id) ?? 0,
+    }))
+    .filter((row) => row.actualCents > 0)
+    .sort(
+      (a, b) => b.actualCents - a.actualCents || a.name.localeCompare(b.name),
+    );
+
+  const total = (...kinds: BudgetCategoryKind[]) =>
+    categorySummaries
+      .filter((row) => kinds.includes(row.kind))
+      .reduce((sum, row) => sum + row.actualCents, 0);
+
+  return {
+    year: args.year,
+    categorySummaries,
+    spendingCents: total("expense", "bill"),
+    incomeCents: total("income"),
+    savingsCents: total("savings"),
+    debtCents: total("debt"),
+  };
+}
 
 /**
  * Derive planned / actual / remaining for a month. Does not persist anything.

@@ -7,7 +7,12 @@ import {
   createCategoryAction,
   type BudgetActionState,
 } from "@/app/(app)/budget/actions";
-import { ResponsiveFormShell } from "@/components/budget/responsive-form-shell";
+import {
+  FormError,
+  FormScrollBody,
+  FormStickyFooter,
+  ResponsiveFormShell,
+} from "@/components/ui/responsive-form-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,51 +60,64 @@ function CreateCategoryForm({ onClose }: CreateCategoryFormProps) {
   }, [state.success, onClose, router]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} className="flex min-h-0 flex-1 flex-col">
       <input type="hidden" name="kind" value={kind} />
+      <FormScrollBody>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              name="name"
+              required
+              disabled={pending}
+              className="min-h-11"
+              placeholder="Food"
+            />
+          </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="name">Name</Label>
-        <Input
-          id="name"
-          name="name"
-          required
-          disabled={pending}
-          className="min-h-11"
-          placeholder="Food"
-        />
-      </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="kind">Type</Label>
+            <Select value={kind} onValueChange={setKind} disabled={pending}>
+              <SelectTrigger id="kind" className="min-h-11 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {budgetCategoryKindSchema.options.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {KIND_LABELS[value] ?? value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="kind">Type</Label>
-        <Select value={kind} onValueChange={setKind} disabled={pending}>
-          <SelectTrigger id="kind" className="min-h-11 w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {budgetCategoryKindSchema.options.map((value) => (
-              <SelectItem key={value} value={value}>
-                {KIND_LABELS[value] ?? value}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+          <FormError message={state.error} />
+        </div>
+      </FormScrollBody>
 
-      {state.error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-
-      <Button
-        type="submit"
-        disabled={pending}
-        className="min-h-11 w-full"
-        data-testid="create-category-submit"
-      >
-        {pending ? "Saving…" : "Add category"}
-      </Button>
+      <FormStickyFooter>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="touch"
+            onClick={onClose}
+            disabled={pending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            size="touch"
+            disabled={pending}
+            className="min-h-11 w-full"
+            data-testid="create-category-submit"
+          >
+            {pending ? "Saving…" : "Add category"}
+          </Button>
+        </div>
+      </FormStickyFooter>
     </form>
   );
 }

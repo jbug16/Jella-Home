@@ -16,7 +16,7 @@ export default async function SubscriptionsPage() {
   const viewModel = buildSubscriptionsViewModel(subscriptions, todayIso);
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden sidebar:gap-6">
+    <div className="flex min-w-0 max-w-full flex-col gap-3 sidebar:gap-6">
       <PageHeader title="Subscriptions" />
       <SubscriptionsPanel viewModel={viewModel} />
     </div>

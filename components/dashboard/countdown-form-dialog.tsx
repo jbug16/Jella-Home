@@ -8,7 +8,12 @@ import {
   updateCountdownAction,
   type CountdownActionState,
 } from "@/app/(app)/dashboard/actions";
-import { ResponsiveFormShell } from "@/components/budget/responsive-form-shell";
+import {
+  FormError,
+  FormScrollBody,
+  FormStickyFooter,
+  ResponsiveFormShell,
+} from "@/components/ui/responsive-form-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -108,7 +113,7 @@ function CountdownForm({
   const defaultTarget = countdown?.targetOn ?? todayIso;
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} className="flex min-h-0 flex-1 flex-col">
       {countdown ? (
         <>
           <input type="hidden" name="id" value={countdown.id} />
@@ -121,81 +126,80 @@ function CountdownForm({
       ) : null}
       <input type="hidden" name="color" value={color} />
 
-      {state.error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-        >
-          {state.error}
-        </p>
-      ) : null}
+      <FormScrollBody>
+        <div className="flex flex-col gap-4">
+          <FormError message={state.error} />
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="countdown-title">
-          What are you looking forward to?
-        </Label>
-        <Input
-          id="countdown-title"
-          name="title"
-          required
-          maxLength={120}
-          defaultValue={countdown?.title ?? ""}
-          placeholder="e.g. Beach trip"
-          className="min-h-11"
-          disabled={pending}
-          autoComplete="off"
-        />
-      </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="countdown-title">
+              What are you looking forward to?
+            </Label>
+            <Input
+              id="countdown-title"
+              name="title"
+              required
+              maxLength={120}
+              defaultValue={countdown?.title ?? ""}
+              placeholder="e.g. Beach trip"
+              className="min-h-11"
+              disabled={pending}
+              autoComplete="off"
+            />
+          </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="countdown-targetOn">Date</Label>
-        <Input
-          id="countdown-targetOn"
-          name="targetOn"
-          type="date"
-          required
-          defaultValue={defaultTarget}
-          className="min-h-11"
-          disabled={pending}
-        />
-      </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="countdown-targetOn">Date</Label>
+            <Input
+              id="countdown-targetOn"
+              name="targetOn"
+              type="date"
+              required
+              defaultValue={defaultTarget}
+              className="min-h-11"
+              disabled={pending}
+            />
+          </div>
 
-      <div className="flex flex-col gap-2">
-        <Label>Color</Label>
-        <ColorPicker value={color} onChange={setColor} disabled={pending} />
-      </div>
+          <div className="flex flex-col gap-2">
+            <Label>Color</Label>
+            <ColorPicker value={color} onChange={setColor} disabled={pending} />
+          </div>
+        </div>
+      </FormScrollBody>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          className="order-2 min-h-11 w-full sm:order-1 sm:w-auto"
-          disabled={pending}
-          onClick={onClose}
-        >
-          Cancel
-        </Button>
-        {isEdit && onDelete ? (
+      <FormStickyFooter>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
             type="button"
-            variant="ghost"
-            className="order-3 min-h-11 w-full text-destructive hover:text-destructive sm:order-2 sm:hidden sm:w-auto"
+            variant="outline"
+            className="order-2 min-h-11 w-full sm:order-1 sm:w-auto"
             disabled={pending}
-            onClick={onDelete}
-            data-testid="delete-countdown-mobile"
+            onClick={onClose}
           >
-            Remove countdown
+            Cancel
           </Button>
-        ) : null}
-        <Button
-          type="submit"
-          className="order-1 min-h-11 w-full sm:order-3 sm:w-auto"
-          disabled={pending}
-          data-testid="countdown-form-submit"
-        >
-          {pending ? "Saving…" : isEdit ? "Save changes" : "Add countdown"}
-        </Button>
-      </div>
+          {isEdit && onDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="order-3 min-h-11 w-full text-destructive hover:text-destructive sm:order-2 sm:hidden sm:w-auto"
+              disabled={pending}
+              onClick={onDelete}
+              data-testid="delete-countdown-mobile"
+            >
+              Remove countdown
+            </Button>
+          ) : null}
+          <Button
+            type="submit"
+            className="order-1 min-h-11 w-full sm:order-3 sm:w-auto"
+            disabled={pending}
+            data-testid="countdown-form-submit"
+          >
+            {pending ? "Saving…" : isEdit ? "Save changes" : "Add countdown"}
+          </Button>
+        </div>
+      </FormStickyFooter>
     </form>
   );
 }

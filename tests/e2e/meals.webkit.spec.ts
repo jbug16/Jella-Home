@@ -17,5 +17,12 @@ test.describe("meals webkit smoke", () => {
     await page.getByTestId("open-add-meal").click();
     await expect(page.getByTestId("meal-recipe-combobox")).toBeVisible();
     await expect(page.getByTestId("meal-slot-select")).toBeVisible();
+    await expect(page.getByTestId("meal-recipe-combobox")).not.toBeFocused();
+    await page.getByTestId("meal-recipe-combobox").fill("Fixture");
+    await page.getByTestId("meal-recipe-option").first().tap();
+    await expect(page.getByTestId("meal-recipe-combobox")).toHaveValue(
+      "Fixture Spaghetti",
+    );
+    await expect(page.getByTestId("meal-form-submit")).toBeEnabled();
   });
 });

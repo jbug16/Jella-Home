@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PageHeader } from "@/components/common/page-header";
 import { RecipeDetailActions } from "@/components/recipes/recipe-detail-actions";
 import {
   formatDuration,
@@ -32,13 +31,14 @@ function ingredientLabel(quantity: number | null, unit: string): string {
 
 export default async function RecipeDetailPage({ params }: RecipePageProps) {
   const { id } = await params;
-  const recipe = await getRecipe(id);
+  const [recipe, suggestions] = await Promise.all([
+    getRecipe(id),
+    listIngredientSuggestions(),
+  ]);
 
   if (!recipe) {
     notFound();
   }
-
-  const suggestions = await listIngredientSuggestions();
 
   const total = formatDuration(
     totalTimeMinutes(recipe.prepTimeMinutes, recipe.cookTimeMinutes),
@@ -47,35 +47,41 @@ export default async function RecipeDetailPage({ params }: RecipePageProps) {
   const cook = formatDuration(recipe.cookTimeMinutes);
 
   return (
-    <div className="flex flex-col gap-6">
-      <Link
-        href="/recipes"
-        className="text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← All recipes
-      </Link>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <h1 className="text-xl font-semibold tracking-tight sidebar:hidden">
-          {recipe.name}
-        </h1>
-        <PageHeader title={recipe.name} />
+    <article className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-8 sidebar:gap-8">
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href="/recipes"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          ← Recipes
+        </Link>
         <RecipeDetailActions recipe={recipe} suggestions={suggestions} />
       </div>
 
       {recipe.imageUrl ? (
-        <div className="max-w-2xl overflow-hidden rounded-xl border bg-muted">
+        <div className="overflow-hidden rounded-xl border bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={recipe.imageUrl}
             alt={`Photo of ${recipe.name}`}
-            className="aspect-[16/10] w-full object-cover"
+            className="aspect-video w-full object-cover"
             data-testid="recipe-hero-image"
           />
         </div>
       ) : null}
 
-      <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+      <header className="max-w-3xl space-y-3">
+        <h1 className="text-2xl font-semibold tracking-tight sidebar:text-3xl">
+          {recipe.name}
+        </h1>
+        {recipe.notes ? (
+          <p className="text-sm leading-6 text-muted-foreground sm:text-base">
+            {recipe.notes}
+          </p>
+        ) : null}
+      </header>
+
+      <dl className="flex flex-wrap gap-x-5 gap-y-2 border-y py-3 text-sm">
         <div className="flex gap-1">
           <dt className="text-muted-foreground">Servings:</dt>
           <dd className="font-medium" data-testid="recipe-servings">
@@ -102,52 +108,55 @@ export default async function RecipeDetailPage({ params }: RecipePageProps) {
         ) : null}
       </dl>
 
-      <section aria-labelledby="ingredients-heading" className="space-y-3">
-        <h2 id="ingredients-heading" className="text-lg font-semibold">
-          Ingredients
-        </h2>
-        <ul
-          className="divide-y rounded-lg border"
-          data-testid="recipe-ingredients"
-        >
-          {recipe.ingredients.map((line) => (
-            <li
-              key={line.id}
-              className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-2"
-            >
-              <span className="font-medium">
-                {ingredientLabel(line.quantity, line.unit)}
-              </span>
-              <span>{line.name}</span>
-              {line.notes ? (
-                <span className="text-sm text-muted-foreground">
-                  {line.notes}
+      <div className="grid gap-8 lg:grid-cols-[minmax(15rem,4fr)_minmax(0,8fr)] lg:gap-12">
+        <section aria-labelledby="ingredients-heading" className="space-y-3">
+          <h2 id="ingredients-heading" className="text-lg font-semibold">
+            Ingredients
+          </h2>
+          <ul className="divide-y border-y" data-testid="recipe-ingredients">
+            {recipe.ingredients.map((line) => (
+              <li
+                key={line.id}
+                className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-2"
+              >
+                <span className="font-medium">
+                  {ingredientLabel(line.quantity, line.unit)}
                 </span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {recipe.instructions ? (
-        <section aria-labelledby="instructions-heading" className="space-y-3">
-          <h2 id="instructions-heading" className="text-lg font-semibold">
-            Instructions
-          </h2>
-          <p className="text-sm whitespace-pre-line">{recipe.instructions}</p>
+                <span>{line.name}</span>
+                {line.notes ? (
+                  <span className="text-sm text-muted-foreground">
+                    {line.notes}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </section>
-      ) : null}
 
-      {recipe.notes ? (
-        <section aria-labelledby="notes-heading" className="space-y-3">
-          <h2 id="notes-heading" className="text-lg font-semibold">
-            Notes
-          </h2>
-          <p className="text-sm whitespace-pre-line text-muted-foreground">
-            {recipe.notes}
-          </p>
-        </section>
-      ) : null}
-    </div>
+        {recipe.steps.length > 0 ? (
+          <section aria-labelledby="instructions-heading" className="space-y-3">
+            <h2 id="instructions-heading" className="text-lg font-semibold">
+              Instructions
+            </h2>
+            <ol className="space-y-5" data-testid="recipe-instructions">
+              {recipe.steps.map((step, index) => (
+                <li
+                  key={step.id}
+                  className="grid grid-cols-[2rem_1fr] gap-3 text-sm leading-6 sm:text-base"
+                >
+                  <span
+                    className="flex size-8 items-center justify-center rounded-full bg-muted text-sm font-semibold"
+                    aria-hidden
+                  >
+                    {index + 1}
+                  </span>
+                  <p className="whitespace-pre-line pt-1">{step.instruction}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
+      </div>
+    </article>
   );
 }

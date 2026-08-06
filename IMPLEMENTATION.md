@@ -11,13 +11,144 @@ This is the live project roadmap and decision log. Keep it current after every m
 
 ## Current milestone
 
-**Milestone:** V1 release closeout
-**Status:** Complete (2026-08-05)
+**Milestone:** V1.1 cooking and interaction quality
+**Status:** Release ready — implementation verified and production migration applied
 **Owner:** Lead Engineer
-**Goal:** Close V1 with Dashboard, Budget, Recipes, Meals, Shopping, and
-Subscriptions. Calendar was intentionally removed because the household uses
-another calendar solution; no Calendar data was retained. Subscription and
-payment tracking remain in their owning modules.
+**Goal:** Add ordered recipe instructions and an actual-data yearly Budget view,
+then make recipe selection, responsive forms, keyboard behavior, scrolling, and
+recipe details consistent and reliable across desktop, iPhone, and iPad. This
+milestone does not restore Calendar or change imported production data.
+
+Design decision record: [`docs/V1_1_DESIGN_PROPOSALS.md`](docs/V1_1_DESIGN_PROPOSALS.md).
+
+### V1.1 audit findings
+
+- Recipes currently persist one unstructured `recipes.instructions` text value.
+  The established normalized pattern already uses ordered child rows for recipe
+  ingredients, and the atomic recipe-save RPC replaces those rows transactionally.
+  A household-scoped `recipe_steps` table is the cleaner extension: it provides
+  stable UUIDs, deterministic order, relational integrity, RLS, and atomic saves
+  without coupling instructions to a JSON document.
+- Budget is month-only. The repository already has the right bounded-date index
+  (`transactions (household_id, occurred_on DESC)`), so Year mode needs one
+  calendar-year transaction query and pure aggregation, not twelve monthly
+  queries or multiplied monthly limits.
+- Recipe selectors are two separate implementations. The ingredient selector is
+  a portaled Radix Popover that closes immediately on input blur and protects
+  mouse-down only; the Meals selector is an in-flow absolute list that relies on
+  `pointerdown.preventDefault()` followed by `click`. In a local production-mode
+  WebKit touch audit, the Meals option visibly received the tap but did not commit
+  the recipe. Chromium committed the same interaction.
+- Radix currently autofocuses the first eligible recipe input on both Chromium
+  and WebKit at 360px. This opens the mobile keyboard as soon as the form opens.
+- The responsive form shell lives under `components/common` but is re-exported
+  from a Budget-specific path used by every feature. Only transaction forms use
+  its split scroll-body/footer mode; other forms scroll header, content, errors,
+  and actions as one region. Footer order and error presentation differ by form.
+- Popup focus behavior is based only on a 639px width query. It does not identify
+  touch iPads, even though keyboard behavior must be touch-aware independently of
+  whether the surface is a Sheet or Dialog.
+- The app intentionally uses `<main>` as its primary scroll container, but global
+  and route-level `overflow-x-hidden` rules can conceal the element that actually
+  overflows. Long popup forms add inconsistent nested scrolling, and portaled
+  dropdowns introduce a separate focus/scroll layer.
+- The recipe detail route uses a narrow generic card stack, duplicates title
+  treatment between mobile and desktop, fetches edit suggestions only after the
+  recipe query, and cannot render structured ordered instructions.
+- Existing tests cover basic CRUD and document-width overflow. They do not assert
+  mobile no-autofocus, WebKit touch commit, focus return, visual-viewport-safe
+  footers, primary scroll restoration, or long-form reachability.
+
+### V1.1 tracked checklist
+
+#### Approval gate
+
+- [x] Read agent guidance, architecture, implementation history, README, package
+      versions, design primitives, affected application code, migrations, and tests.
+- [x] Audit current behavior in local production mode on Chromium and WebKit.
+- [x] Record root causes rather than isolated CSS symptoms.
+- [x] Produce two Budget Month/Year concepts and recommend one.
+- [x] Produce two recipe-detail concepts and recommend one.
+- [x] Approve the recommended data model and design direction before feature
+      implementation.
+
+#### Recipe instructions and detail
+
+- [x] Add a forward-only `recipe_steps` migration with household integrity,
+      deterministic order, indexes, RLS, grants, and safe migration of any non-empty
+      legacy instruction text.
+- [x] Extend `save_recipe_with_ingredients` so recipe fields, ingredients, and
+      steps save atomically while image state remains untouched.
+- [x] Regenerate Supabase database types.
+- [x] Add ordered step domain schemas, mapping, sorting, and validation.
+- [x] Add controlled step rows with add, remove, move up, and move down controls.
+- [x] Preserve controlled ingredients, steps, and image state after action errors.
+- [x] Reorganize the recipe form into Basic information, Ingredients,
+      Instructions, Image, and Notes sections.
+- [x] Implement the approved editorial detail layout with semantic ordered lists,
+      stable image sizing, accessible actions, and no empty Instructions section.
+- [x] Avoid an extra recipe-detail query and unnecessary signed-image requests.
+
+#### Budget Month and Year
+
+- [x] Add canonical parsing for `?view=month&month=YYYY-MM` and
+      `?view=year&year=YYYY`, dropping irrelevant or invalid parameters.
+- [x] Add previous/current/next Month and Year navigation.
+- [x] Query the selected calendar year once by bounded transaction dates.
+- [x] Aggregate actual values by category and kind with income in, and expense,
+      bill, savings, and debt out; do not annualize monthly limits.
+- [x] Implement the approved Month/Year layout without a chart dependency.
+- [x] Provide a clear empty-year state and readable yearly transactions.
+
+#### Shared popups, comboboxes, keyboard, and scrolling
+
+- [x] Move the responsive form shell to
+      `components/ui/responsive-form-shell.tsx`; remove Budget-specific imports and
+      re-exports.
+- [x] Standardize form header, independently scrollable body, error treatment,
+      and footer with Cancel then primary action.
+- [x] Keep destructive confirmations on one smaller, consistent alert pattern.
+- [x] Prevent mobile/touch autofocus and focus the labeled surface or heading;
+      retain appropriate desktop keyboard autofocus and focus return.
+- [x] Make popup sizing `dvh`/safe-area aware with `min-height: 0`, scroll padding,
+      overscroll containment, and reachable actions under a reduced visual viewport.
+- [x] Replace both recipe selectors with one accessible shared combobox behavior
+      that uses pointer-safe option selection, predictable blur/outside dismissal,
+      keyboard navigation, and non-stale controlled values.
+- [x] Remove ingredient-row reorder autofocus on touch devices.
+- [x] Audit route and component overflow rules; keep one primary page scroll
+      container and only one deliberate popup body scroller.
+- [x] Verify body/page scroll state after close and prevent popup scroll leakage.
+- [x] Standardize shared form section headings, errors, footers, icon buttons,
+      focus rings, loading labels, spacing, and 44px touch targets in affected forms.
+
+#### Tests and release
+
+- [x] Add unit tests for recipe step schema/order, yearly aggregation, and
+      canonical period parsing.
+- [x] Extend pgTAP for recipe-step RLS, household integrity, atomic replacement,
+      no-step recipes, and repeatability without reset.
+- [x] Extend Chromium and WebKit Playwright coverage for dropdown reliability,
+      no-autofocus, keyboard-safe long forms, scroll restoration, popup structure,
+      recipe details, and Budget Month/Year.
+- [x] Cover 320px, 360px, 390px, iPhone WebKit, iPad portrait/landscape, and
+      desktop with no horizontal overflow.
+- [x] Run formatting, lint, strict typecheck, unit tests, database tests twice,
+      production build, Chromium, WebKit, `git diff --check`, and secret scans.
+- [x] Audit production counts, apply the migration through the established safe
+      path, and confirm local/production migration parity without reset or import.
+- [ ] Confirm no private material is staged; commit with
+      `feat: add recipe instructions and unify app interactions` and push `main`.
+- [ ] Confirm Netlify production deployment and live behavior on Dashboard,
+      Budget Month/Year, Recipes, Meals, Shopping, Subscriptions, and mobile popups.
+- [ ] Confirm preserved production counts: 1 Auth user, 1 household, 1
+      membership, 42 ingredients, 12 recipes, 12 images, and 61 recipe-ingredient
+      rows; recipe-step rows may increase normally.
+
+Previous: V1 release closeout **Complete** (2026-08-05) — Dashboard, Budget,
+Recipes, Meals, Shopping, and Subscriptions shipped. Calendar was intentionally
+removed because the household uses another calendar solution; no Calendar data
+was retained.
 
 Previous: Milestone 11 (UI/UX polish) **Complete** (2026-07-23) — archived
 checklist and performance notes in [`docs/archive/POLISH.md`](docs/archive/POLISH.md).

@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildBudgetMonthSnapshot,
+  buildBudgetYearSnapshot,
   currentMonthStart,
   DEFAULT_BUDGET_CATEGORIES,
   defaultOccurredOnForMonth,
   directionForKind,
   formatCents,
   formatMonthLabel,
+  resolveBudgetPeriod,
   monthEndFor,
   monthStartFor,
   parseDollarInputToCents,
@@ -91,6 +93,28 @@ describe("month boundaries", () => {
     expect(defaultOccurredOnForMonth("2026-08-01", "2026-07-16")).toBe(
       "2026-08-01",
     );
+  });
+});
+
+describe("Budget period URLs", () => {
+  it("canonicalizes month and drops year", () => {
+    expect(
+      resolveBudgetPeriod({ view: "month", month: "2026-07", year: "2025" }),
+    ).toMatchObject({
+      view: "month",
+      monthStart: "2026-07-01",
+      canonicalQuery: "view=month&month=2026-07",
+    });
+  });
+
+  it("canonicalizes year and drops month", () => {
+    expect(
+      resolveBudgetPeriod({ view: "year", year: "2026", month: "2025-01" }),
+    ).toEqual({
+      view: "year",
+      year: 2026,
+      canonicalQuery: "view=year&year=2026",
+    });
   });
 });
 
@@ -333,5 +357,38 @@ describe("buildBudgetMonthSnapshot", () => {
     expect(groceries?.actualCents).toBe(0);
     expect(snapshot.actualInCents).toBe(1250);
     expect(snapshot.actualOutCents).toBe(0);
+  });
+
+  it("aggregates actual yearly flows without multiplying limits", () => {
+    const savings: BudgetCategory = {
+      ...categories[1]!,
+      id: "11111111-1111-4111-8111-111111111104",
+      name: "Emergency fund",
+      kind: "savings",
+    };
+    const snapshot = buildBudgetYearSnapshot({
+      year: 2026,
+      categories: [...categories, savings],
+      transactions: [
+        ...transactions,
+        {
+          ...transactions[1]!,
+          id: "41111111-1111-4111-8111-111111111101",
+          categoryId: savings.id,
+          amountCents: 5000,
+          occurredOn: "2026-12-31",
+        },
+        {
+          ...transactions[1]!,
+          id: "41111111-1111-4111-8111-111111111102",
+          amountCents: 999999,
+          occurredOn: "2025-12-31",
+        },
+      ],
+    });
+    expect(snapshot.spendingCents).toBe(61250);
+    expect(snapshot.incomeCents).toBe(400000);
+    expect(snapshot.savingsCents).toBe(5000);
+    expect(snapshot.debtCents).toBe(0);
   });
 });

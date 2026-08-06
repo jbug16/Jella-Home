@@ -27,7 +27,7 @@ export default async function ShoppingPage({
   const { list, items } = await loadOrSyncShoppingPageData(weekStart);
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden sidebar:gap-6">
+    <div className="flex min-w-0 max-w-full flex-col gap-3 sidebar:gap-6">
       <PageHeader title="Shopping" />
       <ShoppingPanel weekStart={weekStart} list={list} items={items} />
     </div>

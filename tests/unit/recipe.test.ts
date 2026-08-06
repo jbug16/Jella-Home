@@ -11,6 +11,7 @@ import {
   isApprovedUnit,
   mapRecipe,
   mapRecipeIngredient,
+  mapRecipeStep,
   normalizeIngredientName,
   normalizeUnit,
   parseOptionalMinutes,
@@ -19,11 +20,13 @@ import {
   RECIPE_IMAGE_MAX_BYTES,
   reindexSortOrder,
   sortRecipeIngredients,
+  sortRecipeSteps,
   updateRecipeInputSchema,
   validateRecipeImage,
   type RecipeIngredient,
   type RecipeIngredientRow,
   type RecipeRow,
+  type RecipeStep,
 } from "@/lib/domain/recipe";
 
 describe("normalizeIngredientName", () => {
@@ -134,7 +137,9 @@ describe("createRecipeInputSchema", () => {
     servings: 2,
     prepTimeMinutes: 10,
     cookTimeMinutes: 20,
-    instructions: "Boil",
+    steps: [
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", instruction: "Boil" },
+    ],
     notes: "",
     ingredients: [{ name: "Spaghetti", quantity: 200, unit: "g", notes: "" }],
   };
@@ -186,9 +191,9 @@ describe("updateRecipeInputSchema", () => {
       servings: 2,
       prepTimeMinutes: null,
       cookTimeMinutes: null,
-      instructions: "",
       notes: "",
       ingredients: [{ name: "Spaghetti", quantity: 1, unit: "g", notes: "" }],
+      steps: [],
     });
     expect(result.success).toBe(false);
   });
@@ -306,7 +311,6 @@ describe("mapRecipe", () => {
       servings: 2,
       prep_time_minutes: 10,
       cook_time_minutes: 20,
-      instructions: "Boil",
       notes: "Yum",
       image_path: "22222222-2222-4222-8222-222222222222/cover.jpg",
       archived_at: null,
@@ -357,5 +361,54 @@ describe("sortRecipeIngredients", () => {
       "c",
       "b",
     ]);
+  });
+});
+
+describe("recipe steps", () => {
+  it("allows recipes with no instructions", () => {
+    const parsed = createRecipeInputSchema.safeParse({
+      name: "Toast",
+      servings: 1,
+      prepTimeMinutes: null,
+      cookTimeMinutes: null,
+      notes: "",
+      ingredients: [{ name: "Bread", quantity: 1, unit: "slice", notes: "" }],
+      steps: [],
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("validates step text and keeps stable ids", () => {
+    const result = createRecipeInputSchema.safeParse({
+      name: "Toast",
+      servings: 1,
+      prepTimeMinutes: null,
+      cookTimeMinutes: null,
+      notes: "",
+      ingredients: [{ name: "Bread", quantity: 1, unit: "slice", notes: "" }],
+      steps: [
+        { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", instruction: "   " },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("maps and orders database step rows", () => {
+    const rows = [
+      {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+        recipe_id: "11111111-1111-4111-8111-111111111111",
+        instruction: "Second",
+        sort_order: 1,
+      },
+      {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        recipe_id: "11111111-1111-4111-8111-111111111111",
+        instruction: "First",
+        sort_order: 0,
+      },
+    ];
+    const sorted = sortRecipeSteps(rows.map(mapRecipeStep) as RecipeStep[]);
+    expect(sorted.map((step) => step.instruction)).toEqual(["First", "Second"]);
   });
 });

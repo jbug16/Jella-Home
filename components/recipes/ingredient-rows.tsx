@@ -1,21 +1,11 @@
 "use client";
 
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
-import { useEffect, useRef } from "react";
 
 import { IngredientCombobox } from "@/components/recipes/ingredient-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { APPROVED_UNITS, RECIPE_UNIT_GROUPS } from "@/lib/domain/recipe";
 import type { IngredientSuggestion } from "@/lib/repositories/recipes";
 
@@ -26,9 +16,6 @@ export type IngredientRow = {
   name: string;
   notes: string;
 };
-
-/** Sentinel for the "no unit" choice (Radix Select disallows an empty value). */
-const NO_UNIT = "__none__";
 
 export function newIngredientRow(
   partial: Partial<Omit<IngredientRow, "clientId">> = {},
@@ -55,17 +42,6 @@ export function IngredientRows({
   suggestions,
   disabled,
 }: IngredientRowsProps) {
-  const inputRefs = useRef(new Map<string, HTMLInputElement | null>());
-  const pendingFocusRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const id = pendingFocusRef.current;
-    if (id) {
-      inputRefs.current.get(id)?.focus();
-      pendingFocusRef.current = null;
-    }
-  });
-
   function updateRow(clientId: string, patch: Partial<IngredientRow>) {
     onChange(
       rows.map((row) =>
@@ -77,17 +53,11 @@ export function IngredientRows({
   function addRow() {
     const row = newIngredientRow();
     onChange([...rows, row]);
-    pendingFocusRef.current = row.clientId;
   }
 
   function removeRow(clientId: string) {
-    const index = rows.findIndex((row) => row.clientId === clientId);
     const next = rows.filter((row) => row.clientId !== clientId);
     onChange(next);
-    const focusTarget = next[index - 1] ?? next[0];
-    if (focusTarget) {
-      pendingFocusRef.current = focusTarget.clientId;
-    }
   }
 
   function move(clientId: string, delta: number) {
@@ -100,7 +70,6 @@ export function IngredientRows({
     const [item] = next.splice(index, 1);
     next.splice(target, 0, item);
     onChange(next);
-    pendingFocusRef.current = clientId;
   }
 
   function onSuggestionSelected(
@@ -141,9 +110,6 @@ export function IngredientRows({
                   disabled={disabled}
                   aria-label={`Quantity for ingredient ${index + 1}`}
                   value={row.quantity}
-                  ref={(el) => {
-                    inputRefs.current.set(row.clientId, el);
-                  }}
                   onChange={(e) =>
                     updateRow(row.clientId, { quantity: e.target.value })
                   }
@@ -156,46 +122,37 @@ export function IngredientRows({
                 >
                   Unit
                 </Label>
-                <Select
+                <select
+                  id={`ing-unit-${row.clientId}`}
+                  aria-label={`Unit for ingredient ${index + 1}`}
+                  className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
                   disabled={disabled}
-                  value={row.unit === "" ? NO_UNIT : row.unit}
-                  onValueChange={(value) =>
-                    updateRow(row.clientId, {
-                      unit: value === NO_UNIT ? "" : value,
-                    })
+                  value={row.unit}
+                  onChange={(event) =>
+                    updateRow(row.clientId, { unit: event.target.value })
                   }
                 >
-                  <SelectTrigger
-                    id={`ing-unit-${row.clientId}`}
-                    aria-label={`Unit for ingredient ${index + 1}`}
-                    className="min-h-11 w-full"
-                  >
-                    <SelectValue placeholder="Unit" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    <SelectItem value={NO_UNIT} data-testid="unit-option-none">
-                      No unit
-                    </SelectItem>
-                    {/* Preserve a legacy value that is no longer in the list. */}
-                    {row.unit !== "" && !APPROVED_UNITS.includes(row.unit) ? (
-                      <SelectItem value={row.unit}>{row.unit}</SelectItem>
-                    ) : null}
-                    {RECIPE_UNIT_GROUPS.map((group) => (
-                      <SelectGroup key={group.label}>
-                        <SelectLabel>{group.label}</SelectLabel>
-                        {group.units.map((unit) => (
-                          <SelectItem
-                            key={unit.value}
-                            value={unit.value}
-                            data-testid={`unit-option-${unit.value}`}
-                          >
-                            {unit.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="" data-testid="unit-option-none">
+                    No unit
+                  </option>
+                  {/* Preserve a legacy value that is no longer in the list. */}
+                  {row.unit !== "" && !APPROVED_UNITS.includes(row.unit) ? (
+                    <option value={row.unit}>{row.unit}</option>
+                  ) : null}
+                  {RECIPE_UNIT_GROUPS.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.units.map((unit) => (
+                        <option
+                          key={unit.value}
+                          value={unit.value}
+                          data-testid={`unit-option-${unit.value}`}
+                        >
+                          {unit.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
               </div>
             </div>
 

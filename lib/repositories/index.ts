@@ -34,7 +34,6 @@ export {
   listIngredientSuggestions,
   listRecipeCoverUrlsByIds,
   listRecipes,
-  setRecipeImagePath,
   updateRecipe,
   uploadRecipeImage,
   type IngredientSuggestion,
