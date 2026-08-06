@@ -89,6 +89,15 @@ test.describe("shopping list flows", () => {
     await page.getByTestId("shopping-item-name").fill(manualName);
     await page.getByTestId("shopping-item-submit").click();
     await expect(page.getByText(manualName)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("shopping-message")).toHaveCount(0);
+    await expect(page.getByTestId("responsive-form-shell")).toHaveCount(0);
+
+    // A completed save must not leave a success effect refreshing/closing the
+    // next form instance in a loop.
+    await page.getByTestId("shopping-add-item").click();
+    await expect(page.getByTestId("shopping-item-name")).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByTestId("shopping-item-name")).toHaveCount(0);
 
     await page.reload();
     await expect(page.getByText(manualName)).toBeVisible({ timeout: 15_000 });

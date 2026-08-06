@@ -23,7 +23,14 @@ test.describe("meals webkit smoke", () => {
     await expect(page.getByTestId("meal-slot-select")).toBeVisible();
     await expect(page.getByTestId("meal-recipe-combobox")).not.toBeFocused();
     await page.getByTestId("meal-recipe-combobox").fill("Fixture");
-    await page.getByTestId("meal-recipe-option").first().tap();
+    const recipeOption = page.getByTestId("meal-recipe-option").first();
+    await recipeOption.dispatchEvent("pointerdown", { pointerType: "touch" });
+    await recipeOption.dispatchEvent("pointerup", { pointerType: "touch" });
+    await expect(recipeOption).toBeVisible();
+    await expect(page.getByTestId("meal-recipe-combobox")).toHaveValue(
+      "Fixture",
+    );
+    await recipeOption.tap();
     await expect(page.getByTestId("meal-recipe-combobox")).toHaveValue(
       "Fixture Spaghetti",
     );

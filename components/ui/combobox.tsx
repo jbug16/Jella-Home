@@ -49,6 +49,7 @@ export function Combobox({
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listPointerActiveRef = useRef(false);
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -94,7 +95,15 @@ export function Combobox({
 
   useEffect(() => {
     if (!open) return;
-    function placeList() {
+    function placeList(event?: Event) {
+      const eventTarget = event?.target;
+      if (
+        event?.type === "scroll" &&
+        eventTarget instanceof Node &&
+        listRef.current?.contains(eventTarget)
+      ) {
+        return;
+      }
       const rect = inputRef.current?.getBoundingClientRect();
       if (!rect) return;
       const formSurface = inputRef.current?.closest(
@@ -129,9 +138,13 @@ export function Combobox({
     placeList();
     window.addEventListener("resize", placeList);
     window.addEventListener("scroll", placeList, true);
+    window.visualViewport?.addEventListener("resize", placeList);
+    window.visualViewport?.addEventListener("scroll", placeList);
     return () => {
       window.removeEventListener("resize", placeList);
       window.removeEventListener("scroll", placeList, true);
+      window.visualViewport?.removeEventListener("resize", placeList);
+      window.visualViewport?.removeEventListener("scroll", placeList);
     };
   }, [open]);
 
@@ -153,12 +166,16 @@ export function Combobox({
     commit(filtered[showCustom ? index - 1 : index] ?? null);
   }
 
-  function handlePointerDown(
+  function keepInputFocusForPointer(
     event: React.PointerEvent<HTMLButtonElement>,
-    action: () => void,
   ) {
-    event.preventDefault();
-    if (event.pointerType === "touch") action();
+    if (event.pointerType !== "touch") event.preventDefault();
+  }
+
+  function releaseListPointer() {
+    requestAnimationFrame(() => {
+      listPointerActiveRef.current = false;
+    });
   }
 
   return (
@@ -188,7 +205,11 @@ export function Combobox({
         onClick={openList}
         onBlur={() => {
           requestAnimationFrame(() => {
-            if (!rootRef.current?.contains(document.activeElement))
+            if (
+              !listPointerActiveRef.current &&
+              !rootRef.current?.contains(document.activeElement) &&
+              !listRef.current?.contains(document.activeElement)
+            )
               setOpen(false);
           });
         }}
@@ -229,6 +250,11 @@ export function Combobox({
                 maxHeight: position.maxHeight,
               }}
               className="pointer-events-auto z-[100] overflow-y-auto overscroll-contain rounded-md border bg-popover p-1 text-popover-foreground shadow-md touch-pan-y"
+              onPointerDownCapture={() => {
+                listPointerActiveRef.current = true;
+              }}
+              onPointerUpCapture={releaseListPointer}
+              onPointerCancelCapture={releaseListPointer}
             >
               {showCustom ? (
                 <button
@@ -240,11 +266,11 @@ export function Combobox({
                     "flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm",
                     highlight === 0 && "bg-accent",
                   )}
-                  onPointerDown={(event) =>
-                    handlePointerDown(event, () => commit(null))
-                  }
+                  onPointerDown={keepInputFocusForPointer}
                   onClick={() => commit(null)}
-                  onPointerMove={() => setHighlight(0)}
+                  onPointerMove={(event) => {
+                    if (event.pointerType !== "touch") setHighlight(0);
+                  }}
                 >
                   <Plus className="size-4" aria-hidden />
                   Add “{trimmed}”
@@ -265,11 +291,12 @@ export function Combobox({
                       "flex min-h-11 w-full items-center justify-between gap-2 rounded-sm px-3 text-left text-sm",
                       highlight === optionIndex && "bg-accent",
                     )}
-                    onPointerDown={(event) =>
-                      handlePointerDown(event, () => commit(option))
-                    }
+                    onPointerDown={keepInputFocusForPointer}
                     onClick={() => commit(option)}
-                    onPointerMove={() => setHighlight(optionIndex)}
+                    onPointerMove={(event) => {
+                      if (event.pointerType !== "touch")
+                        setHighlight(optionIndex);
+                    }}
                   >
                     <span className="truncate">{option.label}</span>
                     {option.description ? (

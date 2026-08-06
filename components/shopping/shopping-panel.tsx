@@ -187,15 +187,6 @@ export function ShoppingPanel({ weekStart, list, items }: ShoppingPanelProps) {
           {actionFeedback.error}
         </p>
       ) : null}
-      {actionFeedback.success ? (
-        <p
-          className="text-sm text-muted-foreground"
-          data-testid="shopping-message"
-        >
-          {actionFeedback.success}
-        </p>
-      ) : null}
-
       {!hasItems ? (
         <div data-testid="shopping-empty">
           <EmptyState
@@ -270,12 +261,6 @@ export function ShoppingPanel({ weekStart, list, items }: ShoppingPanelProps) {
         listId={list.id}
         weekStart={weekStart}
         item={editItem}
-        onSaved={() => {
-          setActionFeedback({
-            error: null,
-            success: editItem ? "Item updated." : "Item added.",
-          });
-        }}
       />
 
       <ResponsiveAlertShell
