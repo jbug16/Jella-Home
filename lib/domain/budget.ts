@@ -419,21 +419,27 @@ export function buildBudgetYearSnapshot(args: {
   }
 
   const categorySummaries = args.categories
+    .filter((category) => category.archivedAt === null)
     .map((category) => ({
       categoryId: category.id,
       name: category.name,
       kind: category.kind,
       actualCents: actualByCategory.get(category.id) ?? 0,
     }))
-    .filter((row) => row.actualCents > 0)
-    .sort(
-      (a, b) => b.actualCents - a.actualCents || a.name.localeCompare(b.name),
-    );
+    .sort((a, b) => {
+      if (a.kind !== b.kind) {
+        return a.kind.localeCompare(b.kind);
+      }
+      return a.name.localeCompare(b.name);
+    });
 
   const total = (...kinds: BudgetCategoryKind[]) =>
-    categorySummaries
-      .filter((row) => kinds.includes(row.kind))
-      .reduce((sum, row) => sum + row.actualCents, 0);
+    args.categories
+      .filter((category) => kinds.includes(category.kind))
+      .reduce(
+        (sum, category) => sum + (actualByCategory.get(category.id) ?? 0),
+        0,
+      );
 
   return {
     year: args.year,

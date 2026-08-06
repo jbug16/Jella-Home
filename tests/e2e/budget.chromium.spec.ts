@@ -114,16 +114,30 @@ test.describe("budget flows", () => {
   test("switches to canonical Year mode with actual category totals", async ({
     page,
   }) => {
+    await goToBudget(page);
+    const monthCategoryIds = await page
+      .locator('[data-testid^="category-row-"]')
+      .evaluateAll((rows) =>
+        rows.map((row) => row.getAttribute("data-testid")),
+      );
+
     await page.goto("/budget?view=year&year=2026&month=2025-01");
     await expect(page).toHaveURL(/\/budget\?view=year&year=2026$/);
     await expect(page.getByTestId("budget-year-summary")).toBeVisible();
     await expect(page.getByTestId("summary-year-spending")).toBeVisible();
+    await expect(page.getByTestId("summary-year-debt")).toHaveCount(0);
     await expect(page.getByTestId("year-category-list")).toBeVisible();
+    const yearCategoryIds = await page
+      .locator('[data-testid^="category-row-"]')
+      .evaluateAll((rows) =>
+        rows.map((row) => row.getAttribute("data-testid")),
+      );
+    expect(yearCategoryIds).toEqual(monthCategoryIds);
     await page.getByLabel("Next year").click();
     await expect(page).toHaveURL(/view=year&year=2027/);
-    await expect(page.getByTestId("budget-year-summary")).toContainText(
-      "No transactions in 2027.",
-    );
+    await expect(
+      page.getByTestId("year-category-list").getByRole("listitem"),
+    ).toHaveCount(monthCategoryIds.length);
     await page.getByRole("tab", { name: "Transactions" }).click();
     await expect(page.getByTestId("transactions-empty")).toHaveText(
       "No transactions in 2027.",

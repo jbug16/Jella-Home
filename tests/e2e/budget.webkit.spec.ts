@@ -21,6 +21,13 @@ test.describe("budget webkit", () => {
     expect(periodToggleBox!.x).toBeLessThan(addButtonBox!.x);
     await page.getByTestId("budget-period-year").click();
     await expect(page).toHaveURL(/view=year&year=2026/);
+    const monthToggleBox = await page
+      .getByTestId("budget-period-month")
+      .boundingBox();
+    expect(monthToggleBox).not.toBeNull();
+    expect(Math.round(monthToggleBox!.width)).toBe(
+      Math.round(periodToggleBox!.width),
+    );
     await expect(page.getByTestId("budget-year-summary")).toBeVisible();
     await page.getByTestId("open-add-transaction").click();
     await expect(page.getByLabel("Amount")).not.toBeFocused();

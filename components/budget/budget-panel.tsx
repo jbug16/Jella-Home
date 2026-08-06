@@ -236,8 +236,15 @@ export function BudgetPanel({
               </Button>
             </section>
           ) : view === "overview" && yearSnapshot ? (
-            <section className="space-y-3" data-testid="budget-year-summary">
-              <div className="grid grid-cols-2 divide-x divide-y rounded-lg border sm:grid-cols-4 sm:divide-y-0">
+            <section
+              className="space-y-3"
+              aria-labelledby="budget-year-summary-heading"
+              data-testid="budget-year-summary"
+            >
+              <h2 id="budget-year-summary-heading" className="sr-only">
+                This year
+              </h2>
+              <SummaryStatGrid headingId="budget-year-summary-heading">
                 <SummaryStat
                   label="Spending"
                   value={formatCents(yearSnapshot.spendingCents)}
@@ -255,37 +262,17 @@ export function BudgetPanel({
                   value={formatCents(yearSnapshot.savingsCents)}
                   testId="summary-year-savings"
                 />
-                <SummaryStat
-                  label="Debt paid"
-                  value={formatCents(yearSnapshot.debtCents)}
-                  testId="summary-year-debt"
-                />
-              </div>
-              <h2 className="text-base font-semibold">Actual by category</h2>
-              {yearSnapshot.categorySummaries.length ? (
-                <PanelList testId="year-category-list">
-                  {yearSnapshot.categorySummaries.map((row) => (
-                    <li
-                      key={row.categoryId}
-                      className="flex min-h-12 items-center justify-between gap-3 px-4 py-2"
-                    >
-                      <span>
-                        <span className="font-medium">{row.name}</span>
-                        <span className="ml-2 text-xs capitalize text-muted-foreground">
-                          {row.kind}
-                        </span>
-                      </span>
-                      <span className="font-semibold tabular-nums">
-                        {formatCents(row.actualCents)}
-                      </span>
-                    </li>
-                  ))}
-                </PanelList>
-              ) : (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No transactions in {yearSnapshot.year}.
-                </p>
-              )}
+              </SummaryStatGrid>
+              <h2 className="text-base font-semibold">By category</h2>
+              <PanelList testId="year-category-list">
+                {yearSnapshot.categorySummaries.map((row) => (
+                  <YearCategoryRow
+                    key={row.categoryId}
+                    row={row}
+                    testId={`category-row-${row.kind}-${row.name}`}
+                  />
+                ))}
+              </PanelList>
             </section>
           ) : view === "transactions" ? (
             <section aria-labelledby="transactions-heading">
@@ -431,6 +418,38 @@ export function BudgetPanel({
         transaction={deleting}
       />
     </div>
+  );
+}
+
+function YearCategoryRow({
+  row,
+  testId,
+}: {
+  row: BudgetYearSnapshot["categorySummaries"][number];
+  testId: string;
+}) {
+  const visual = budgetCategoryVisual(row.name, row.kind);
+  const Icon = visual.icon;
+
+  return (
+    <li
+      className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3"
+      data-testid={testId}
+    >
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+          visual.chipClassName,
+        )}
+        aria-hidden
+      >
+        <Icon className="size-4" />
+      </span>
+      <p className="min-w-0 flex-1 truncate font-medium">{row.name}</p>
+      <p className="shrink-0 text-sm font-medium tabular-nums">
+        {formatCents(row.actualCents)}
+      </p>
+    </li>
   );
 }
 

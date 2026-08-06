@@ -47,7 +47,7 @@ export function BudgetPeriodToggle({ period }: { period: BudgetPeriod }) {
     : `/budget?view=month&month=${period.year}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
 
   return (
-    <Button variant="outline" size="touch" className="px-3" asChild>
+    <Button variant="outline" size="touch" className="w-16 px-0" asChild>
       <Link
         href={href}
         aria-label={`Switch to ${showingMonth ? "year" : "month"} view`}

@@ -7,66 +7,65 @@ These concepts use the existing Jella Home typography, neutral surfaces,
 10–14px radii, semantic colors, 44px controls, and current page widths. Neither
 concept adds a charting dependency, a new feature, or Calendar behavior.
 
-Selected directions: Budget Concept A (Period Ledger), Recipe Detail Concept A
-(Editorial Split), normalized `recipe_steps`, and the shared responsive form and
-combobox interaction system.
+Selected directions: the refined Budget period views documented below, Recipe
+Detail Concept A (Editorial Split), normalized `recipe_steps`, and the shared
+responsive form and combobox interaction system.
 
-## Budget concept A — Period ledger (recommended)
+## Budget — original ledger with compact period switching
 
-This concept removes the current client-only Overview/Transactions split. The
-page answers the selected period in one vertical story: period, totals, category
-comparison, then transactions. Desktop uses available width; mobile stacks the
-same information without introducing another navigation state.
+The implemented refinement preserves the original Overview/Transactions tabs
+and monthly layout. A single fixed-width Month/Year button sits beside the Add
+transaction button; the period navigator changes between months and years.
 
 ### Desktop, 1280px+
 
 ```text
-Budget                                             + Add transaction
+Budget
 
-                 [ Month | Year ]
-          [‹]       August 2026        [›]      [Current]
+          [‹]       August 2026        [›]   [Year] [+]
+                   [ Overview | Transactions ]
 
 ┌──────────────┬──────────────┬──────────────┐
 │ Planned      │ Spent        │ Remaining    │   Month
 │ $2,400       │ $1,725       │ $675         │
 └──────────────┴──────────────┴──────────────┘
 
-┌─ Categories ──────────────────┐  ┌─ Transactions ──────────────────┐
-│ Food        $420 / $600   70% │  │ Aug 05  Food · Market    −$64  │
-│ Bills     $1,100 / $1,200 92% │  │ Aug 03  Bills · Power   −$118  │
-│ Savings     $205 / $300   68% │  │ Aug 01  Income · Pay   +$2,400 │
-│ ...                             │  │ ...                              │
-└────────────────────────────────┘  └──────────────────────────────────┘
+┌─ Categories ──────────────────┐
+│ Food              $180 left  │
+│ Bills             $100 left  │
+│ Savings            $95 left  │
+└───────────────────────────────┘
 ```
 
-Year mode keeps the same frame but changes the data vocabulary:
+Year mode keeps that frame and the same category set, but replaces monthly
+limits with actual annual amounts:
 
 ```text
-                 [ Month | Year ]
-          [‹]          2026            [›]      [Current]
+          [‹]          2026            [›]  [Month] [+]
+                   [ Overview | Transactions ]
 
-┌───────────┬───────────┬───────────┬───────────┐
-│ Spending  │ Income    │ Saved     │ Debt paid │
-│ actual    │ actual    │ actual    │ actual    │
-└───────────┴───────────┴───────────┴───────────┘
+┌───────────┬───────────┬───────────┐
+│ Spending  │ Income    │ Saved     │
+│ actual    │ actual    │ actual    │
+└───────────┴───────────┴───────────┘
 
-Actual by category                    Transactions in 2026
-Food            $4,210               grouped by month, newest first
+By category
+Food            $4,210
 Bills           $8,940
 Savings         $2,400
-Debt            $1,800
+Fun               $620
 ```
 
 Year mode never renders planned values, progress against monthly limits, or
-annualized estimates. “Spending” is actual `expense + bill`; income, savings,
-and debt payments are separate actual flows. Individual category rows retain
-their owning kind so signs and tones remain consistent.
+annualized estimates. “Spending” is actual `expense + bill`; income and savings
+are separate actual flows. Every active household category remains visible,
+including categories with `$0` activity for the selected year.
 
 ### Mobile, 320–390px
 
 ```text
-[ Month | Year ]
-[‹]   August 2026   [›]
+[‹]   August 2026   [›]  [Year] [+]
+[ Overview | Transactions ]
 
 Planned       Spent       Remaining
 $2,400        $1,725      $675
@@ -76,23 +75,18 @@ Food                         $420 / $600
 ██████████████░░░░░░                70%
 ...
 
-Transactions                         [+]
-Aug 05 · Market                         −$64
-Food
+Select Transactions to see the existing transaction list.
 ```
 
-In Year mode the four actual-flow summaries use a two-by-two grid at phone
-widths. Transactions are grouped by month below category totals. The Add action
-remains labeled in the page header/toolbar; it is not a floating control that
-covers content.
+The Month and Year buttons have the same fixed width, and the page keeps one
+44px toolbar row without horizontal overflow at supported phone widths.
 
 ### Why this is recommended
 
-- Answers the household’s main questions without a second tab switch.
-- Keeps Month and Year materially distinct while reusing the same visual grammar.
-- Makes category comparison immediate and stays readable at 320px.
+- Preserves the familiar monthly workflow and its Overview/Transactions tabs.
+- Keeps Month and Year distinct without replacing the established layout.
+- Shows annual allocation across the household's actual category set.
 - Uses server-canonical URL state and needs no client chart library.
-- Lets desktop use two balanced columns while mobile has one obvious scroll.
 
 ## Budget concept B — Focused review tabs
 

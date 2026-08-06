@@ -390,5 +390,14 @@ describe("buildBudgetMonthSnapshot", () => {
     expect(snapshot.incomeCents).toBe(400000);
     expect(snapshot.savingsCents).toBe(5000);
     expect(snapshot.debtCents).toBe(0);
+    expect(snapshot.categorySummaries.map((row) => row.name)).toEqual([
+      "Rent",
+      "Groceries",
+      "Paycheck",
+      "Emergency fund",
+    ]);
+    expect(
+      snapshot.categorySummaries.find((row) => row.name === "Rent"),
+    ).toMatchObject({ actualCents: 0 });
   });
 });
