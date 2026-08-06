@@ -12,7 +12,7 @@ This is the live project roadmap and decision log. Keep it current after every m
 ## Current milestone
 
 **Milestone:** V1.1 cooking and interaction quality
-**Status:** Release ready — implementation verified and production migration applied
+**Status:** Complete — deployed to production on 2026-08-06
 **Owner:** Lead Engineer
 **Goal:** Add ordered recipe instructions and an actual-data yearly Budget view,
 then make recipe selection, responsive forms, keyboard behavior, scrolling, and
@@ -137,11 +137,11 @@ Design decision record: [`docs/V1_1_DESIGN_PROPOSALS.md`](docs/V1_1_DESIGN_PROPO
       production build, Chromium, WebKit, `git diff --check`, and secret scans.
 - [x] Audit production counts, apply the migration through the established safe
       path, and confirm local/production migration parity without reset or import.
-- [ ] Confirm no private material is staged; commit with
+- [x] Confirm no private material is staged; commit with
       `feat: add recipe instructions and unify app interactions` and push `main`.
-- [ ] Confirm Netlify production deployment and live behavior on Dashboard,
+- [x] Confirm Netlify production deployment and live behavior on Dashboard,
       Budget Month/Year, Recipes, Meals, Shopping, Subscriptions, and mobile popups.
-- [ ] Confirm preserved production counts: 1 Auth user, 1 household, 1
+- [x] Confirm preserved production counts: 1 Auth user, 1 household, 1
       membership, 42 ingredients, 12 recipes, 12 images, and 61 recipe-ingredient
       rows; recipe-step rows may increase normally.
 
