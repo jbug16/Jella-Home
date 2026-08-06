@@ -107,7 +107,7 @@ describe("shiftWeekStart / labels", () => {
   });
 
   it("currentWeekStart matches todayIsoDate's Sunday", () => {
-    const now = new Date(2026, 6, 19); // Sunday
+    const now = new Date("2026-07-19T12:00:00-04:00"); // Sunday in the household timezone
     expect(currentWeekStart(now)).toBe(weekStartOn(todayIsoDate(now)));
     expect(currentWeekStart(now)).toBe("2026-07-19");
   });

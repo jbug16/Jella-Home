@@ -70,7 +70,7 @@ Responsibilities:
 - Keep financial values currency-safe and date-only records timezone-safe.
 - Prevent private data, tokens, or credentials from appearing in logs or client bundles.
 - Add focused tests for mappings and calculations.
-- For the later one-time workbook import, keep parsing and service-role usage outside UI code and do not introduce live spreadsheet sync.
+- Treat the completed workbook import as historical provenance; do not restore import tooling or introduce spreadsheet sync.
 
 ## QA and Integration Specialist
 

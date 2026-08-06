@@ -9,10 +9,10 @@ ongoing Google Sheets synchronization.
 Companion docs:
 
 - [`AGENTS.md`](AGENTS.md) — product rules and coding conventions
-- [`CURSOR.md`](CURSOR.md) — staging deployment rule for agents
+- [`CURSOR.md`](CURSOR.md) — deployment rule for agents
 - [`IMPLEMENTATION.md`](IMPLEMENTATION.md) — roadmap, ADRs, and work log
 - [`ROLES.md`](ROLES.md) — agent role boundaries
-- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — local / staging / production hosting
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — local / production hosting
 - [`docs/WORKBOOK_MAPPING.md`](docs/WORKBOOK_MAPPING.md) — legacy XLSX → schema mapping
 - [`docs/FUTURE_FEATURES.md`](docs/FUTURE_FEATURES.md) — idea backlog (not a roadmap)
 
@@ -39,11 +39,11 @@ Companion docs:
 | ------------- | ---------------------------------------------------------------- |
 | UI            | Next.js App Router, React Server Components, Tailwind, shadcn/ui |
 | Auth          | Supabase Auth — one shared household email/password; no sign-up  |
-| Database      | Supabase Postgres (local; dedicated staging; hosted production)  |
+| Database      | Supabase Postgres (local and hosted production)                  |
 | Authorization | Household membership + Postgres Row Level Security               |
 | Validation    | Zod (domain + server action inputs)                              |
 | Data access   | Server-only repositories using the cookie-backed SSR client      |
-| Hosting       | Netlify (`main` → production; `staging` → branch deploy)         |
+| Hosting       | Netlify (`main` → production)                                    |
 | Legacy import | Completed one-time migration; no runtime spreadsheet access      |
 
 ```

@@ -43,8 +43,6 @@ Items preserved from archived reviews — not blocking current milestone work:
   [`docs/archive/REVIEW.md`](docs/archive/REVIEW.md)).
 - **Schema alignment:** Align `transactions.amount_cents` DB constraint with the
   domain schema (positive-only at write boundary).
-- **Staging infrastructure:** Dedicated staging Supabase project and Netlify CD
-  secrets — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ### Pre-work completed
 
@@ -264,15 +262,14 @@ Scope:
 - Validation/spot-check of counts and totals
 - Explicit documentation of workbook → schema mapping (`docs/WORKBOOK_MAPPING.md`)
 
-Implemented (2026-08-05):
+Completed outcome (2026-08-05):
 
 - Refreshed workbook discovery (12 sheets; recipes, ingredients, subscriptions in scope)
-- `lib/import/workbook/` pipeline: parse → normalize → validate → map → preview → write → verify
-- Normalized private extract plus a guarded single-use production loader
-- Unit tests under `tests/import/`
+- Used a guarded, single-use parse, validation, extraction, and production-loading pipeline
 - Loaded targets: `ingredients`, `recipes`, `recipe_ingredients`, and private recipe images
 - Reviewed but not loaded: subscriptions (final approved extract was empty)
 - Out of scope: budget (sparse export), meal calendar, and weekly shopping checklist state
+- Removed all workbook extraction and loading code after the verified cutover
 
 Cutover result:
 
@@ -1578,6 +1575,15 @@ Add newest entries first.
   and push protection were enabled. Supabase leaked-password protection remains
   disabled because the Management API confirmed it requires a Pro plan.
 
+### 2026-08-05 (GitHub release cleanup)
+
+- Removed obsolete hosted-environment automation, branch guidance, smoke tools,
+  and configuration; `main` is the sole persistent deployment branch.
+- Removed the completed one-time workbook extractor, its tests, and parser
+  dependency while preserving the sanitized migration outcome record.
+- Made the household-date unit test deterministic on UTC CI runners and patched
+  PostCSS plus transitive brace-expansion dependencies.
+
 ### 2026-08-05 (V1 production cutover complete)
 
 - Work completed: Retained one shared production login, one household, and one
@@ -1598,9 +1604,9 @@ Add newest entries first.
   authenticated signed access succeeds for all 12 photos. Current-tree and full
   Git-history scans found no real secret or tracked private artifact. The secret
   key remains server-only and no admin client is imported by browser code.
-- Migration tooling: The single-use production loader and runbook were removed
-  after success. Read-only extraction/mapping code remains for auditability and
-  tests; private workbook and extract files remain gitignored.
+- Migration tooling: All single-use workbook extraction, production loading,
+  tests, and runbooks were removed after success. Private workbook and extract
+  files remain gitignored.
 - Remaining issues: Supabase reports leaked-password protection unavailable or
   disabled at the project level; public sign-up and RLS protections are active.
 
@@ -1608,10 +1614,9 @@ Add newest entries first.
 
 - Work completed: Refreshed read-only workbook discovery (12 sheets; recipes,
   ingredients, subscriptions in scope; budget still sparse). Rewrote
-  `docs/WORKBOOK_MAPPING.md`. Added administrative import pipeline
-  `lib/import/workbook/` (parse → normalize → validate → map → preview → write →
-  verify) plus administrative dry-run/write tooling that was later removed after
-  cutover. Added `exceljs` devDependency and `tests/import/` unit tests.
+  `docs/WORKBOOK_MAPPING.md`. Built a temporary administrative parse,
+  normalization, validation, preview, and loading pipeline; all associated code,
+  tests, and dependencies were removed after cutover.
 - Validation performed: Real workbook parse (42 ingredients, 12 recipes, 4
   subscriptions; validation OK). Unit tests 6/6; `npm run typecheck` green.
   No Supabase writes (per instruction).
@@ -1632,10 +1637,9 @@ Add newest entries first.
   ingredients, 12 active recipes, and 61 recipe-ingredient rows. A separate
   publishable-client check authenticated the household owner and read the same
   counts through RLS. Production `/sign-in` returned HTTP 200.
-- Decisions made: Proceeded directly to the guarded production insert after the
-  dedicated staging project was unavailable; the load was insert-only and the
-  production preflight found zero target rows and zero conflicts. Subscriptions,
-  budget, meals, shopping, and calendar were not modified.
+- Decisions made: The load was insert-only and the production preflight found
+  zero target rows and zero conflicts. Subscriptions, budget, meals, shopping,
+  and calendar were not modified.
 - Remaining issues: Visual browser spot-check was unavailable in this session.
   Budget import remains optional after a fresh workbook export.
 - Next recommended task: Open Recipes in production for a brief visual spot-check,
@@ -1665,25 +1669,6 @@ Add newest entries first.
   coverage. See [`docs/archive/POLISH.md`](docs/archive/POLISH.md).
 - Validation: format/lint/typecheck/unit 169; Playwright 132 passed; build green.
 - Production changed: yes (merged to `main` → `https://jella-home.netlify.app`).
-  Hosted staging skipped (site/`NETLIFY_AUTH_TOKEN` unavailable).
-
-### 2026-07-22 (Staging workflow + Netlify branch deploy)
-
-- Work completed: Audited hosting (Netlify site `jella-home`), Git (`main` only),
-  and Supabase (one hosted project). Created dedicated Netlify staging site
-  `jella-home-staging` (`https://jella-home-staging.netlify.app`) because the
-  production GitHub build hook always rebuilds `main`. Rescoped production
-  Supabase env vars to Netlify `production` context only. Added staging deploy
-  GitHub Action, verify workflow, `verify:staging` smoke script, and docs
-  (`docs/DEPLOYMENT.md`, `CURSOR.md`, AGENTS/README/ARCHITECTURE/HOSTED_SUPABASE).
-- Blocked: Dedicated staging Supabase project could not be created (free-plan
-  active project limit). Staging must not use production data until a staging
-  project exists and staging-site env vars are set — see DEPLOYMENT.md. Staging
-  CD also needs GitHub secret `NETLIFY_AUTH_TOKEN`.
-- Validation: format/lint/typecheck/unit/build green.
-- Production changed: no (env var contexts rescoped; production values retained).
-  Note: staging pushes previously fired the production build hook; staging now
-  deploys to a separate site via Actions.
 
 ### 2026-07-20 (Ship Milestone 9 Subscriptions)
 

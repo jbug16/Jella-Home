@@ -5,9 +5,9 @@ Google Sheets workbook) and the sanitized record of the completed one-time
 production migration. The application never imported or synchronized workbook
 data at runtime.
 
-Source inspection uses openpyxl (discovery) and ExcelJS (importer) with formula
-and cached-value reads. Detailed private cell dumps stay under `private-data/`
-(gitignored) and are not committed.
+Source inspection used local workbook tooling with formula and cached-value
+reads. All extraction and loading code was removed after the cutover. Detailed
+private cell dumps stay under `private-data/` (gitignored) and are not committed.
 
 **Last discovery refresh:** 2026-08-05 (workbook mtime 2026-07-16 — unchanged
 since prior budget-only analysis).
@@ -337,17 +337,9 @@ Subscription Tracker!F,G,H,L (+ optional I,J)
 
 ## Migration tooling
 
-The production loader was single-use and removed after the verified cutover.
-Read-only extraction remains outside application runtime paths:
-
-```text
-scripts/extract-workbook.ts
-  → lib/import/workbook/
-       parse-workbook.ts  read XLSX
-       normalize.ts  trim, unit aliases, dedupe
-       validate.ts   Zod + business rules
-       extract.ts    normalized private JSON
-```
+All workbook extraction and production-loading code was single-use and removed
+after the verified cutover. This document retains only the sanitized historical
+mapping and outcome. Do not restore the tooling or repeat the import.
 
 ---
 
@@ -372,6 +364,7 @@ scripts/extract-workbook.ts
   signed reads pass and anonymous reads fail.
 - Subscriptions, budget, meals, shopping state, and calendar events were not
   imported from this workbook.
-- The production loader was removed. Do not repeat or reset the import.
+- All extraction and production-loading tooling was removed. Do not repeat or
+  reset the import.
 - A future budget migration would require a fresh workbook export and a separate
   reviewed task. Do not add spreadsheet sync or runtime XLSX reads.

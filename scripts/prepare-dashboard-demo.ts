@@ -2,7 +2,7 @@
  * Local-only demo helpers for Dashboard UI testing.
  *
  * Refuses any non-loopback Supabase URL so fixture data can never be written to
- * staging or production.
+ * any hosted environment.
  *
  *   npx tsx scripts/prepare-dashboard-demo.ts           # image + today's meal
  *   npx tsx scripts/prepare-dashboard-demo.ts --image   # fixture recipe image only

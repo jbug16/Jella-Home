@@ -359,5 +359,5 @@ the sequential type-check and the build's own TypeScript phase both passed.
 10. Refresh README and formatting-ignore hygiene.
 
 After items 1–7, rerun `npm run verify`, both consecutive database tests, the
-production build, and a hosted staging smoke pass before treating the release as
+production build, and a hosted smoke pass before treating the release as
 ready for household data.

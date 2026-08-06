@@ -1,8 +1,7 @@
 # Verify (no e2e / no local Supabase)
 
 # Catches install, format, lint, typecheck, and unit-test failures on PRs and
-# pushes. Staging Netlify also runs these checks before build. Playwright and
-# pgTAP remain local (see docs/DEPLOYMENT.md).
+# pushes. Playwright and pgTAP remain local (see docs/DEPLOYMENT.md).
 
 name: verify
 
@@ -10,7 +9,6 @@ on:
   pull_request:
   push:
     branches:
-      - staging
       - main
 
 concurrency:

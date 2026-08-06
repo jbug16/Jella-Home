@@ -27,9 +27,6 @@
     "provision:household": "tsx scripts/provision-household.ts",
     "provision:add-member": "tsx scripts/add-household-member.ts",
     "verify:hosted-access": "tsx scripts/verify-hosted-access.ts",
-    "verify:staging": "tsx scripts/verify-staging-smoke.ts",
-    "extract:workbook": "tsx scripts/extract-workbook.ts",
-    "deploy:staging": "bash scripts/deploy-staging.sh",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run test:e2e"
   },
   "engines": {
@@ -58,7 +55,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
-    "exceljs": "^4.4.0",
     "prettier": "^3.9.5",
     "supabase": "^2.109.1",
     "tailwindcss": "^4",
@@ -67,7 +63,7 @@
     "vitest": "^4.1.10"
   },
   "overrides": {
-    "postcss": "8.5.22",
+    "postcss": "8.5.23",
     "sharp": "0.35.3"
   }
 }

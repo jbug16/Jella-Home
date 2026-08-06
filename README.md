@@ -19,7 +19,7 @@ only. See [`IMPLEMENTATION.md`](IMPLEMENTATION.md) for the decision log.
 - [`docs/archive/`](docs/archive/) — completed planning and review notes
 
 Additional runbooks: [`docs/HOSTED_SUPABASE.md`](docs/HOSTED_SUPABASE.md),
-[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), [`CURSOR.md`](CURSOR.md) (staging deploy rule).
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), and [`CURSOR.md`](CURSOR.md).
 
 ## Tech stack
 
@@ -88,17 +88,11 @@ See [`docs/HOSTED_SUPABASE.md`](docs/HOSTED_SUPABASE.md). Summary: create a
 project, disable public email sign-up, `supabase link` + `db push`, put hosted
 keys in `.env.local`, then `npm run provision:household`.
 
-## Staging vs production
+## Production
 
-|         | Staging                                | Production                     |
-| ------- | -------------------------------------- | ------------------------------ |
-| Branch  | `staging`                              | `main`                         |
-| URL     | https://jella-home-staging.netlify.app | https://jella-home.netlify.app |
-| Backend | Dedicated staging Supabase project     | Hosted `jella-home` Supabase   |
-
-Full workflow, env scoping, rollback, and the current staging-Supabase setup
-gate: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). Do not point staging at
-production data.
+`main` deploys to https://jella-home.netlify.app. See
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the production authorization,
+verification, migration, and rollback process.
 
 ## Scripts
 
@@ -106,7 +100,6 @@ production data.
 npm run dev                  # development server
 npm run build && npm start   # production build
 npm run verify               # format, lint, typecheck, unit, e2e (e2e rebuilds for local Supabase)
-npm run verify:staging       # HTTPS smoke probe against the staging URL
 npm run test                 # Vitest unit tests
 npm run test:e2e             # Playwright (needs browsers installed)
 npm run test:db              # pgTAP RLS (needs local Supabase)
@@ -138,7 +131,7 @@ supabase/
   tests/                  # pgTAP
 scripts/                  # provision, e2e local runner, hosted verification
 docs/HOSTED_SUPABASE.md
-docs/DEPLOYMENT.md        # local / staging / production hosting
+docs/DEPLOYMENT.md        # local / production hosting
 docs/WORKBOOK_MAPPING.md  # completed legacy XLSX → schema migration record
 ```
 
