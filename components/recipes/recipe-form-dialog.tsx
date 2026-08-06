@@ -180,7 +180,6 @@ function RecipeForm({
       <FormScrollBody>
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">Basic information</h3>
             <Label htmlFor="name">Name</Label>
             <Input
               id="name"
@@ -233,9 +232,13 @@ function RecipeForm({
             </div>
           </div>
 
-          <div className="order-4 flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">Image</h3>
-            <Label htmlFor="image">Photo</Label>
+          <section
+            className="order-4 flex flex-col gap-2"
+            aria-labelledby="recipe-photo-heading"
+          >
+            <h3 id="recipe-photo-heading" className="text-sm font-semibold">
+              Photo
+            </h3>
 
             {/* The native file input is kept in the form but visually hidden; the
             styled controls below drive it. */}
@@ -247,6 +250,7 @@ function RecipeForm({
               accept="image/jpeg,image/png,image/webp"
               disabled={pending}
               className="sr-only"
+              aria-labelledby="recipe-photo-heading"
               onChange={onImageChange}
               data-testid="recipe-image-input"
             />
@@ -314,7 +318,7 @@ function RecipeForm({
                 {imageError}
               </p>
             ) : null}
-          </div>
+          </section>
 
           <div className="order-2 flex flex-col gap-2">
             <h3 className="text-sm font-semibold">Ingredients</h3>
@@ -330,18 +334,12 @@ function RecipeForm({
             className="order-3 space-y-3"
             aria-labelledby="recipe-instructions-heading"
           >
-            <div>
-              <h3
-                id="recipe-instructions-heading"
-                className="text-sm font-semibold"
-              >
-                Instructions
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Add steps in the order they should be followed. Instructions are
-                optional.
-              </p>
-            </div>
+            <h3
+              id="recipe-instructions-heading"
+              className="text-sm font-semibold"
+            >
+              Instructions
+            </h3>
             <RecipeStepRows
               steps={steps}
               onChange={setSteps}
@@ -350,8 +348,12 @@ function RecipeForm({
           </section>
 
           <div className="order-5 flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">Notes</h3>
-            <Label htmlFor="notes">Notes (optional)</Label>
+            <Label htmlFor="notes" className="font-semibold">
+              Notes{" "}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </Label>
             <Textarea
               id="notes"
               name="notes"

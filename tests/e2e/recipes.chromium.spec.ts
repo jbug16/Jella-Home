@@ -108,6 +108,14 @@ test.describe("recipe flows", () => {
     await createdRow.getByRole("link").click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(page.getByTestId("recipe-hero-image")).toBeVisible();
+    const metadataCells = page
+      .getByTestId("recipe-metadata")
+      .locator(":scope > div");
+    await expect(metadataCells).toHaveCount(4);
+    const metadataBoxes = await metadataCells.evaluateAll((cells) =>
+      cells.map((cell) => cell.getBoundingClientRect().top),
+    );
+    expect(new Set(metadataBoxes.map(Math.round)).size).toBe(1);
     const items = page.getByTestId("recipe-ingredients").getByRole("listitem");
     await expect(items.nth(0)).toContainText("Tomato");
     await expect(items.nth(1)).toContainText("Spaghetti");
@@ -117,6 +125,17 @@ test.describe("recipe flows", () => {
 
     // Edit: rename, change a quantity, and reorder the ingredients.
     await page.getByTestId("open-edit-recipe").click();
+    await expect(
+      page.getByText("Basic information", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText(
+        "Add steps in the order they should be followed. Instructions are optional.",
+        { exact: true },
+      ),
+    ).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Image" })).toHaveCount(0);
+    await expect(page.getByText("Photo", { exact: true })).toHaveCount(1);
     await page.getByLabel("Name", { exact: true }).fill(`${name} Updated`);
     await page.getByLabel("Quantity for ingredient 1").fill("3");
     await page.getByRole("button", { name: /Move Tomato down/ }).click();

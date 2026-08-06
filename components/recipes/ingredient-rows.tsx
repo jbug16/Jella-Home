@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 
 import { IngredientCombobox } from "@/components/recipes/ingredient-combobox";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { APPROVED_UNITS, RECIPE_UNIT_GROUPS } from "@/lib/domain/recipe";
@@ -91,11 +92,63 @@ export function IngredientRows({
         {rows.map((row, index) => (
           <li
             key={row.clientId}
-            className="flex flex-col gap-2 rounded-lg border p-3"
+            className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3"
             data-testid="ingredient-row"
           >
-            <div className="flex gap-2">
-              <div className="flex w-24 shrink-0 flex-col gap-1">
+            <div className="flex min-h-11 items-center justify-between gap-2">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Ingredient {index + 1}
+              </span>
+              <div className="-mr-1 flex gap-0.5">
+                <IconButton
+                  label={`Move ${row.name || `ingredient ${index + 1}`} up`}
+                  disabled={disabled || index === 0}
+                  onClick={() => move(row.clientId, -1)}
+                >
+                  <ChevronUp className="size-4" aria-hidden="true" />
+                </IconButton>
+                <IconButton
+                  label={`Move ${row.name || `ingredient ${index + 1}`} down`}
+                  disabled={disabled || index === rows.length - 1}
+                  onClick={() => move(row.clientId, 1)}
+                >
+                  <ChevronDown className="size-4" aria-hidden="true" />
+                </IconButton>
+                <IconButton
+                  label={`Remove ${row.name || `ingredient ${index + 1}`}`}
+                  className="text-destructive hover:text-destructive"
+                  disabled={disabled || rows.length === 1}
+                  onClick={() => removeRow(row.clientId)}
+                  data-testid="remove-ingredient"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </IconButton>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Label
+                htmlFor={`ing-name-${row.clientId}`}
+                className="text-xs text-muted-foreground"
+              >
+                Ingredient
+              </Label>
+              <IngredientCombobox
+                id={`ing-name-${row.clientId}`}
+                ariaLabel={`Ingredient name for row ${index + 1}`}
+                placeholder="Flour"
+                disabled={disabled}
+                suggestions={suggestions}
+                value={row.name}
+                onChange={(name) => updateRow(row.clientId, { name })}
+                onSelectSuggestion={(suggestion) =>
+                  onSuggestionSelected(row.clientId, suggestion)
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)] gap-2">
+              <div className="flex min-w-0 flex-col gap-1">
                 <Label
                   htmlFor={`ing-qty-${row.clientId}`}
                   className="text-xs text-muted-foreground"
@@ -115,7 +168,7 @@ export function IngredientRows({
                   }
                 />
               </div>
-              <div className="flex flex-1 flex-col gap-1">
+              <div className="flex min-w-0 flex-col gap-1">
                 <Label
                   htmlFor={`ing-unit-${row.clientId}`}
                   className="text-xs text-muted-foreground"
@@ -158,27 +211,6 @@ export function IngredientRows({
 
             <div className="flex flex-col gap-1">
               <Label
-                htmlFor={`ing-name-${row.clientId}`}
-                className="text-xs text-muted-foreground"
-              >
-                Ingredient
-              </Label>
-              <IngredientCombobox
-                id={`ing-name-${row.clientId}`}
-                ariaLabel={`Ingredient name for row ${index + 1}`}
-                placeholder="Flour"
-                disabled={disabled}
-                suggestions={suggestions}
-                value={row.name}
-                onChange={(name) => updateRow(row.clientId, { name })}
-                onSelectSuggestion={(suggestion) =>
-                  onSuggestionSelected(row.clientId, suggestion)
-                }
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <Label
                 htmlFor={`ing-notes-${row.clientId}`}
                 className="text-xs text-muted-foreground"
               >
@@ -195,43 +227,6 @@ export function IngredientRows({
                   updateRow(row.clientId, { notes: e.target.value })
                 }
               />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-11"
-                disabled={disabled || index === 0}
-                aria-label={`Move ${row.name || `ingredient ${index + 1}`} up`}
-                onClick={() => move(row.clientId, -1)}
-              >
-                <ChevronUp className="size-4" aria-hidden="true" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-11"
-                disabled={disabled || index === rows.length - 1}
-                aria-label={`Move ${row.name || `ingredient ${index + 1}`} down`}
-                onClick={() => move(row.clientId, 1)}
-              >
-                <ChevronDown className="size-4" aria-hidden="true" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-11"
-                disabled={disabled || rows.length === 1}
-                aria-label={`Remove ${row.name || `ingredient ${index + 1}`}`}
-                onClick={() => removeRow(row.clientId)}
-                data-testid="remove-ingredient"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </Button>
             </div>
           </li>
         ))}

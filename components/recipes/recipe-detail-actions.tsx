@@ -25,7 +25,6 @@ export function RecipeDetailActions({
     <div className="flex gap-1">
       <IconButton
         label="Edit recipe"
-        variant="outline"
         onClick={() => setEditOpen(true)}
         data-testid="open-edit-recipe"
       >
@@ -33,7 +32,6 @@ export function RecipeDetailActions({
       </IconButton>
       <IconButton
         label="Delete recipe"
-        variant="outline"
         className="text-destructive hover:text-destructive"
         onClick={() => setDeleteOpen(true)}
         data-testid="open-delete-recipe"
