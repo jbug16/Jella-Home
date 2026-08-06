@@ -49,7 +49,6 @@ limits with actual annual amounts:
 │ actual    │ actual    │ actual    │
 └───────────┴───────────┴───────────┘
 
-By category
 Food            $4,210
 Bills           $8,940
 Savings         $2,400

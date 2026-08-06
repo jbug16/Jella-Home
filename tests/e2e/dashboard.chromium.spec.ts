@@ -51,6 +51,36 @@ test.describe("dashboard home", () => {
     await expect(page.getByTestId("card-countdowns")).toBeVisible();
     await expect(page.getByTestId("card-grocery")).toHaveCount(0);
 
+    const cardHeaderGeometry = await page
+      .locator(
+        '[data-testid="card-meals"], [data-testid="card-budget"], [data-testid="card-countdowns"]',
+      )
+      .evaluateAll((cards) =>
+        cards.map((card) => {
+          const cardBox = card.getBoundingClientRect();
+          const headerBox = card
+            .querySelector('[data-slot="card-header"]')!
+            .getBoundingClientRect();
+          const contentBox = card
+            .querySelector('[data-slot="card-content"]')!
+            .getBoundingClientRect();
+          return {
+            headerTop: Math.round(headerBox.top - cardBox.top),
+            headerHeight: Math.round(headerBox.height),
+            contentTop: Math.round(contentBox.top - cardBox.top),
+          };
+        }),
+      );
+    expect(new Set(cardHeaderGeometry.map((row) => row.headerTop)).size).toBe(
+      1,
+    );
+    expect(
+      new Set(cardHeaderGeometry.map((row) => row.headerHeight)).size,
+    ).toBe(1);
+    expect(new Set(cardHeaderGeometry.map((row) => row.contentTop)).size).toBe(
+      1,
+    );
+
     await expect(page.getByTestId("dashboard-budget-remaining")).toContainText(
       "355.50",
     );

@@ -263,7 +263,6 @@ export function BudgetPanel({
                   testId="summary-year-savings"
                 />
               </SummaryStatGrid>
-              <h2 className="text-base font-semibold">By category</h2>
               <PanelList testId="year-category-list">
                 {yearSnapshot.categorySummaries.map((row) => (
                   <YearCategoryRow

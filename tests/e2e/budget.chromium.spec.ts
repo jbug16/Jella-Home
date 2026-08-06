@@ -126,6 +126,7 @@ test.describe("budget flows", () => {
     await expect(page.getByTestId("budget-year-summary")).toBeVisible();
     await expect(page.getByTestId("summary-year-spending")).toBeVisible();
     await expect(page.getByTestId("summary-year-debt")).toHaveCount(0);
+    await expect(page.getByText("By category", { exact: true })).toHaveCount(0);
     await expect(page.getByTestId("year-category-list")).toBeVisible();
     const yearCategoryIds = await page
       .locator('[data-testid^="category-row-"]')

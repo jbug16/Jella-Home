@@ -59,7 +59,7 @@ export function DashboardCardShell({
           {href ? (
             <Link
               href={href}
-              className="inline-flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="relative inline-flex items-center rounded-md after:absolute after:-inset-x-2 after:-inset-y-3.5 after:rounded-md focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-2"
               aria-label={linkLabel ?? `Open ${title}`}
               data-testid={linkTestId}
             >
