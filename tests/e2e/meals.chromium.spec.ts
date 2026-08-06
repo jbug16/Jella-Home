@@ -43,6 +43,11 @@ test.describe("meal planner flows", () => {
     await expect(page.getByTestId("meals-today-heading")).not.toContainText(
       "Today",
     );
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await expect(
+        page.locator('[data-testid^="meals-day-column-"]'),
+      ).toHaveCount(7);
+    }
   });
 
   test("assigns, edits notes, and deletes a meal", async ({
@@ -95,6 +100,10 @@ test.describe("meal planner flows", () => {
       `[data-slot="meal-summary-row"][data-meal-notes="${notes}"]`,
     );
     await expect(sharedMealRow).toBeVisible();
+    await expect(sharedMealRow).toHaveAttribute(
+      "data-density",
+      (page.viewportSize()?.width ?? 0) >= 1024 ? "calendar" : "default",
+    );
     await expect(
       sharedMealRow.locator('[data-slot="meal-summary-thumbnail"]'),
     ).toBeVisible();

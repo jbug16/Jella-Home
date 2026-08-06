@@ -10,11 +10,17 @@ import {
 type MealChipProps = {
   meal: PlannedMeal;
   imageUrl?: string | null;
+  density?: "default" | "calendar";
   onEdit: (meal: PlannedMeal) => void;
 };
 
 /** One shared meal display for every day list, regardless of viewport. */
-export function MealChip({ meal, imageUrl = null, onEdit }: MealChipProps) {
+export function MealChip({
+  meal,
+  imageUrl = null,
+  density = "default",
+  onEdit,
+}: MealChipProps) {
   const accessibleName = `${meal.title}, ${mealSlotLabel(meal.mealSlot)}, ${formatWeekdayShort(meal.planDate)}`;
 
   return (
@@ -26,6 +32,7 @@ export function MealChip({ meal, imageUrl = null, onEdit }: MealChipProps) {
       testId={`meal-chip-open-${meal.id}`}
       notes={meal.notes}
       showNotesIndicator
+      density={density}
       onClick={() => onEdit(meal)}
     />
   );

@@ -214,7 +214,7 @@ export function MealsPanel({
   );
 }
 
-/** Desktop: readable day panels using the same meal rows as mobile. */
+/** Desktop / tablet: seven-day calendar with compact shared meal rows. */
 function ImageWeekBoard({
   weekDays,
   todayIso,
@@ -230,41 +230,51 @@ function ImageWeekBoard({
 }) {
   return (
     <div
-      className="grid min-w-0 max-w-full gap-3 lg:grid-cols-2 2xl:grid-cols-3"
+      className="min-w-0 max-w-full overflow-x-auto"
       data-testid="meals-week-grid"
-      role="list"
-      aria-label="This week’s meals"
     >
-      {weekDays.map((day) => {
-        const dayMeals = byDate.get(day) ?? [];
-        const isToday = day === todayIso;
+      <div
+        className="grid min-w-[56rem] grid-cols-7 gap-1.5"
+        role="list"
+        aria-label="This week’s meals"
+      >
+        {weekDays.map((day) => {
+          const dayMeals = byDate.get(day) ?? [];
+          const isToday = day === todayIso;
 
-        return (
-          <section
-            key={day}
-            role="listitem"
-            className="flex min-w-0 flex-col gap-2 rounded-xl border p-3"
-            data-testid={`meals-day-column-${day}`}
-          >
-            <MealDayHeading day={day} isToday={isToday} />
-            <div className="flex flex-1 flex-col gap-1">
-              {dayMeals.map((meal) => (
-                <MealChip
-                  key={meal.id}
-                  meal={meal}
-                  imageUrl={imageFor(meal)}
-                  onEdit={handlers.onEdit}
+          return (
+            <section
+              key={day}
+              role="listitem"
+              className={cn(
+                "flex min-w-0 flex-col gap-2 rounded-2xl px-1.5 py-2",
+                isToday ? "bg-muted/35" : null,
+              )}
+              data-testid={`meals-day-column-${day}`}
+            >
+              <header className="flex justify-center px-0.5">
+                <MealDayHeading day={day} isToday={isToday} />
+              </header>
+              <div className="flex flex-1 flex-col gap-1">
+                {dayMeals.map((meal) => (
+                  <MealChip
+                    key={meal.id}
+                    meal={meal}
+                    imageUrl={imageFor(meal)}
+                    density="calendar"
+                    onEdit={handlers.onEdit}
+                  />
+                ))}
+                <QuietDayAdd
+                  label={`Plan a meal for ${dayLabel(day)}`}
+                  testId={`meals-day-add-${day}`}
+                  onAdd={() => handlers.onAdd(day, "dinner")}
                 />
-              ))}
-              <QuietDayAdd
-                label={`Plan a meal for ${dayLabel(day)}`}
-                testId={`meals-day-add-${day}`}
-                onAdd={() => handlers.onAdd(day, "dinner")}
-              />
-            </div>
-          </section>
-        );
-      })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }
