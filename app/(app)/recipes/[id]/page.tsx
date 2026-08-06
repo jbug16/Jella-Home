@@ -58,12 +58,16 @@ export default async function RecipeDetailPage({ params }: RecipePageProps) {
 
   return (
     <article className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-8 sidebar:gap-8">
-      <div className="-mx-2">
+      <div
+        className="-mx-2 flex items-center justify-between"
+        data-testid="recipe-detail-toolbar"
+      >
         <IconButton asChild label="Back to recipes">
           <Link href="/recipes">
             <ArrowLeft className="size-4" aria-hidden />
           </Link>
         </IconButton>
+        <RecipeDetailActions recipe={recipe} suggestions={suggestions} />
       </div>
 
       {recipe.imageUrl ? (
@@ -78,13 +82,10 @@ export default async function RecipeDetailPage({ params }: RecipePageProps) {
         </div>
       ) : null}
 
-      <header className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="min-w-0 text-2xl font-semibold tracking-tight sidebar:text-3xl">
-            {recipe.name}
-          </h1>
-          <RecipeDetailActions recipe={recipe} suggestions={suggestions} />
-        </div>
+      <header className="max-w-3xl space-y-3">
+        <h1 className="text-2xl font-semibold tracking-tight sidebar:text-3xl">
+          {recipe.name}
+        </h1>
         {recipe.notes ? (
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
             {recipe.notes}
@@ -136,17 +137,25 @@ export default async function RecipeDetailPage({ params }: RecipePageProps) {
             {recipe.ingredients.map((line) => (
               <li
                 key={line.id}
-                className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-2"
+                className="grid grid-cols-[minmax(3.75rem,auto)_minmax(0,1fr)] items-baseline gap-2 px-4 py-3 text-sm sm:text-base"
               >
-                <span className="font-medium">
+                <span className="whitespace-nowrap font-medium">
                   {ingredientLabel(line.quantity, line.unit)}
                 </span>
-                <span>{line.name}</span>
-                {line.notes ? (
-                  <span className="text-sm text-muted-foreground">
-                    {line.notes}
-                  </span>
-                ) : null}
+                <span
+                  className="min-w-0 truncate"
+                  title={
+                    line.notes ? `${line.name} · ${line.notes}` : line.name
+                  }
+                >
+                  {line.name}
+                  {line.notes ? (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {line.notes}
+                    </span>
+                  ) : null}
+                </span>
               </li>
             ))}
           </ul>

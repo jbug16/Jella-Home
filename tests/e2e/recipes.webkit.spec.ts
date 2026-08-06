@@ -57,6 +57,15 @@ test.describe("recipes safari smoke", () => {
     await expect(page.getByLabel("Edit recipe")).toBeVisible();
     await expect(page.getByLabel("Delete recipe")).toBeVisible();
 
+    const toolbarControlTops = await page
+      .getByTestId("recipe-detail-toolbar")
+      .locator('[data-slot="icon-button"]')
+      .evaluateAll((controls) =>
+        controls.map((control) => control.getBoundingClientRect().top),
+      );
+    expect(toolbarControlTops).toHaveLength(3);
+    expect(new Set(toolbarControlTops.map(Math.round)).size).toBe(1);
+
     const metadataCells = page
       .getByTestId("recipe-metadata")
       .locator(":scope > div");
@@ -65,6 +74,24 @@ test.describe("recipes safari smoke", () => {
       cells.map((cell) => cell.getBoundingClientRect().top),
     );
     expect(new Set(metadataBoxes.map(Math.round)).size).toBe(1);
+
+    const ingredientRows = page
+      .getByTestId("recipe-ingredients")
+      .getByRole("listitem");
+    const ingredientsStayOnOneLine = await ingredientRows.evaluateAll((rows) =>
+      rows.every((row) => {
+        const children = Array.from(row.children);
+        return (
+          children.length === 2 &&
+          new Set(
+            children.map((child) =>
+              Math.round(child.getBoundingClientRect().top),
+            ),
+          ).size === 1
+        );
+      }),
+    );
+    expect(ingredientsStayOnOneLine).toBe(true);
 
     const overflow = await page.evaluate(
       () =>
