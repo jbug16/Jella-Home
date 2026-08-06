@@ -8,6 +8,10 @@ test.describe("meals webkit smoke", () => {
     await goToMeals(page);
 
     await expect(page.getByTestId("meals-panel")).toBeVisible();
+    await expect(page.getByTestId("meals-today-heading")).toBeVisible();
+    await expect(page.getByTestId("meals-today-heading")).not.toContainText(
+      "Today",
+    );
 
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,

@@ -389,7 +389,7 @@ function MealForm({
               type="button"
               variant="ghost"
               disabled={pending}
-              className="min-h-11 w-full text-destructive hover:text-destructive sm:hidden"
+              className="min-h-11 w-full text-destructive hover:text-destructive sm:w-auto"
               data-testid={`meal-delete-${meal.id}`}
               onClick={() => onDelete(meal)}
             >

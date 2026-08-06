@@ -214,7 +214,7 @@ export function MealsPanel({
   );
 }
 
-/** Desktop / tablet: seven image-forward day columns. */
+/** Desktop: readable day panels using the same meal rows as mobile. */
 function ImageWeekBoard({
   weekDays,
   todayIso,
@@ -230,74 +230,41 @@ function ImageWeekBoard({
 }) {
   return (
     <div
-      className="min-w-0 max-w-full overflow-x-auto"
+      className="grid min-w-0 max-w-full gap-3 lg:grid-cols-2 2xl:grid-cols-3"
       data-testid="meals-week-grid"
+      role="list"
+      aria-label="This week’s meals"
     >
-      <div
-        className="grid min-w-[56rem] grid-cols-7 gap-1.5"
-        role="list"
-        aria-label="This week’s meals"
-      >
-        {weekDays.map((day) => {
-          const dayMeals = byDate.get(day) ?? [];
-          const isToday = day === todayIso;
+      {weekDays.map((day) => {
+        const dayMeals = byDate.get(day) ?? [];
+        const isToday = day === todayIso;
 
-          return (
-            <section
-              key={day}
-              role="listitem"
-              className={cn(
-                "flex min-w-0 flex-col gap-2 rounded-2xl px-1.5 py-2",
-                isToday ? "bg-muted/35" : null,
-              )}
-              data-testid={`meals-day-column-${day}`}
-            >
-              <header className="px-0.5 text-center">
-                <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                  {formatWeekdayShort(day)}
-                </p>
-                <p
-                  className={cn(
-                    "mt-0.5 text-lg font-semibold tabular-nums tracking-tight",
-                    isToday
-                      ? "inline-block border-b-2 border-foreground pb-0.5"
-                      : "text-foreground/90",
-                  )}
-                >
-                  {formatDayOfMonth(day)}
-                </p>
-                {isToday ? (
-                  <p className="mt-1 text-[10px] font-medium text-muted-foreground">
-                    Today
-                  </p>
-                ) : (
-                  <p className="mt-1 text-[10px] text-transparent select-none">
-                    ·
-                  </p>
-                )}
-              </header>
-
-              <div className="flex flex-1 flex-col gap-2">
-                {dayMeals.map((meal) => (
-                  <MealChip
-                    key={meal.id}
-                    meal={meal}
-                    imageUrl={imageFor(meal)}
-                    variant="board"
-                    onEdit={handlers.onEdit}
-                    onDelete={handlers.onDelete}
-                  />
-                ))}
-                <QuietDayAdd
-                  label={`Plan a meal for ${dayLabel(day)}`}
-                  testId={`meals-day-add-${day}`}
-                  onAdd={() => handlers.onAdd(day, "dinner")}
+        return (
+          <section
+            key={day}
+            role="listitem"
+            className="flex min-w-0 flex-col gap-2 rounded-xl border p-3"
+            data-testid={`meals-day-column-${day}`}
+          >
+            <MealDayHeading day={day} isToday={isToday} />
+            <div className="flex flex-1 flex-col gap-1">
+              {dayMeals.map((meal) => (
+                <MealChip
+                  key={meal.id}
+                  meal={meal}
+                  imageUrl={imageFor(meal)}
+                  onEdit={handlers.onEdit}
                 />
-              </div>
-            </section>
-          );
-        })}
-      </div>
+              ))}
+              <QuietDayAdd
+                label={`Plan a meal for ${dayLabel(day)}`}
+                testId={`meals-day-add-${day}`}
+                onAdd={() => handlers.onAdd(day, "dinner")}
+              />
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -337,25 +304,15 @@ function PhoneDaySpine({
             )}
             data-testid={`meals-slots-${day}`}
           >
-            <p
-              className={cn(
-                "mb-1 text-xs font-medium",
-                isToday ? "text-foreground" : "text-muted-foreground",
-              )}
-            >
-              {dayLabel(day)}
-              {isToday ? " · Today" : null}
-            </p>
+            <MealDayHeading day={day} isToday={isToday} />
             {dayMeals.length > 0 ? (
-              <div className="flex flex-col">
+              <div className="flex flex-col gap-1">
                 {dayMeals.map((meal) => (
                   <MealChip
                     key={meal.id}
                     meal={meal}
                     imageUrl={imageFor(meal)}
-                    variant="compact"
                     onEdit={handlers.onEdit}
-                    onDelete={handlers.onDelete}
                   />
                 ))}
               </div>
@@ -366,5 +323,20 @@ function PhoneDaySpine({
         );
       })}
     </ul>
+  );
+}
+
+function MealDayHeading({ day, isToday }: { day: string; isToday: boolean }) {
+  return (
+    <p
+      className={cn(
+        "mb-1 inline-flex w-fit items-baseline gap-1.5 rounded-md px-2 py-1 text-xs font-medium",
+        isToday ? "bg-foreground text-background" : "text-muted-foreground",
+      )}
+      data-testid={isToday ? "meals-today-heading" : undefined}
+    >
+      <span>{formatWeekdayShort(day)}</span>
+      <span className="tabular-nums">{formatDayOfMonth(day)}</span>
+    </p>
   );
 }

@@ -17,13 +17,15 @@ async function openDeleteMeal(
   page: import("@playwright/test").Page,
   mealId: string,
 ) {
-  const deleteButton = page.getByTestId(`meal-delete-${mealId}`);
+  const deleteButton = page.locator(
+    `[data-testid="meal-delete-${mealId}"]:visible`,
+  );
   if (await deleteButton.isVisible()) {
     await deleteButton.click();
     return;
   }
   await page.getByTestId(`meal-chip-open-${mealId}`).click();
-  await page.getByTestId(`meal-delete-${mealId}`).click();
+  await deleteButton.click();
 }
 
 test.describe("meal planner flows", () => {
@@ -37,6 +39,10 @@ test.describe("meal planner flows", () => {
     await expect(page.getByTestId("meals-panel")).toBeVisible();
     await expect(page.getByTestId("meals-week-label")).toBeVisible();
     await expect(page.getByTestId("open-add-meal")).toBeVisible();
+    await expect(page.getByTestId("meals-today-heading")).toBeVisible();
+    await expect(page.getByTestId("meals-today-heading")).not.toContainText(
+      "Today",
+    );
   });
 
   test("assigns, edits notes, and deletes a meal", async ({
@@ -85,15 +91,13 @@ test.describe("meal planner flows", () => {
     await expect(
       page.locator(`[data-meal-notes="${notes}"]`).first(),
     ).toBeVisible({ timeout: 15_000 });
-    if ((page.viewportSize()?.width ?? 0) < 1024) {
-      const sharedMealRow = page.locator(
-        `[data-slot="meal-summary-row"][data-meal-notes="${notes}"]`,
-      );
-      await expect(sharedMealRow).toBeVisible();
-      await expect(
-        sharedMealRow.locator('[data-slot="meal-summary-thumbnail"]'),
-      ).toBeVisible();
-    }
+    const sharedMealRow = page.locator(
+      `[data-slot="meal-summary-row"][data-meal-notes="${notes}"]`,
+    );
+    await expect(sharedMealRow).toBeVisible();
+    await expect(
+      sharedMealRow.locator('[data-slot="meal-summary-thumbnail"]'),
+    ).toBeVisible();
 
     const mealId = await page
       .locator(`[data-meal-notes="${notes}"][data-testid^="meal-chip-"]`)
